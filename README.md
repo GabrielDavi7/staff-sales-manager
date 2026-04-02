@@ -4,7 +4,7 @@
 
 1. **Clone o repositório:**
    ```bash
-   git clone [https://github.com/GabrielDavi7/nome-do-seu-repositorio.git](https://github.com/GabrielDavi7/nome-do-seu-repositorio.git)
+   git clone https://github.com/GabrielDavi7/staff-sales-manager
    ```
    ```bash
    
