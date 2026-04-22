@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: joias_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: .
+    container_name: joias_backend
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    container_name: joias_frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # Evita que o node_modules local sobrescreva o do container
+    ports:
+      - "5173:5173"
+    environment:
+      - WDS_SOCKET_PORT=0 # Correção para o Hot Reload funcionar no Docker
+    stdin_open: true # Permite que o React rode interativamente
+    tty: true
+
+volumes:
+  postgres_data:

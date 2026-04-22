@@ -1,0 +1,24 @@
+# Ambientes Virtuais e Python
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Docker e Banco de Dados
+.env
+db.sqlite3
+postgres_data/
+
+# Frontend (React)
+frontend/node_modules/
+frontend/build/
+frontend/.pnp
+frontend/.pnp.js
+
+# Logs e IDEs
+*.log
+.vscode/
+.idea/
+.DS_Store
