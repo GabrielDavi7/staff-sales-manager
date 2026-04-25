@@ -1,0 +1,20 @@
+/* frontend/src/components/Card/Card.css */
+.card {
+  background-color: var(--color-white);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-weight: 600;
+  font-size: var(--font-size-lg);
+  color: var(--color-dark);
+  border-bottom: 1px solid var(--color-light);
+  background-color: var(--color-secondary-light);
+}
+
+.card-body {
+  padding: var(--spacing-lg);
+}
