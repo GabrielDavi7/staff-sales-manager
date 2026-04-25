@@ -1,6 +1,7 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from django.conf import settings
+from django.core.exceptions import ValidationError
 
 class Loja(models.Model):
     nome = models.CharField(max_length=100)
@@ -16,26 +17,6 @@ class Equipe(models.Model):
     def __str__(self):
         return f"{self.nome} ({self.loja.nome})"
 
-class CustomUser(AbstractUser):
-    CARGO_CHOICES = [
-        ('ADMIN', 'Administrador'),
-        ('SUPERVISOR', 'Supervisor'),
-        ('VENDEDOR', 'Vendedor'),
-    ]
-
-    # O username aqui servirá como o "ID de Identificação" rápido no tablet
-    username = models.CharField(max_length=50, unique=True) 
-    email = models.EmailField(unique=True)
-    cargo = models.CharField(max_length=15, choices=CARGO_CHOICES, default='VENDEDOR')
-    loja = models.ForeignKey('Loja', on_delete=models.SET_NULL, null=True, blank=True)
-    equipe = models.ForeignKey('Equipe', on_delete=models.SET_NULL, null=True, blank=True)
-
-    USERNAME_FIELD = 'email' # O Login (e-mail/senha) continua sendo via e-mail
-    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
-
-    def __str__(self):
-        return f"{self.username} - {self.first_name}"
-
 class Metrica(models.Model):
     nome = models.CharField(max_length=100)
     descricao = models.TextField(blank=True, null=True)
@@ -49,7 +30,7 @@ class Relatorio(models.Model):
     data_hora = models.DateTimeField(default=timezone.now) 
     venda_fechada = models.BooleanField(default=False)
     valor_venda = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    vendedor = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='atendimentos')
+    vendedor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='atendimentos')
     metrica = models.ForeignKey('Metrica', on_delete=models.PROTECT, related_name='registros', null=True, blank=True)
 
     def clean(self):
