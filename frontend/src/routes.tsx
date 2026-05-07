@@ -3,12 +3,7 @@ import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import Home from "./pages/dashboard/Home";
 import Login from "./pages/Login/Login";
 import PrivateRoute from "./routes/PrivateRoute";
-
-// Vamos importar apenas o que já vamos usar!
-// import { Dashboard } from "./pages/Dashboard";
-// import { AttendanceDetails } from "./pages/AttendanceDetails";
-// import { EditAttendance } from "./pages/EditAttendance";
-// import { Reports } from "./pages/Reports";
+import NewAttendance from "./pages/dashboard/NewAttendance";
 
 export const router = createBrowserRouter([
   {
@@ -24,28 +19,14 @@ export const router = createBrowserRouter([
     ),
     children: [
       {
-        index: true,
-        element: <Home />, // Usando a Home que você já tem
-      },
-      // Deixe as outras comentadas até criarmos os arquivos
-      /*
-      {
-        path: "novo-atendimento",
-        Component: NewAttendance,
+        index: true, // Isso carrega a Home quando acessar "/"
+        element: <Home />,
       },
       {
-        path: "atendimento/:id",
-        Component: AttendanceDetails,
+        path: "registrarVenda", // A URL será: /registrarVenda
+        element: <NewAttendance />,
       },
-      {
-        path: "editar-atendimento/:id",
-        Component: EditAttendance,
-      },
-      {
-        path: "relatorios",
-        Component: Reports,
-      },
-      */
+      /* Futuras rotas aqui... */
     ],
   },
   {
