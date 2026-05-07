@@ -15,7 +15,16 @@ class CustomUser(AbstractUser):
     cargo = models.CharField(max_length=15, choices=CARGO_CHOICES, default='VENDEDOR')
     loja = models.ForeignKey('core.Loja', on_delete=models.SET_NULL, null=True, blank=True)
     equipe = models.ForeignKey('core.Equipe', on_delete=models.SET_NULL, null=True, blank=True)
+    pin = models.CharField(
+        max_length=4,
+        blank=True,
+        null=True,
+        verbose_name='PIN do Vendedor',
+        help_text='PIN de 4 dígitos (obrigatório para vendedores)'
+    )
 
+    # PIN será obrigatorio apenas para Vendedores, por isso a decisão de deixar null e blank como True. A verificação será feita no Serializer do CRUD para cadastro de usuários
+    
     USERNAME_FIELD = 'email' # O Login (e-mail/senha) continua sendo via e-mail
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
 
