@@ -1,13 +1,12 @@
 // frontend/src/pages/Login/Login.jsx
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import './Login.css';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 const Login = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const { login } = useAuth();
@@ -15,13 +14,13 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
 
     const result = await login(username, password);
 
     if (result.success) {
-      navigate('/dashboard'); // ou '/', dependendo da sua rota principal
+      navigate("/dashboard"); // ou '/', dependendo da sua rota principal
     } else {
       setError(result.error);
     }
@@ -53,7 +52,7 @@ const Login = () => {
           />
         </div>
         <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Entrando...' : 'Entrar'}
+          {isLoading ? "Entrando..." : "Entrar"}
         </button>
       </form>
     </div>
