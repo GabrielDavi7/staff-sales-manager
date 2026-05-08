@@ -18,16 +18,16 @@ class RelatorioViewSet(viewsets.ModelViewSet):
         # Em requisições de detalhe, retornamos a base inteira para que o 
         # NotFound(404) não aconteça antes da nossa validação de permissão(403)
         if getattr(self, 'action', None) != 'list':
-            return Relatorio.objects.all()
+            return Relatorio.objects.all().order_by('-data_hora', '-id')
             
         if user.cargo == 'DISPOSITIVO':
             return Relatorio.objects.none()
         if user.cargo == 'VENDEDOR':
-            return Relatorio.objects.filter(vendedor=user)
+            return Relatorio.objects.filter(vendedor=user).order_by('-data_hora', '-id')
         if user.cargo == 'SUPERVISOR':
-            return Relatorio.objects.filter(vendedor__loja=user.loja)
+            return Relatorio.objects.filter(vendedor__loja=user.loja).order_by('-data_hora', '-id')
         if user.cargo == 'ADMIN':
-            return Relatorio.objects.all()
+            return Relatorio.objects.all().order_by('-data_hora', '-id')
         return Relatorio.objects.none()
         
     def get_object(self):
