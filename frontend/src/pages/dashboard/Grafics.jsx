@@ -99,7 +99,7 @@ export function Grafics() {
         </div>
       </div>
 
-      {/* 📈 GRÁFICO PRINCIPAL: Faturamento (Ocupa a largura toda) */}
+      {/*Faturamento (Ocupa a largura toda) */}
       <div className="bg-white p-8 rounded-[2.5rem] border border-blue-50 shadow-2xl shadow-blue-100/30">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
@@ -180,7 +180,7 @@ export function Grafics() {
         </div>
       </div>
 
-      {/* 📊 GRID SECUNDÁRIO: Barras e Pizzas */}
+      {/* Barras e Pizzas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Gráfico: Volume de Atendimentos */}
         <div className="bg-white p-8 rounded-[2.5rem] border border-blue-50 shadow-2xl shadow-blue-100/30">

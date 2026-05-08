@@ -20,6 +20,7 @@ const DashboardLayout = () => {
   };
 
   const menuItems = [
+    // Define os itens do menu da sidebar
     { path: "/dashboard", icon: LayoutDashboard, label: "Visão Geral" },
     {
       path: "/dashboard/registrar",
@@ -40,7 +41,7 @@ const DashboardLayout = () => {
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">
-      {/* 📱 Barra Lateral (Sidebar) */}
+      {/*Sidebar*/}
       <aside className="w-64 bg-white border-r border-blue-50 flex flex-col shadow-xl shadow-blue-100/20 hidden md:flex z-10">
         {/* Logo / Marca */}
         <div className="h-24 flex items-center gap-3 px-8 border-b border-slate-50">
@@ -103,7 +104,7 @@ const DashboardLayout = () => {
         </div>
       </aside>
 
-      {/* 🖥️ Área Principal de Conteúdo (Onde as páginas carregam) */}
+      {/* Área Principal de Conteúdo (Onde as páginas carregam) */}
       <main className="flex-1 overflow-y-auto bg-[#F8FAFC]">
         {/* O Outlet é o "buraco" onde o React Router vai renderizar a Home, o Registrar, os Funcionarios, etc. */}
         <div className="p-4 sm:p-8 lg:p-10 pb-24">

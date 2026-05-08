@@ -40,10 +40,12 @@ const NewAttendance = () => {
     vendaFechada: null,
     valor: "",
     motivo: "",
+    clienteNome: "",
+    observacoes: "",
   });
 
   const handleFinish = () => {
-    // Validação básica
+    // Validação básica apenas para os campos obrigatórios
     if (formData.vendaFechada && !formData.valor) {
       alert("Por favor, informe o valor da venda.");
       return;
@@ -59,11 +61,10 @@ const NewAttendance = () => {
   };
 
   return (
-    // Aumentamos para max-w-7xl para ficar bem retangular e largo
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Card Principal com cantos bem arredondados e sombra forte */}
+      {/* Card Principal */}
       <div className="bg-white rounded-3xl shadow-2xl shadow-blue-100/50 border border-blue-50 overflow-hidden">
-        {/* Header do Card - Estilo Premium Azul */}
+        {/* Header do Card */}
         <div className="bg-primary/5 px-10 py-8 border-b border-blue-50 flex items-center justify-between gap-4">
           <div className="flex items-center gap-5">
             <div className="p-4 bg-primary rounded-2xl text-white shadow-lg shadow-primary/20">
@@ -95,7 +96,7 @@ const NewAttendance = () => {
           </div>
         </div>
 
-        {/* Área de Conteúdo - Ajustada para layout largo */}
+        {/* Área de Conteúdo */}
         <div className="p-10 min-h-[400px] flex flex-col justify-center bg-white">
           {/* PASSO 1: SELEÇÃO DE VENDEDOR */}
           {step === 1 && (
@@ -114,7 +115,6 @@ const NewAttendance = () => {
                 </p>
               </div>
 
-              {/* Grid expandido para 3 ou 4 colunas em telas largas */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {VENDEDORES.map((v) => (
                   <button
@@ -153,7 +153,6 @@ const NewAttendance = () => {
                 </p>
               </div>
 
-              {/* Layout lado a lado para o "Sim" e "Não" */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
                 <button
                   onClick={() => {
@@ -202,10 +201,10 @@ const NewAttendance = () => {
             </div>
           )}
 
-          {/* PASSO 3: FINALIZAÇÃO (VALOR OU MOTIVO) */}
+          {/*FINALIZAÇÃO (VALOR OU MOTIVO + CRM) */}
           {step === 3 && (
             <div className="animate-in slide-in-from-right duration-300 max-w-4xl mx-auto w-full space-y-8">
-              <div className="text-center mb-10">
+              <div className="text-center mb-8">
                 <h3 className="text-3xl font-bold text-slate-800">
                   Detalhes Finais
                 </h3>
@@ -218,12 +217,12 @@ const NewAttendance = () => {
               </div>
 
               {formData.vendaFechada ? (
-                /* --- RAMO: VENDA REALIZADA (Layout Largo) --- */
+                /* RAMO: VENDA REALIZADA */
                 <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 shadow-inner space-y-6">
                   <div className="flex items-center gap-4">
                     <DollarSign className="text-emerald-500" size={32} />
                     <label className="block text-xl font-semibold text-slate-700">
-                      Informe o valor total da venda concretizada:
+                      Valor total da venda concretizada:
                     </label>
                   </div>
                   <div className="relative">
@@ -243,15 +242,14 @@ const NewAttendance = () => {
                   </div>
                 </div>
               ) : (
-                /* --- RAMO: VENDA NÃO REALIZADA (Grid Largo de Motivos) --- */
+                /* RAMO: VENDA NÃO REALIZADA */
                 <div className="space-y-6">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 mb-2">
                     <MessageSquare className="text-rose-500" size={32} />
                     <label className="block text-xl font-semibold text-slate-700">
-                      Qual foi o motivo principal do não fechamento?
+                      Qual foi o motivo principal?
                     </label>
                   </div>
-                  {/* Grid de motivos expandido para 2 ou 3 colunas */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                     {MOTIVOS.map((m) => (
                       <button
@@ -266,8 +264,70 @@ const NewAttendance = () => {
                 </div>
               )}
 
-              {/* Botão Finalizar Grande e Centralizado no Layout Largo */}
-              <div className="pt-10 text-center">
+              {/* DADOS ADICIONAIS DE CRM (Opcionais) */}
+              <div className="mt-10 pt-10 border-t border-slate-100 space-y-6">
+                <h4 className="text-xl font-semibold text-slate-800">
+                  Dados do Cliente{" "}
+                  <span className="text-sm font-normal text-slate-400 ml-2">
+                    (Opcional)
+                  </span>
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Nome do Cliente */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700 ml-1">
+                      Nome
+                    </label>
+                    <div className="relative group">
+                      <User
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"
+                        size={20}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Ex: Maria Antonieta"
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none transition-all text-slate-700 font-medium"
+                        value={formData.clienteNome}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            clienteNome: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  {/* Observações */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700 ml-1">
+                      Observações da Visita
+                    </label>
+                    <div className="relative group">
+                      <MessageSquare
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"
+                        size={20}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Ex: Mostrou interesse em alianças de ouro"
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none transition-all text-slate-700 font-medium"
+                        value={formData.observacoes}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            observacoes: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botão Finalizar */}
+              <div className="pt-8 text-center">
                 <button
                   onClick={handleFinish}
                   className="px-12 py-6 bg-primary text-white rounded-2xl font-bold text-xl shadow-xl shadow-primary/30 hover:bg-primary-dark transition-all active:scale-[0.98] w-full md:w-auto"
@@ -279,7 +339,7 @@ const NewAttendance = () => {
           )}
         </div>
 
-        {/* Rodapé de navegação - Fundo Branco ou Leve Cinza */}
+        {/* Rodapé de navegação */}
         {step > 1 && (
           <div className="px-10 py-6 bg-slate-50/50 border-t border-slate-100 flex justify-start">
             <button

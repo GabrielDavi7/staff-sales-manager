@@ -34,7 +34,7 @@ import {
   Legend,
 } from "recharts";
 
-// 1. Componente de Cartão de Métrica
+// Componente de Cartão de Métrica
 const MetricCard = ({ title, value }) => (
   <div className="bg-white p-6 rounded-3xl border border-blue-50 shadow-lg shadow-blue-100/40 hover:shadow-blue-200/50 transition-shadow">
     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">
@@ -44,7 +44,7 @@ const MetricCard = ({ title, value }) => (
   </div>
 );
 
-// 2. Função de Cores dos Status
+// Função de Cores dos Status
 const getStatusColors = (status) => {
   if (status === "Venda concretizada")
     return "bg-emerald-50 text-emerald-700 border-emerald-200";
