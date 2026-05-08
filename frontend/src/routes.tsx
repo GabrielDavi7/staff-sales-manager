@@ -1,36 +1,45 @@
-import { createBrowserRouter } from "react-router";
-import { DashboardLayout } from "./layouts/DashboardLayout";
-import { Dashboard } from "./pages/Dashboard";
-import { NewAttendance } from "./pages/NewAttendance";
-import { AttendanceDetails } from "./pages/AttendanceDetails";
-import { EditAttendance } from "./pages/EditAttendance"; // <-- NOVO IMPORT
-import { Reports } from "./pages/Reports";
+import { createBrowserRouter, Navigate } from "react-router-dom";
+import DashboardLayout from "./pages/dashboard/DashboardLayout";
+import { Home } from "./pages/dashboard/Home";
+import Login from "./pages/Login/Login";
+import PrivateRoute from "./routes/PrivateRoute";
+import NewAttendance from "./pages/dashboard/NewAttendance";
+import Grafics from "./pages/dashboard/Grafics";
+import Team from "./pages/dashboard/Team";
 
 export const router = createBrowserRouter([
   {
+    path: "/login",
+    element: <Login />,
+  },
+  {
     path: "/",
-    Component: DashboardLayout,
+    element: (
+      <PrivateRoute>
+        <DashboardLayout />
+      </PrivateRoute>
+    ),
     children: [
       {
-        index: true,
-        Component: Dashboard,
+        index: true, // Isso carrega a Home quando acessar "/"
+        element: <Home />,
       },
       {
-        path: "novo-atendimento",
-        Component: NewAttendance,
+        path: "registrarVenda", // A URL será: /registrarVenda
+        element: <NewAttendance />,
       },
       {
-        path: "atendimento/:id",
-        Component: AttendanceDetails,
+        path: "funcionarios",
+        element: <Team />, // Substitua por <Funcionarios /> quando a página de funcionários estiver pronta,
       },
       {
-        path: "editar-atendimento/:id", // <-- NOVA ROTA
-        Component: EditAttendance,
-      },
-      {
-        path: "relatorios",
-        Component: Reports,
+        path: "graficos",
+        element: <Grafics />,
       },
     ],
+  },
+  {
+    path: "*",
+    element: <Navigate to="/" replace />,
   },
 ]);

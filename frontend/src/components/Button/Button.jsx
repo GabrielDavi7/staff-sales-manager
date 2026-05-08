@@ -1,15 +1,12 @@
-// frontend/src/components/Button/Button.jsx
-import './Button.css';
-
-const Button = ({ 
-  children, 
-  variant = 'primary', 
-  size = 'medium', 
-  disabled = false, 
-  onClick, 
-  type = 'button', 
-  className = '', 
-  ...props 
+const Button = ({
+  children,
+  variant = "primary",
+  size = "medium",
+  disabled = false,
+  onClick,
+  type = "button",
+  className = "",
+  ...props
 }) => {
   return (
     <button
