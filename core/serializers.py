@@ -31,8 +31,16 @@ class RelatorioSerializer(serializers.ModelSerializer):
     
     def validate_data_hora(self, value):
         """Garante que a data seja o dia atual (permite qualquer horário)"""
-        hoje = timezone.now().date()
-        if value.date() != hoje:
+        # Usa timezone.localtime() para garantir a extração da data no fuso local configurado (TIME_ZONE)
+        hoje = timezone.localtime(timezone.now()).date()
+        
+        # Garante que a data recebida pelo DRF também seja lida no fuso horário local correto
+        if timezone.is_aware(value):
+            data_recebida = timezone.localtime(value).date()
+        else:
+            data_recebida = value.date()
+            
+        if data_recebida != hoje:
             raise serializers.ValidationError(
                 f"A data do atendimento deve ser o dia atual ({hoje})."
             )
@@ -80,7 +88,3 @@ class RelatorioSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         validated_data.pop('pin', None)
         return super().update(instance, validated_data)
-
-
-
-
