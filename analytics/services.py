@@ -46,8 +46,8 @@ class AnalyticsService:
         else:
             taxa_conversao = 0.0 # Evita erro de divisão por zero
             
-        # Adiciona a taxa formatada com 2 casas decimais ao dicionário de KPIs
-        kpis['taxa_conversao_percentual'] = round(taxa_conversao, 2)
+        # Formata a taxa com 2 casas decimais
+        taxa_conversao_formatada = round(taxa_conversao, 2)
         # ------------------------------------------
 
         # 2. Gráfico de Vendas por Horário (contando apenas vendas fechadas)
@@ -81,6 +81,7 @@ class AnalyticsService:
 
         return {
             "kpis": kpis,
+            "taxa_conversao": taxa_conversao_formatada,
             "grafico_vendas": grafico_formatado,
             "tabela": list(tabela_atendimentos)
         }
