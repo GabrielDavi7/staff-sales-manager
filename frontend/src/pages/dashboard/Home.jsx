@@ -1,5 +1,8 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+// ATENÇÃO: Ajuste o caminho do import da sua API/Axios conforme a estrutura da sua pasta
+import api from "../../api/axios";
 import {
   Plus,
   Search,
@@ -16,6 +19,7 @@ import {
   TrendingUp,
   PieChart as PieChartIcon,
   BarChart3,
+  AlertCircle,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -34,9 +38,9 @@ import {
   Legend,
 } from "recharts";
 
-// Componente de Cartão de Métrica
+// Componentes Visuais Isolados
 const MetricCard = ({ title, value }) => (
-  <div className="bg-white p-6 rounded-3xl border border-blue-50 shadow-lg shadow-blue-100/40 hover:shadow-blue-200/50 transition-shadow">
+  <div className="bg-white p-6 rounded-3xl border border-blue-50 shadow-lg shadow-blue-100/40">
     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">
       {title}
     </h3>
@@ -44,9 +48,8 @@ const MetricCard = ({ title, value }) => (
   </div>
 );
 
-// Função de Cores dos Status
 const getStatusColors = (status) => {
-  if (status === "Venda concretizada")
+  if (!status || status === "Venda concretizada")
     return "bg-emerald-50 text-emerald-700 border-emerald-200";
   if (
     status.includes("Não") ||
@@ -57,95 +60,115 @@ const getStatusColors = (status) => {
   return "bg-blue-50 text-blue-700 border-blue-200";
 };
 
-// 3. Dados Simulados para os Gráficos
+// Gráficos (Mantidos estáticos temporariamente até o backend enviar o "grafico_vendas" populado)
 const dataHorario = [
   { hora: "09:00", qtd: 2, renda: 1500 },
   { hora: "10:00", qtd: 4, renda: 3200 },
   { hora: "11:00", qtd: 3, renda: 800 },
-  { hora: "12:00", qtd: 1, renda: 0 },
   { hora: "13:00", qtd: 5, renda: 4500 },
-  { hora: "14:00", qtd: 2, renda: 1200 },
 ];
-
 const dataConversao = [
-  { name: "Fechadas", value: 12, color: "#10b981" }, // emerald-500
-  { name: "Perdidas", value: 5, color: "#f43f5e" }, // rose-500
+  { name: "Fechadas", value: 12, color: "#10b981" },
+  { name: "Perdidas", value: 5, color: "#f43f5e" },
 ];
 
 export function Home() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // 1. Estados da API
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
 
-  // Dados de Teste da Tabela
-  const [attendances, setAttendances] = useState([
-    {
-      id: 1,
-      time: "10:30",
-      salesperson: "Gabriel Davi",
-      client: "Maria Antonieta",
-      value: 1250.0,
-      status: "Venda concretizada",
-      observations: "Comprou alianças de ouro.",
-    },
-    {
-      id: 2,
-      time: "11:15",
-      salesperson: "Caio Dias",
-      client: "João Pedro",
-      value: 0,
-      status: "Apenas pesquisando",
-      observations: "Olhando relógios, volta mês que vem.",
-    },
-    {
-      id: 3,
-      time: "14:20",
-      salesperson: "Pedro Braga",
-      client: "Ana Silva",
-      value: 0,
-      status: "Preço alto",
-      observations: "",
-    },
-  ]);
+  // 2. Busca de Dados e Controle de Acesso
+  useEffect(() => {
+    // Bloqueia o tablet de ver o painel gerencial
+    if (user?.cargo === "DISPOSITIVO") {
+      navigate("/dashboard/registrar", { replace: true });
+      return;
+    }
 
-  const deleteAttendance = (id) => {
-    setAttendances(attendances.filter((a) => a.id !== id));
-  };
+    const fetchAnalytics = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-  const filteredData = attendances.filter(
-    (item) =>
-      item.client.toLowerCase().includes(search.toLowerCase()) ||
-      item.salesperson.toLowerCase().includes(search.toLowerCase()) ||
-      item.status.toLowerCase().includes(search.toLowerCase()),
-  );
+        // Define a URL baseada no cargo
+        let endpoint = "";
+        if (user?.cargo === "VENDEDOR")
+          endpoint = "/api/analytics/meu-desempenho/";
+        else if (user?.cargo === "SUPERVISOR")
+          endpoint = "/api/analytics/loja/";
+        else if (user?.cargo === "ADMIN") endpoint = "/api/analytics/geral/";
 
-  const totalValue = filteredData.reduce(
-    (acc, curr) => acc + (curr.value || 0),
-    0,
-  );
+        if (!endpoint) throw new Error("Acesso negado: Cargo inválido.");
+
+        const response = await api.get(endpoint);
+        setData(response.data);
+      } catch (err) {
+        setError(
+          "Não foi possível carregar os dados. Verifique a conexão com o servidor.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalytics();
+  }, [user, navigate]);
+
+  // 3. Renderização Condicional (Carregamento e Erro)
+  if (loading) {
+    return (
+      <div className="h-[70vh] flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 border-4 border-[#4D7BAB]/30 border-t-[#4D7BAB] rounded-full animate-spin"></div>
+        <p className="text-slate-500 font-medium">
+          Carregando painel de métricas...
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-rose-50 border-2 border-rose-100 rounded-3xl flex items-center gap-4 text-rose-700">
+        <AlertCircle size={32} />
+        <div>
+          <h3 className="font-bold text-lg">Erro na Comunicação</h3>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. Mapeamento do JSON da API para as Variáveis Locais
+  const totalValor = data?.kpis?.total_vendas_valor || 0;
+  const vendasConcluidas = data?.kpis?.vendas_concluidas_count || 0;
+  const vendasPerdidas = data?.kpis?.vendas_nao_concluidas_count || 0;
+  const totalAtendimentos = vendasConcluidas + vendasPerdidas;
 
   const conversionRate =
-    filteredData.length > 0
-      ? Math.round(
-          (filteredData.filter((d) => d.status === "Venda concretizada")
-            .length /
-            filteredData.length) *
-            100,
-        )
+    totalAtendimentos > 0
+      ? Math.round((vendasConcluidas / totalAtendimentos) * 100)
       : 0;
 
-  const handleDelete = (id, clientName) => {
-    if (
-      window.confirm(
-        `Tem certeza que deseja excluir o atendimento de ${clientName}?`,
-      )
-    ) {
-      deleteAttendance(id);
-    }
-  };
+  // Filtro funcionando com a estrutura real da tabela da API
+  const tabelaFiltrada = (data?.tabela || []).filter((item) => {
+    const nomeCompleto =
+      `${item.vendedorfirst_name || ""} ${item.vendedorlast_name || ""}`.toLowerCase();
+    const busca = search.toLowerCase();
+    return (
+      nomeCompleto.includes(busca) ||
+      (item.metricanome || "").toLowerCase().includes(busca)
+    );
+  });
 
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Cabeçalho */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl shadow-lg shadow-blue-100/40 border border-blue-50">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl shadow-lg border border-blue-50">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-[#4D7BAB]/10 rounded-2xl text-[#4D7BAB]">
             <LayoutDashboard size={28} />
@@ -154,36 +177,36 @@ export function Home() {
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
               Visão Geral
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Acompanhe os atendimentos e a performance do dia.
+            <p className="text-sm text-slate-500">
+              Perfil de acesso:{" "}
+              <strong className="text-primary">{user?.cargo}</strong>
             </p>
           </div>
         </div>
         <Link
-          to="/registrar"
-          className="inline-flex items-center justify-center gap-2 bg-[#4D7BAB] text-white hover:bg-[#3a5d82] transition-all px-6 py-3 rounded-2xl text-sm font-bold shadow-xl shadow-blue-900/10 active:scale-95 w-full sm:w-auto"
+          to="/dashboard/registrar"
+          className="inline-flex items-center gap-2 bg-[#4D7BAB] text-white hover:bg-[#3a5d82] transition-all px-6 py-3 rounded-2xl font-bold shadow-xl"
         >
-          <Plus size={20} />
-          Novo Atendimento
+          <Plus size={20} /> Novo Atendimento
         </Link>
       </div>
 
-      {/* Cards de Métricas */}
+      {/* Cards Lidos da API */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <MetricCard
-          title="Total em Vendas (Dia)"
+          title="Faturamento do Dia"
           value={new Intl.NumberFormat("pt-BR", {
             style: "currency",
             currency: "BRL",
-          }).format(totalValue)}
+          }).format(totalValor)}
         />
-        <MetricCard title="Total de Atendimentos" value={filteredData.length} />
+        <MetricCard title="Atendimentos Realizados" value={totalAtendimentos} />
         <MetricCard title="Taxa de Conversão" value={`${conversionRate}%`} />
       </div>
 
-      {/* 📊 NOVA SEÇÃO DE GRÁFICOS 📊 */}
+      {/* Gráficos (Mantidos estáticos temporariamente) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Gráfico 1: Quantidade por Horário (BarChart) */}
+        {/* ... (Todo o seu bloco de gráficos (BarChart3, TrendingUp, PieChart) permanece igual aqui) ... */}
         <div className="bg-white p-6 rounded-[2rem] border border-blue-50 shadow-xl shadow-blue-100/40">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-blue-50 text-[#4D7BAB] rounded-lg">
@@ -222,18 +245,12 @@ export function Home() {
                     boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                   }}
                 />
-                <Bar
-                  dataKey="qtd"
-                  fill="#4D7BAB"
-                  radius={[6, 6, 0, 0]}
-                  name="Atendimentos"
-                />
+                <Bar dataKey="qtd" fill="#4D7BAB" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Gráfico 2: Renda por Horário (LineChart) */}
         <div className="bg-white p-6 rounded-[2rem] border border-blue-50 shadow-xl shadow-blue-100/40">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
@@ -271,12 +288,7 @@ export function Home() {
                     strokeWidth: 2,
                     strokeDasharray: "4 4",
                   }}
-                  contentStyle={{
-                    borderRadius: "12px",
-                    border: "none",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                  }}
-                  formatter={(value) => [`R$ ${value}`, "Renda"]}
+                  contentStyle={{ borderRadius: "12px", border: "none" }}
                 />
                 <Line
                   type="monotone"
@@ -290,14 +302,12 @@ export function Home() {
                     stroke: "#fff",
                   }}
                   activeDot={{ r: 6 }}
-                  name="Renda"
                 />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Gráfico 3: Pizza de Conversão */}
         <div className="bg-white p-6 rounded-[2rem] border border-blue-50 shadow-xl shadow-blue-100/40">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
@@ -323,21 +333,13 @@ export function Home() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{
-                    borderRadius: "12px",
-                    border: "none",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                  }}
+                  contentStyle={{ borderRadius: "12px", border: "none" }}
                 />
                 <Legend
                   verticalAlign="bottom"
                   height={36}
                   iconType="circle"
-                  wrapperStyle={{
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: "#475569",
-                  }}
+                  wrapperStyle={{ fontSize: "14px", fontWeight: "500" }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -345,74 +347,61 @@ export function Home() {
         </div>
       </div>
 
-      {/* Área da Tabela */}
-      <div className="bg-white border border-blue-50 rounded-[2rem] shadow-2xl shadow-blue-100/50 overflow-hidden flex flex-col">
-        {/* Filtros */}
-        <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row gap-4 justify-between items-center bg-slate-50/50">
+      {/* Tabela Lida da API */}
+      <div className="bg-white border border-blue-50 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
+        <div className="p-6 border-b border-slate-100 flex gap-4 items-center bg-slate-50/50">
           <div className="relative w-full sm:w-96 group">
             <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#4D7BAB] transition-colors"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#4D7BAB]"
               size={20}
             />
             <input
               type="text"
-              placeholder="Buscar por cliente, vendedor ou status..."
+              placeholder="Buscar atendimentos..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white border-2 border-slate-100 rounded-2xl text-sm focus:outline-none focus:border-[#4D7BAB] focus:ring-4 focus:ring-blue-500/5 transition-all placeholder:text-slate-400 font-medium text-slate-700 shadow-sm"
+              className="w-full pl-12 pr-4 py-3 bg-white border-2 border-slate-100 rounded-2xl text-sm focus:outline-none focus:border-[#4D7BAB]"
             />
           </div>
-          <button className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-600 hover:border-[#4D7BAB] hover:text-[#4D7BAB] hover:bg-blue-50/50 transition-all w-full sm:w-auto justify-center shadow-sm">
-            <Filter size={18} />
-            Filtros
-            <ChevronDown size={16} className="ml-1 opacity-70" />
-          </button>
         </div>
 
-        {/* Tabela */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
               <tr className="border-b border-slate-100 bg-[#4D7BAB]/5">
-                <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider w-[80px]">
-                  Hora
+                <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase">
+                  Data/Hora
                 </th>
-                <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider min-w-[150px]">
+                <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase">
                   Vendedor
                 </th>
-                <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider min-w-[160px]">
-                  Cliente
-                </th>
-                <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider min-w-[130px]">
+                <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase">
                   Valor
                 </th>
-                <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider min-w-[200px]">
+                <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase">
                   Status
                 </th>
-                <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                  Observação
-                </th>
-                <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase tracking-wider text-right w-[120px]">
+                <th className="py-4 px-6 text-xs font-bold text-slate-600 uppercase text-right">
                   Ações
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 bg-white">
-              {filteredData.length === 0 ? (
+              {tabelaFiltrada.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center text-slate-500">
+                  <td colSpan={5} className="py-16 text-center text-slate-500">
                     <Search
                       className="mx-auto mb-4 text-slate-300"
                       size={48}
                       strokeWidth={1.5}
                     />
                     <p className="text-lg font-medium">
-                      Nenhum atendimento encontrado.
+                      Nenhum atendimento na base de dados.
                     </p>
                   </td>
                 </tr>
               ) : (
-                filteredData.map((row) => (
+                tabelaFiltrada.map((row) => (
                   <tr
                     key={row.id}
                     className="hover:bg-blue-50/40 transition-colors group"
@@ -420,84 +409,51 @@ export function Home() {
                     <td className="py-4 px-6 text-sm text-slate-500 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <Clock size={16} className="text-slate-400" />
-                        {row.time}
+                        {new Date(row.data_hora).toLocaleTimeString("pt-BR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </div>
                     </td>
                     <td className="py-4 px-6 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-[#4D7BAB] group-hover:bg-[#4D7BAB] group-hover:text-white transition-colors">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[#4D7BAB] group-hover:bg-[#4D7BAB] group-hover:text-white transition-colors">
                           <User size={14} strokeWidth={2.5} />
                         </div>
                         <span className="text-sm font-bold text-slate-700">
-                          {row.salesperson}
+                          {row.vendedorfirst_name} {row.vendedorlast_name}
                         </span>
                       </div>
                     </td>
-                    <td className="py-4 px-6 whitespace-nowrap text-sm text-slate-700 font-semibold">
-                      {row.client}
-                    </td>
                     <td className="py-4 px-6 whitespace-nowrap text-sm font-bold text-slate-800">
-                      {row.value && row.value > 0 ? (
+                      {row.venda_fechada && row.valor_venda ? (
                         <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg w-max border border-emerald-100">
                           <DollarSign size={16} />
                           {new Intl.NumberFormat("pt-BR", {
                             style: "currency",
                             currency: "BRL",
-                          }).format(row.value)}
+                          }).format(row.valor_venda)}
                         </div>
                       ) : (
-                        <span className="text-slate-300 font-normal ml-6">
-                          -
-                        </span>
+                        <span className="text-slate-300 ml-6">-</span>
                       )}
                     </td>
                     <td className="py-4 px-6 whitespace-nowrap">
                       <span
                         className={clsx(
-                          "inline-flex items-center rounded-xl px-3 py-1.5 text-xs font-bold border shadow-sm",
-                          getStatusColors(row.status),
+                          "inline-flex items-center rounded-xl px-3 py-1.5 text-xs font-bold border",
+                          getStatusColors(row.metricanome),
                         )}
                       >
-                        {row.status}
+                        {row.venda_fechada
+                          ? "Venda Concretizada"
+                          : row.metricanome || "Pendente"}
                       </span>
-                    </td>
-                    <td className="py-4 px-6 text-sm text-slate-500 max-w-[250px]">
-                      <div className="flex items-start gap-2">
-                        <MessageSquare
-                          size={16}
-                          className="text-slate-400 shrink-0 mt-0.5"
-                        />
-                        <span
-                          className="truncate group-hover:whitespace-normal transition-all"
-                          title={row.observations}
-                        >
-                          {row.observations || (
-                            <span className="text-slate-300 italic">
-                              Sem observações
-                            </span>
-                          )}
-                        </span>
-                      </div>
                     </td>
                     <td className="py-4 px-6 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Link
-                          to={`/atendimento/${row.id}`}
-                          className="p-2 text-slate-400 hover:text-[#4D7BAB] hover:bg-blue-50 rounded-xl transition-all"
-                        >
+                        <button className="p-2 text-slate-400 hover:text-[#4D7BAB]">
                           <Eye size={18} />
-                        </Link>
-                        <Link
-                          to={`/editar-atendimento/${row.id}`}
-                          className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all"
-                        >
-                          <Pencil size={18} />
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(row.id, row.client)}
-                          className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                        >
-                          <Trash2 size={18} />
                         </button>
                       </div>
                     </td>
