@@ -57,6 +57,8 @@ describe("Página de Registro de Atendimento", () => {
     // Passo 3: O PIN deve aparecer
     expect(screen.getByText(/Confirmação de Identidade/i)).toBeInTheDocument();
 
+    fireEvent.click(screen.getByText(/Preço alto/i));
+
     // Tenta submeter sem PIN
     fireEvent.click(screen.getByText(/Concluir Registro/i));
     expect(
