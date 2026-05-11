@@ -1,6 +1,13 @@
 import { http, HttpResponse } from "msw";
 
 export const handlers = [
+  http.get("*/api/users/", () => {
+    // Mock do GET de usuários para o fallback de vendedor
+    return HttpResponse.json([
+      { id: 1, first_name: "Gabriel", last_name: "Davi" },
+      { id: 2, first_name: "Caio", last_name: "Dias" },
+    ]);
+  }),
   // Mock do POST de Atendimentos
   http.post("*/api/core/atendimentos/", () => {
     return HttpResponse.json(

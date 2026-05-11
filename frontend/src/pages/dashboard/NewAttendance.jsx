@@ -63,7 +63,11 @@ const NewAttendance = () => {
         vendedorNome: user.nome,
       }));
       setStep(2); // Pula a seleção de vendedor
-    } else if (user.cargo === "DISPOSITIVO" || user.cargo === "ADMIN") {
+    } else if (
+      user.cargo === "DISPOSITIVO" ||
+      user.cargo === "ADMIN" ||
+      user.cargo === "SUPERVISOR"
+    ) {
       // Busca a lista real de vendedores
       api
         .get("/api/users/")
