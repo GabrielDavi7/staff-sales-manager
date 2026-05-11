@@ -11,6 +11,7 @@ utilizando Docker para ambiente de desenvolvimento padronizado.
 ## 🛠️ Tecnologias
 
 ### Backend
+
 - [Python 3.12+](https://www.python.org/)
 - [Django 5.0](https://www.djangoproject.com/)
 - [Django REST Framework](https://www.django-rest-framework.org/) (TokenAuthentication)
@@ -19,12 +20,15 @@ utilizando Docker para ambiente de desenvolvimento padronizado.
 - [django-cors-headers](https://github.com/adamchainz/django-cors-headers)
 
 ### Frontend
+
 - [React 18](https://react.dev/)
 - [Vite](https://vitejs.dev/)
 - [React Router 6](https://reactrouter.com/)
 - [Axios](https://axios-http.com/)
+- **Testes Automatizados:** [Vitest](https://vitest.dev/), [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/) e [MSW (Mock Service Worker)](https://mswjs.io/)
 
 ### Infraestrutura
+
 - [Docker](https://www.docker.com/) e [Docker Compose](https://docs.docker.com/compose/)
 
 ## 📁 Estrutura de Diretórios
@@ -58,11 +62,11 @@ staff-sales-manager/ # Pasta raiz (contém o backend e o frontend)
 - **core**: Contém todos os modelos de negócio da aplicação (`Loja`, `Equipe`, `Metrica`, `Relatorio`).  
   Além dos modelos, é aqui que estão as views responsáveis pelo CRUD de atendimentos, métricas e entidades relacionadas.  
   **Permissões e segurança:** as operações são automaticamente filtradas conforme o cargo do usuário autenticado:
-  - *Dispositivo* pode criar atendimentos em nome de qualquer vendedor da sua loja. 
-  - *Vendedor* vê e cria apenas seus próprios atendimentos.
-  - *Supervisor* visualiza dados de toda a sua loja.
-  - *Admin* tem acesso irrestrito a todos os registros.  
-  Qualquer alteração na estrutura de dados principal deve ser feita neste app.
+  - _Dispositivo_ pode criar atendimentos em nome de qualquer vendedor da sua loja.
+  - _Vendedor_ vê e cria apenas seus próprios atendimentos.
+  - _Supervisor_ visualiza dados de toda a sua loja.
+  - _Admin_ tem acesso irrestrito a todos os registros.  
+    Qualquer alteração na estrutura de dados principal deve ser feita neste app.
 
 - **users**: Responsável pelo modelo de usuário personalizado (`CustomUser`), que estende o usuário padrão do Django com os campos `cargo`, `loja` e `equipe`.  
   A autenticação e o gerenciamento de usuários partem daqui, incluindo as escolhas de cargo: `ADMIN`, `SUPERVISOR` e `VENDEDOR`.
@@ -73,7 +77,7 @@ staff-sales-manager/ # Pasta raiz (contém o backend e o frontend)
   - Vendedores vejam apenas seu próprio desempenho.
   - Supervisores vejam métricas consolidadas da sua loja.
   - Admins acessem a visão global.  
-  Esse app é a base para os dashboards individuais, de loja e geral.
+    Esse app é a base para os dashboards individuais, de loja e geral.
 
 - **management**: Centraliza funcionalidades administrativas do sistema, como CRUD de lojas, usuários e métricas globais.  
   Acessível exclusivamente por usuários com cargo `ADMIN`, suas URLs são incluídas nas rotas principais da API.
@@ -122,8 +126,8 @@ frontend/
 - **routes/PrivateRoute.jsx**: Verifica se o usuário está autenticado; caso contrário, redireciona para `/login`.
 - **styles/**: Contém as definições de tema (cores, fontes) e estilos globais, importados no ponto de entrada da aplicação.
 - - **utils/permissions.js**: Centraliza as regras de acesso baseadas no cargo do usuário.
-  Fornece funções para montar a Navbar condicional e para validar se um usuário pode acessar determinada rota.
-  Serve como camada de conveniência no frontend, enquanto a segurança efetiva é aplicada no backend.
+    Fornece funções para montar a Navbar condicional e para validar se um usuário pode acessar determinada rota.
+    Serve como camada de conveniência no frontend, enquanto a segurança efetiva é aplicada no backend.
 
 ## 🗃️ Modelos de Dados
 
@@ -132,34 +136,39 @@ Todos os modelos estão definidos nos apps `core` e `users`. O app `analytics` n
 ### `core` – Modelos de Negócio
 
 #### Loja
-| Campo   | Tipo         | Descrição               |
-|---------|--------------|-------------------------|
-| `nome`  | CharField    | Nome da loja            |
-| `cidade`| CharField    | Cidade onde a loja está |
+
+| Campo    | Tipo      | Descrição               |
+| -------- | --------- | ----------------------- |
+| `nome`   | CharField | Nome da loja            |
+| `cidade` | CharField | Cidade onde a loja está |
 
 #### Equipe
-| Campo | Tipo       | Descrição                         |
-|-------|------------|-----------------------------------|
-| `nome`| CharField  | Nome da equipe                    |
-| `loja`| ForeignKey | Loja à qual a equipe pertence     |
+
+| Campo  | Tipo       | Descrição                     |
+| ------ | ---------- | ----------------------------- |
+| `nome` | CharField  | Nome da equipe                |
+| `loja` | ForeignKey | Loja à qual a equipe pertence |
 
 #### Metrica
-| Campo       | Tipo       | Descrição                                    |
-|-------------|------------|----------------------------------------------|
-| `nome`      | CharField  | Nome da métrica (ex: "Preço", "Não atende")  |
-| `descricao` | TextField  | Detalhamento opcional                        |
-| `loja`      | ForeignKey | Loja associada (opcional)                    |
+
+| Campo       | Tipo       | Descrição                                   |
+| ----------- | ---------- | ------------------------------------------- |
+| `nome`      | CharField  | Nome da métrica (ex: "Preço", "Não atende") |
+| `descricao` | TextField  | Detalhamento opcional                       |
+| `loja`      | ForeignKey | Loja associada (opcional)                   |
 
 #### Relatorio (Atendimento)
-| Campo          | Tipo         | Descrição                                                                 |
-|----------------|--------------|---------------------------------------------------------------------------|
-| `data_hora`    | DateTime     | Data e hora do atendimento (padrão: momento atual)                        |
-| `venda_fechada`| Boolean      | Se a venda foi concluída                                                  |
-| `valor_venda`  | Decimal      | Valor da venda (obrigatório se `venda_fechada=True`)                      |
-| `vendedor`     | ForeignKey   | Vendedor que realizou o atendimento (referencia `users.CustomUser`)       |
-| `metrica`      | ForeignKey   | Métrica associada (obrigatório se `venda_fechada=False`)                  |
+
+| Campo           | Tipo       | Descrição                                                           |
+| --------------- | ---------- | ------------------------------------------------------------------- |
+| `data_hora`     | DateTime   | Data e hora do atendimento (padrão: momento atual)                  |
+| `venda_fechada` | Boolean    | Se a venda foi concluída                                            |
+| `valor_venda`   | Decimal    | Valor da venda (obrigatório se `venda_fechada=True`)                |
+| `vendedor`      | ForeignKey | Vendedor que realizou o atendimento (referencia `users.CustomUser`) |
+| `metrica`       | ForeignKey | Métrica associada (obrigatório se `venda_fechada=False`)            |
 
 **Regras de negócio implementadas no modelo:**
+
 - Se `venda_fechada=True`, `valor_venda` é obrigatório e `metrica` deve ficar em branco.
 - Se `venda_fechada=False`, `metrica` é obrigatória (motivo da não venda) e `valor_venda` fica em branco.
 - Essas validações são executadas no método `clean()` e chamadas automaticamente pelo `save()`, garantindo integridade no banco.
@@ -170,24 +179,27 @@ Quando o atendimento é registrado por um usuário do cargo `DISPOSITIVO`, o cam
 ### `users` – Modelo de Usuário
 
 #### CustomUser (herda AbstractUser)
-| Campo        | Tipo       | Descrição                                      |
-|--------------|------------|------------------------------------------------|
-| `username`   | CharField  | Identificador único (usado para login rápido)  |
-| `email`      | EmailField | E-mail (usado como credencial principal)       |
-| `cargo`      | CharField  | ADMIN, SUPERVISOR, VENDEDOR ou DISPOSITIVO     |
-| `loja`       | ForeignKey | Loja onde o usuário trabalha (opcional)        |
-| `equipe`     | ForeignKey | Equipe do usuário (opcional)                   |
+
+| Campo      | Tipo       | Descrição                                     |
+| ---------- | ---------- | --------------------------------------------- |
+| `username` | CharField  | Identificador único (usado para login rápido) |
+| `email`    | EmailField | E-mail (usado como credencial principal)      |
+| `cargo`    | CharField  | ADMIN, SUPERVISOR, VENDEDOR ou DISPOSITIVO    |
+| `loja`     | ForeignKey | Loja onde o usuário trabalha (opcional)       |
+| `equipe`   | ForeignKey | Equipe do usuário (opcional)                  |
 
 **Observação:** O campo `USERNAME_FIELD` é definido como `'email'`, portanto o login na API é feito com e-mail e senha.
 
-**Cargo `DISPOSITIVO`**: representa um dispositivo compartilhado (ex: tablet da loja).  
-- Pode criar atendimentos em nome de qualquer vendedor da sua loja.  
-- Não acessa dashboards, análises ou administração.  
+**Cargo `DISPOSITIVO`**: representa um dispositivo compartilhado (ex: tablet da loja).
+
+- Pode criar atendimentos em nome de qualquer vendedor da sua loja.
+- Não acessa dashboards, análises ou administração.
 - Garante a rastreabilidade individual dos atendimentos sem exigir login constante de cada vendedor.
 
 ### `analytics` – Sem modelos próprios
 
 O app `analytics` não define novas tabelas. Ele atua como camada de **consultas agregadas** que:
+
 - Lê dados de `Relatorio`, `Metrica`, `CustomUser`, `Loja` e `Equipe`.
 - Fornece endpoints de leitura para dashboards de vendedor (desempenho individual), supervisor (métricas da loja) e admin (visão geral).
 - Não realiza operações de escrita (criação/edição de atendimentos é feita via `core`).
@@ -204,13 +216,15 @@ Para executar o projeto localmente, você precisará de:
 ## ⚙️ Configuração Inicial
 
 1. **Clone o repositório:**
+
 ```bash
    git clone <https://github.com/GabrielDavi7/staff-sales-manager>
    cd staff-sales-manager
 ```
 
 2. **Configure as variáveis de ambiente:**
-    Copie o arquivo de exemplo:
+   Copie o arquivo de exemplo:
+
 ```bash
     cp .env.example .env
 ```
@@ -254,48 +268,47 @@ Isso iniciará:
 ## 🚀 Lista de Comandos para Desenvolvedores
 
 ```markdown
-
 ## 📟 Comandos para Desenvolvedores
 
 ### Ambiente Docker
 
-| Ação | Comando |
-|------|---------|
-| Subir todos os serviços | `docker-compose up -d` |
-| Parar todos os serviços | `docker-compose down` |
-| Parar e remover volumes (resetar banco) | `docker-compose down -v` |
-| Reconstruir uma imagem | `docker-compose build <serviço>` |
-| Ver logs do Backend | `docker logs -f joias_backend`  |
-| Ver logs do Banco   | `docker logs -f joias_db`       |
-| Ver logs do Front   | `docker logs -f joias_frontend` |
-| Acessar o shell do container | `docker exec -it joias_backend sh` |
+| Ação                                    | Comando                            |
+| --------------------------------------- | ---------------------------------- |
+| Subir todos os serviços                 | `docker-compose up -d`             |
+| Parar todos os serviços                 | `docker-compose down`              |
+| Parar e remover volumes (resetar banco) | `docker-compose down -v`           |
+| Reconstruir uma imagem                  | `docker-compose build <serviço>`   |
+| Ver logs do Backend                     | `docker logs -f joias_backend`     |
+| Ver logs do Banco                       | `docker logs -f joias_db`          |
+| Ver logs do Front                       | `docker logs -f joias_frontend`    |
+| Acessar o shell do container            | `docker exec -it joias_backend sh` |
 
 ### Backend (Django)
 
-| Ação | Comando |
-|------|---------|
-| Criar migrações | `docker exec -it joias_backend python manage.py makemigrations` |
-| Aplicar migrações | `docker exec -it joias_backend python manage.py migrate` |
+| Ação               | Comando                                                          |
+| ------------------ | ---------------------------------------------------------------- |
+| Criar migrações    | `docker exec -it joias_backend python manage.py makemigrations`  |
+| Aplicar migrações  | `docker exec -it joias_backend python manage.py migrate`         |
 | Criar superusuário | `docker exec -it joias_backend python manage.py createsuperuser` |
-| Rodar testes | `docker exec -it joias_backend pytest` |
-| Shell Django | `docker exec -it joias_backend python manage.py shell` |
+| Rodar testes       | `docker exec -it joias_backend pytest`                           |
+| Shell Django       | `docker exec -it joias_backend python manage.py shell`           |
 
 ### Frontend (React)
 
-| Ação | Comando |
-|------|---------|
+| Ação                      | Comando                                               |
+| ------------------------- | ----------------------------------------------------- |
 | Instalar nova dependência | `docker exec -it joias_frontend npm install <pacote>` |
-| Rodar build de produção | `docker exec -it joias_frontend npm run build` |
-| Ver logs do Vite | `docker logs -f joias_frontend` |
+| Rodar build de produção   | `docker exec -it joias_frontend npm run build`        |
+| Ver logs do Vite          | `docker logs -f joias_frontend`                       |
+| Rodar testes              | `docker exec -it joias_frontend npx vitest`           |
 
 ### Docker – Comandos de Manutenção
 
-| Ação | Comando |
-|------|---------|
-| Listar containers ativos | `docker ps` |
+| Ação                       | Comando                  |
+| -------------------------- | ------------------------ |
+| Listar containers ativos   | `docker ps`              |
 | Remover containers parados | `docker container prune` |
-| Remover imagens não usadas | `docker image prune` |
-
+| Remover imagens não usadas | `docker image prune`     |
 ```
 
 ## 🔄 Fluxo de Desenvolvimento
@@ -328,8 +341,8 @@ from django.conf import settings
 User = settings.AUTH_USER_MODEL
 ```
 
-
 **Boas práticas:**
+
 - Evite importar models de um app que não seja `core` ou `users` em outros apps, para não criar acoplamento desnecessário.
 - Se um app precisar consultar dados, prefira fazê-lo via `core.models`, nunca duplicando definições.
 
@@ -338,6 +351,7 @@ User = settings.AUTH_USER_MODEL
 **Serializers** (Django REST Framework) convertem dados entre objetos Python e JSON. Cada modelo principal possui um serializer correspondente (normalmente em `serializers.py` dentro do app).
 
 **Views** processam as requisições e utilizam os serializers para validar e retornar dados.
+
 - Para CRUD, recomenda-se `ModelViewSet` ou `ListCreateAPIView` / `RetrieveUpdateDestroyAPIView`.
 - Para endpoints analíticos (app `analytics`), utiliza-se `APIView` simples com métodos `get()`.
 
@@ -349,6 +363,7 @@ As permissões são verificadas nas views para restringir acesso conforme o carg
 Elas funcionam em conjunto com a filtragem de queryset, onde cada view limita os dados retornados de acordo com o `request.user.cargo`.
 
 **Regra geral:**
+
 - Endpoints de administração exigem `IsAdmin`.
 - Endpoints de analytics para loja exigem `IsSupervisorOrAdmin`.
 - Endpoints pessoais (vendedor) podem usar `IsVendedor` e filtrar por `vendedor=request.user`.
@@ -373,9 +388,7 @@ Dentro de `<Routes>`:
     <Route path="registrar" element={<RegistrarAtendimento />} />
 ```
 
-O caminho relativo `"registrar"` se tornará `/dashboard/registrar`.
-4. Para controlar a exibição na Navbar, atualize o array em `utils/permissions.js`, adicionando o link apenas para os cargos desejados.
-5. Para proteger rotas por cargo (além do `PrivateRoute`), utilize o componente `RoleRoute` (planejado) que valida `user.cargo` antes de renderizar.
+O caminho relativo `"registrar"` se tornará `/dashboard/registrar`. 4. Para controlar a exibição na Navbar, atualize o array em `utils/permissions.js`, adicionando o link apenas para os cargos desejados. 5. Para proteger rotas por cargo (além do `PrivateRoute`), utilize o componente `RoleRoute` (planejado) que valida `user.cargo` antes de renderizar.
 
 ### 📦 Instalar dependências
 
