@@ -23,7 +23,7 @@ describe("Página de Registro de Atendimento", () => {
 
   it("deve pular o passo 1 se for VENDEDOR e ir direto para o desfecho", () => {
     useAuth.mockReturnValue({
-      user: { id: 1, nome: "Vendedor Teste", cargo: "VENDEDOR" },
+      user: { id: 1, nome: "Vendedor Teste", cargo: "Vendedor" },
     });
     render(
       <MemoryRouter>
@@ -68,7 +68,7 @@ describe("Página de Registro de Atendimento", () => {
 
   it("deve alternar campos corretamente entre venda fechada e não fechada", async () => {
     useAuth.mockReturnValue({
-      user: { id: 1, nome: "Vendedor Teste", cargo: "VENDEDOR" },
+      user: { id: 1, nome: "Vendedor Teste", cargo: "Vendedor" },
     });
     render(
       <MemoryRouter>

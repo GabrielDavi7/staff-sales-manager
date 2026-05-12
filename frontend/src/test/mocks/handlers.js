@@ -1,24 +1,21 @@
-import { http, HttpResponse } from "msw";
+/* import { http, HttpResponse } from "msw";
 
 export const handlers = [
-  http.get("*/api/users/", () => {
-    // Mock do GET de usuários para o fallback de vendedor
-    return HttpResponse.json([
+  http.get("*/ ///api/users/", () => {
+/*   return HttpResponse.json([
       { id: 1, first_name: "Gabriel", last_name: "Davi" },
       { id: 2, first_name: "Caio", last_name: "Dias" },
     ]);
   }),
-  // Mock do POST de Atendimentos
-  http.post("*/api/core/atendimentos/", () => {
-    return HttpResponse.json(
+  http.post("*/ //api/core/atendimentos/", () => {
+/*   return HttpResponse.json(
       { message: "Atendimento registrado" },
       { status: 201 },
     );
   }),
 
-  // Mock do Vendedor (Meu Desempenho)
-  http.get("*/api/analytics/meu-desempenho/", () => {
-    return HttpResponse.json({
+//http.get("*/ //api/analytics/meu-desempenho/", () => {
+/*   return HttpResponse.json({
       kpis: {
         total_vendas_valor: 15000,
         vendas_concluidas_count: 12,
@@ -37,9 +34,8 @@ export const handlers = [
     });
   }),
 
-  // Mock do Supervisor (Loja)
-  http.get("*/api/analytics/loja/", () => {
-    return HttpResponse.json({
+  http.get("*/ //api/analytics/loja/", () => {
+/*   return HttpResponse.json({
       kpis: {
         total_vendas_valor: 45000,
         vendas_concluidas_count: 35,
@@ -50,9 +46,8 @@ export const handlers = [
     });
   }),
 
-  // Mock do Admin (Geral)
-  http.get("*/api/analytics/geral/", () => {
-    return HttpResponse.json({
+  http.get("*/ //api/analytics/geral/", () => {
+/*   return HttpResponse.json({
       kpis: {
         total_vendas_valor: 120000,
         vendas_concluidas_count: 90,
@@ -63,3 +58,4 @@ export const handlers = [
     });
   }),
 ];
+*/

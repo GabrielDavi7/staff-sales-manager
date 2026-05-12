@@ -15,22 +15,27 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 
-// IMPORTANTE: Como não mudamos o backend, se a API /api/users/ falhar (401),
-// você DEVE atualizar esses IDs aqui para baterem com os IDs do seu Docker Admin.
-const MOCK_VENDEDORES = [
-  { id: 1, first_name: "Gabriel", last_name: "Davi" },
-  { id: 2, first_name: "Caio", last_name: "Dias" },
-  { id: 3, first_name: "Pedro", last_name: "Braga" },
+const MOTIVOS = [
+  "Cliente não encontrou o produto",
+  "Cliente não encontrou o tamanho",
+  "Cliente não gostou do modelo",
+  "Cliente não concordou com o plano de pagamento",
+  "Cliente achou o preço alto",
+  "A peça foi reservada",
+  "Pesquisa do cliente",
+  "Cliente não respondeu mais",
+  "Troca de peça (De/Para)",
+  "Atendimento via WhatsApp",
 ];
 
-const MOTIVOS = [
-  "Apenas pesquisando",
-  "Preço alto",
-  "Falta de estoque",
-  "Não gostou do modelo",
-  "Volta depois",
-  "Condição de pagamento",
-  "Atendimento rápido/Dúvida",
+// --- AJUSTE O ID ABAIXO PARA O ID REAL QUE VOCÊ VIU NA URL DO ADMIN ---
+const VENDEDOR_TESTE = [
+  {
+    id: 4,
+    first_name: "Vendedor Teste",
+    last_name: "Real",
+    cargo: "Vendedor",
+  },
 ];
 
 const NewAttendance = () => {
@@ -53,27 +58,26 @@ const NewAttendance = () => {
     pin: "",
   });
 
+  // Lógica para definir se é dispositivo (independente de maiúsculas/minúsculas)
+  const isSupervisor = user?.cargo?.toUpperCase() === "SUPERVISOR";
+  const isDispositivo = user?.cargo?.toUpperCase() === "DISPOSITIVO";
+
   useEffect(() => {
     if (!user) return;
 
-    if (user.cargo === "VENDEDOR") {
+    // Se quem logou já é VENDEDOR, ele pula a seleção
+    if (user.cargo?.toUpperCase() === "VENDEDOR") {
       setFormData((prev) => ({
         ...prev,
         vendedorId: user.id,
-        vendedorNome: user.nome,
+        vendedorNome:
+          `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+          user.username,
       }));
       setStep(2);
     } else {
-      const carregarVendedores = async () => {
-        try {
-          const res = await api.get("/api/users/");
-          setVendedores(res.data);
-        } catch (err) {
-          console.error("Erro ao carregar vendedores reais, usando mock...");
-          setVendedores(MOCK_VENDEDORES);
-        }
-      };
-      carregarVendedores();
+      // Como a rota /api/users/ dá 404, usamos o vendedor com ID real do banco
+      setVendedores(VENDEDOR_TESTE);
     }
   }, [user]);
 
@@ -88,45 +92,31 @@ const NewAttendance = () => {
       setError("Por favor, selecione o motivo do não fechamento.");
       return;
     }
-    if (user?.cargo === "DISPOSITIVO" && !formData.pin) {
-      setError("O PIN de segurança é obrigatório neste dispositivo.");
+    if (isDispositivo && !formData.pin) {
+      setError("O PIN de segurança é obrigatório.");
       return;
     }
 
     setLoading(true);
 
     try {
-      // PAYLOAD BLINDADO CONTRA ERRO 400
       const payload = {
-        vendedor_id: Number(formData.vendedorId),
+        vendedor: Number(formData.vendedorId),
         venda_fechada: formData.vendaFechada,
-
-        // Se não houver venda, enviamos 0 para o Django aceitar o campo numérico
         valor_venda: formData.vendaFechada ? parseFloat(formData.valor) : 0,
-
-        // metricanome nunca pode ir vazio
         metricanome: !formData.vendaFechada
           ? formData.motivo || "Não informado"
-          : "Venda Concretizada",
-
+          : "Venda concretizada",
         cliente_nome: formData.clienteNome || "Consumidor",
         observacoes: formData.observacoes || "",
-        ...(user?.cargo === "DISPOSITIVO" && { pin: formData.pin }),
+        ...(isDispositivo && { pin: formData.pin }),
       };
 
       await api.post("/api/core/atendimentos/", payload);
 
       alert("Atendimento registrado com sucesso!");
 
-      // CORREÇÃO DA SINTAXE DO NAVIGATE
-      navigate(
-        user?.cargo === "DISPOSITIVO" ? "/registrarvenda" : "/dashboard",
-        {
-          replace: true,
-        },
-      );
-
-      if (user?.cargo === "DISPOSITIVO") {
+      if (isDispositivo) {
         setFormData({
           vendedorId: null,
           vendedorNome: "",
@@ -138,21 +128,19 @@ const NewAttendance = () => {
           pin: "",
         });
         setStep(1);
+        navigate("/registrarvenda", { replace: true });
+      } else {
+        navigate("/dashboard", { replace: true });
       }
     } catch (err) {
-      // Mostra o erro real do Django no console para facilitar o debug
-      console.error("Erro no POST:", err.response?.data);
+      console.error("Erro no Django:", err.response?.data);
       setError(
-        err.response?.data?.message ||
-          "Erro 400: Verifique se todos os campos estão corretos no servidor.",
+        "Erro ao salvar. Verifique se o ID do vendedor e o PIN estão corretos.",
       );
     } finally {
       setLoading(false);
     }
   };
-
-  const isSupervisor = user?.cargo === "SUPERVISOR";
-  const isDispositivo = user?.cargo === "DISPOSITIVO";
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 animate-in fade-in duration-500">
@@ -160,40 +148,17 @@ const NewAttendance = () => {
         {/* Header */}
         <div className="bg-[#4D7BAB]/5 px-10 py-8 border-b border-blue-50 flex items-center justify-between gap-4">
           <div className="flex items-center gap-5">
-            <div className="p-4 bg-[#4D7BAB] rounded-2xl text-white shadow-lg shadow-blue-900/20">
+            <div className="p-4 bg-[#4D7BAB] rounded-2xl text-white shadow-lg">
               <ClipboardCheck size={32} />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">
+              <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
                 Registro de Atendimento
               </h1>
-              <p className="text-base text-slate-500 mt-1">
-                Preencha os dados para documentar a visita.
+              <p className="text-sm text-slate-500 mt-1">
+                Sincronizado com o Banco de Dados.
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-2 bg-white border border-blue-100 px-4 py-2 rounded-full shadow-inner hidden sm:flex">
-            <span
-              className={clsx(
-                "w-3 h-3 rounded-full",
-                step >= 1 ? "bg-[#4D7BAB]" : "bg-slate-200",
-              )}
-            ></span>
-            <span
-              className={clsx(
-                "w-3 h-3 rounded-full",
-                step >= 2 ? "bg-[#4D7BAB]" : "bg-slate-200",
-              )}
-            ></span>
-            <span
-              className={clsx(
-                "w-3 h-3 rounded-full",
-                step >= 3 ? "bg-[#4D7BAB]" : "bg-slate-200",
-              )}
-            ></span>
-            <span className="text-sm font-semibold text-[#4D7BAB] ml-2">
-              Passo {step} de 3
-            </span>
           </div>
         </div>
 
@@ -203,8 +168,8 @@ const NewAttendance = () => {
           </div>
         )}
 
-        <div className="p-10 min-h-[400px] flex flex-col justify-center bg-white">
-          {/* PASSO 1 */}
+        <div className="p-10 min-h-[450px] flex flex-col justify-center bg-white">
+          {/* PASSO 1: Seleção do Vendedor */}
           {step === 1 && (
             <div className="space-y-8 animate-in fade-in duration-300">
               <div className="text-center max-w-2xl mx-auto">
@@ -214,10 +179,10 @@ const NewAttendance = () => {
                   strokeWidth={1}
                 />
                 <h3 className="text-2xl font-semibold text-slate-800">
-                  Quem está realizando o atendimento?
+                  Selecione o vendedor:
                 </h3>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="flex justify-center">
                 {vendedores.map((v) => (
                   <button
                     key={v.id}
@@ -229,25 +194,28 @@ const NewAttendance = () => {
                       });
                       setStep(2);
                     }}
-                    className="flex items-center gap-4 p-5 bg-white border-2 border-slate-100 rounded-2xl hover:border-[#4D7BAB] hover:bg-blue-50/50 transition-all group text-left"
+                    className="flex items-center gap-4 p-8 bg-blue-50 border-2 border-[#4D7BAB] rounded-2xl hover:bg-blue-100 transition-all text-left shadow-lg"
                   >
-                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-[#4D7BAB] group-hover:text-white transition-colors">
-                      <User size={24} />
+                    <div className="w-16 h-16 rounded-full bg-[#4D7BAB] text-white flex items-center justify-center">
+                      <User size={32} />
                     </div>
-                    <span className="font-semibold text-slate-700 text-lg group-hover:text-[#4D7BAB]">
-                      {v.first_name} {v.last_name}
-                    </span>
+                    <div>
+                      <span className="block font-bold text-slate-700 text-xl">
+                        {v.first_name}
+                      </span>
+                      <span className="text-sm text-slate-500">ID: {v.id}</span>
+                    </div>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* PASSO 2 */}
+          {/* PASSO 2: Resultado */}
           {step === 2 && (
             <div className="space-y-10 text-center animate-in slide-in-from-right duration-300">
               <h3 className="text-3xl font-bold text-slate-800">
-                Qual foi o desfecho da visita?
+                Resultado do Atendimento
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
                 <button
@@ -263,7 +231,7 @@ const NewAttendance = () => {
                     strokeWidth={1.5}
                   />
                   <span className="text-2xl font-extrabold text-emerald-800 block">
-                    Sim, Venda Concretizada! 💎
+                    Venda Realizada!
                   </span>
                 </button>
                 <button
@@ -286,54 +254,49 @@ const NewAttendance = () => {
             </div>
           )}
 
-          {/* PASSO 3 */}
+          {/* PASSO 3: Valor, Motivo e PIN */}
           {step === 3 && (
             <div className="animate-in slide-in-from-right duration-300 max-w-4xl mx-auto w-full space-y-8">
               <div className="text-center">
                 <h3 className="text-3xl font-bold text-slate-800">
-                  Detalhes Finais
+                  Finalizar Atendimento
                 </h3>
                 <p className="text-lg text-slate-500">
                   Vendedor:{" "}
-                  <span className="font-semibold text-[#4D7BAB]">
+                  <span className="font-bold text-[#4D7BAB]">
                     {formData.vendedorNome}
                   </span>
                 </p>
               </div>
 
               {formData.vendaFechada ? (
-                <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 space-y-6">
+                <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 space-y-4">
                   <label className="text-xl font-semibold text-slate-700 flex items-center gap-4">
                     <DollarSign className="text-emerald-500" size={32} /> Valor
-                    total:
+                    Total:
                   </label>
-                  <div className="relative">
-                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-4xl text-slate-400 font-bold">
-                      R$
-                    </span>
-                    <input
-                      type="number"
-                      autoFocus
-                      className="w-full text-5xl font-extrabold p-8 pl-24 bg-white border-2 border-slate-200 rounded-3xl focus:border-[#4D7BAB] outline-none text-[#4D7BAB]"
-                      value={formData.valor}
-                      onChange={(e) =>
-                        setFormData({ ...formData, valor: e.target.value })
-                      }
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    autoFocus
+                    className="w-full text-5xl font-extrabold p-8 bg-white border-2 border-slate-200 rounded-3xl focus:border-[#4D7BAB] outline-none text-[#4D7BAB]"
+                    value={formData.valor}
+                    onChange={(e) =>
+                      setFormData({ ...formData, valor: e.target.value })
+                    }
+                  />
                 </div>
               ) : (
                 <div className="space-y-6">
                   <label className="text-xl font-semibold text-slate-700 flex items-center gap-4">
-                    <MessageSquare className="text-rose-500" size={32} /> Qual o
-                    motivo?
+                    <MessageSquare className="text-rose-500" size={32} />{" "}
+                    Selecione o motivo:
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                     {MOTIVOS.map((m) => (
                       <button
                         key={m}
                         onClick={() => setFormData({ ...formData, motivo: m })}
-                        className={`p-5 text-left text-lg rounded-2xl border-2 transition-all ${formData.motivo === m ? "border-[#4D7BAB] bg-blue-50 text-[#4D7BAB] font-bold" : "border-slate-100 bg-white"}`}
+                        className={`p-4 text-left text-sm rounded-xl border-2 transition-all ${formData.motivo === m ? "border-[#4D7BAB] bg-blue-50 text-[#4D7BAB] font-bold" : "border-slate-100 bg-white"}`}
                       >
                         {m}
                       </button>
@@ -342,82 +305,55 @@ const NewAttendance = () => {
                 </div>
               )}
 
-              <div className="mt-10 pt-10 border-t border-slate-100 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700">
-                      Cliente (Opcional)
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-[#4D7BAB] outline-none"
-                      value={formData.clienteNome}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          clienteNome: e.target.value,
-                        })
-                      }
-                    />
+              {/* CAMPO DO PIN (Exibido apenas para Dispositivo) */}
+              {isDispositivo && (
+                <div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl flex flex-col sm:flex-row items-center gap-6 mt-6 shadow-sm">
+                  <div className="flex items-center gap-4 text-amber-700">
+                    <Lock size={32} />
+                    <div>
+                      <p className="font-bold">Assinatura Digital</p>
+                      <p className="text-xs">
+                        Confirme com o PIN de 4 dígitos do tablet.
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700">
-                      Observações
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-[#4D7BAB] outline-none"
-                      value={formData.observacoes}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          observacoes: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
+                  <input
+                    type="password"
+                    maxLength={4}
+                    placeholder="****"
+                    className="w-full sm:w-32 text-center text-3xl font-bold p-4 bg-white border-2 border-amber-200 rounded-2xl focus:border-amber-500 outline-none tracking-widest"
+                    value={formData.pin}
+                    onChange={(e) =>
+                      setFormData({ ...formData, pin: e.target.value })
+                    }
+                  />
                 </div>
-
-                {isDispositivo && (
-                  <div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl flex items-center gap-6">
-                    <Lock size={28} className="text-amber-700" />
-                    <input
-                      type="password"
-                      maxLength={4}
-                      placeholder="PIN"
-                      className="w-32 text-center text-2xl font-bold p-3 bg-white border-2 border-amber-200 rounded-xl focus:border-amber-500 outline-none"
-                      value={formData.pin}
-                      onChange={(e) =>
-                        setFormData({ ...formData, pin: e.target.value })
-                      }
-                    />
-                  </div>
-                )}
-              </div>
+              )}
 
               <div className="pt-8 text-center">
                 <button
                   onClick={handleFinish}
                   disabled={loading || isSupervisor}
-                  className="px-12 py-6 bg-[#4D7BAB] text-white rounded-2xl font-bold text-xl shadow-xl hover:bg-[#3a5d82] disabled:opacity-50 w-full md:w-auto"
+                  className="px-12 py-6 bg-[#4D7BAB] text-white rounded-3xl font-bold text-xl shadow-xl hover:bg-[#3a5d82] disabled:opacity-50 transition-all w-full md:w-auto"
                 >
-                  {loading ? "Processando..." : "Concluir Registro"}
+                  {loading ? "Gravando..." : "Confirmar e Salvar"}
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        {step > 1 && !(step === 2 && user?.cargo === "VENDEDOR") && (
-          <div className="px-10 py-6 bg-slate-50/50 border-t border-slate-100 flex justify-start">
-            <button
-              onClick={() => setStep(step - 1)}
-              className="flex items-center gap-2 text-slate-500 hover:text-[#4D7BAB] font-semibold"
-            >
-              <ChevronLeft size={22} /> Voltar
-            </button>
-          </div>
-        )}
+        {step > 1 &&
+          !(step === 2 && user?.cargo?.toUpperCase() === "VENDEDOR") && (
+            <div className="px-10 py-6 bg-slate-50/50 border-t border-slate-100">
+              <button
+                onClick={() => setStep(step - 1)}
+                className="flex items-center gap-2 text-slate-500 hover:text-[#4D7BAB] font-bold"
+              >
+                <ChevronLeft size={22} /> Voltar
+              </button>
+            </div>
+          )}
       </div>
     </div>
   );
