@@ -1,353 +1,285 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import api from "../../api/axios";
 import {
   User,
   CheckCircle2,
   XCircle,
   ChevronLeft,
   DollarSign,
-  MessageSquare,
   ClipboardCheck,
   Building,
+  Lock,
 } from "lucide-react";
+import { clsx } from "clsx";
 
-// Mock de dados (depois substituiremos pela API)
-const MOTIVOS = [
-  "Apenas pesquisando",
-  "Preço alto",
-  "Falta de estoque",
-  "Não gostou do modelo",
-  "Volta depois",
-  "Condição de pagamento",
-  "Atendimento rápido/Dúvida",
-];
+// Deletamos as fakes e deixamos apenas uma para o teste de ID
+const MOTIVOS_TESTE = [{ id: 1, nome: "Motivo de Teste (ID 1)" }];
 
-const VENDEDORES = [
-  { id: 1, nome: "Gabriel Davi" },
-  { id: 2, nome: "Caio Dias" },
-  { id: 3, nome: "Pedro Braga" },
-  { id: 4, nome: "Lucas Santos" },
-  { id: 5, nome: "Ana Silva" },
-  { id: 6, nome: "Bia Souza" },
+const VENDEDOR_TESTE = [
+  {
+    id: 4,
+    first_name: "Vendedor",
+    last_name: "Teste",
+    cargo: "Vendedor",
+  },
 ];
 
 const NewAttendance = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
   const [step, setStep] = useState(1);
+  const [vendedores, setVendedores] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const [formData, setFormData] = useState({
     vendedorId: null,
     vendedorNome: "",
     vendaFechada: null,
     valor: "",
-    motivo: "",
+    motivoId: null, // Agora guardamos o ID
     clienteNome: "",
     observacoes: "",
+    pin: "",
   });
 
-  const handleFinish = () => {
-    // Validação básica apenas para os campos obrigatórios
+  const isSupervisor = user?.cargo?.toUpperCase() === "SUPERVISOR";
+  const isDispositivo = user?.cargo?.toUpperCase() === "DISPOSITIVO";
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.cargo?.toUpperCase() === "VENDEDOR") {
+      setFormData((prev) => ({
+        ...prev,
+        vendedorId: user.id,
+        vendedorNome:
+          `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+          user.username,
+      }));
+      setStep(2);
+    } else {
+      setVendedores(VENDEDOR_TESTE);
+    }
+  }, [user]);
+
+  const handleFinish = async () => {
+    setError("");
+
     if (formData.vendaFechada && !formData.valor) {
-      alert("Por favor, informe o valor da venda.");
+      setError("Informe o valor da venda.");
       return;
     }
-    if (formData.vendaFechada === false && !formData.motivo) {
-      alert("Por favor, selecione o motivo do não fechamento.");
+    if (formData.vendaFechada === false && !formData.motivoId) {
+      setError("Selecione o motivo de teste.");
+      return;
+    }
+    if (isDispositivo && !formData.pin) {
+      setError("O PIN é obrigatório.");
       return;
     }
 
-    console.log("Enviando para API:", formData);
-    alert("Atendimento registrado com sucesso!");
-    navigate("/"); // Volta para o Dashboard
+    setLoading(true);
+
+    try {
+      const payload = {
+        vendedor: Number(formData.vendedorId),
+        venda_fechada: formData.vendaFechada,
+        valor_venda: formData.vendaFechada ? parseFloat(formData.valor) : 0,
+
+        // AQUI ESTÁ A MUDANÇA: Enviando o ID 1 fixo para o teste
+        metrica: !formData.vendaFechada ? 1 : null,
+
+        cliente_nome: formData.clienteNome || "Consumidor",
+        observacoes: formData.observacoes || "",
+        ...(isDispositivo && { pin: formData.pin }),
+      };
+
+      await api.post("/api/core/atendimentos/", payload);
+      alert("Sucesso! O banco aceitou a métrica ID 1.");
+
+      if (isDispositivo) {
+        setFormData({
+          vendedorId: null,
+          vendedorNome: "",
+          vendaFechada: null,
+          valor: "",
+          motivoId: null,
+          clienteNome: "",
+          observacoes: "",
+          pin: "",
+        });
+        setStep(1);
+        navigate("/registrarvenda", { replace: true });
+      } else {
+        navigate("/dashboard", { replace: true });
+      }
+    } catch (err) {
+      console.error("Erro no Django:", err.response?.data);
+      setError(
+        "Erro 400: Verifique se o ID 1 existe na tabela de Métricas do Admin.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Card Principal */}
-      <div className="bg-white rounded-3xl shadow-2xl shadow-blue-100/50 border border-blue-50 overflow-hidden">
-        {/* Header do Card */}
-        <div className="bg-primary/5 px-10 py-8 border-b border-blue-50 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-5">
-            <div className="p-4 bg-primary rounded-2xl text-white shadow-lg shadow-primary/20">
-              <ClipboardCheck size={32} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-                Registro de Atendimento
-              </h1>
-              <p className="text-base text-slate-500 mt-1">
-                Preencha os dados passo a passo para documentar a visita.
-              </p>
-            </div>
+    <div className="max-w-7xl mx-auto py-8 px-4 animate-in fade-in duration-500">
+      <div className="bg-white rounded-3xl shadow-2xl border border-blue-50 overflow-hidden">
+        {/* Header */}
+        <div className="bg-[#4D7BAB]/5 px-10 py-8 border-b border-blue-50 flex items-center gap-5">
+          <div className="p-4 bg-[#4D7BAB] rounded-2xl text-white shadow-lg">
+            <ClipboardCheck size={32} />
           </div>
-          {/* Indicador de Progresso Visual */}
-          <div className="flex items-center gap-2 bg-white border border-blue-100 px-4 py-2 rounded-full shadow-inner">
-            <span
-              className={`w-3 h-3 rounded-full ${step >= 1 ? "bg-primary" : "bg-slate-200"}`}
-            ></span>
-            <span
-              className={`w-3 h-3 rounded-full ${step >= 2 ? "bg-primary" : "bg-slate-200"}`}
-            ></span>
-            <span
-              className={`w-3 h-3 rounded-full ${step >= 3 ? "bg-primary" : "bg-slate-200"}`}
-            ></span>
-            <span className="text-sm font-semibold text-primary ml-2">
-              Passo {step} de 3
-            </span>
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">
+              Registro de Atendimento
+            </h1>
+            <p className="text-sm text-slate-500">Teste de Métrica ID 1</p>
           </div>
         </div>
 
-        {/* Área de Conteúdo */}
-        <div className="p-10 min-h-[400px] flex flex-col justify-center bg-white">
-          {/* PASSO 1: SELEÇÃO DE VENDEDOR */}
+        {error && (
+          <div className="mx-10 mt-6 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-center font-medium">
+            {error}
+          </div>
+        )}
+
+        <div className="p-10 min-h-[400px] flex flex-col justify-center">
+          {/* PASSO 1 */}
           {step === 1 && (
-            <div className="space-y-8 animate-in fade-in duration-300">
-              <div className="text-center max-w-2xl mx-auto">
-                <Building
-                  className="mx-auto text-primary/40 mb-4"
-                  size={48}
-                  strokeWidth={1}
-                />
-                <h3 className="text-2xl font-semibold text-slate-800">
-                  Quem está realizando o atendimento?
-                </h3>
-                <p className="text-slate-500 mt-2">
-                  Selecione o seu nome na lista abaixo para iniciar o registro.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {VENDEDORES.map((v) => (
-                  <button
-                    key={v.id}
-                    onClick={() => {
-                      setFormData({
-                        ...formData,
-                        vendedorId: v.id,
-                        vendedorNome: v.nome,
-                      });
-                      setStep(2);
-                    }}
-                    className="flex items-center gap-4 p-5 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary hover:bg-blue-50/50 hover:shadow-lg hover:shadow-blue-100/50 transition-all group text-left"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors flex-shrink-0">
-                      <User size={24} />
-                    </div>
-                    <span className="font-semibold text-slate-700 text-lg group-hover:text-primary-dark">
-                      {v.nome}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* PASSO 2: RESULTADO (SIM/NÃO) */}
-          {step === 2 && (
-            <div className="space-y-10 text-center animate-in slide-in-from-right duration-300">
-              <div className="max-w-2xl mx-auto">
-                <h3 className="text-3xl font-bold text-slate-800">
-                  Qual foi o desfecho da visita?
-                </h3>
-                <p className="text-lg text-slate-500 mt-3">
-                  O cliente concretizou a compra ou foi apenas uma consulta?
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            <div className="flex flex-col items-center gap-8">
+              <h3 className="text-2xl font-semibold text-slate-800">
+                Selecione o Vendedor
+              </h3>
+              {vendedores.map((v) => (
                 <button
+                  key={v.id}
                   onClick={() => {
-                    setFormData({ ...formData, vendaFechada: true });
-                    setStep(3);
+                    setFormData({
+                      ...formData,
+                      vendedorId: v.id,
+                      vendedorNome: v.first_name,
+                    });
+                    setStep(2);
                   }}
-                  className="group flex flex-col items-center gap-6 p-10 bg-emerald-50 border-2 border-emerald-100 rounded-3xl hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-100 transition-all text-center"
+                  className="flex items-center gap-4 p-6 bg-blue-50 border-2 border-[#4D7BAB] rounded-2xl w-full max-w-md"
                 >
-                  <CheckCircle2
-                    size={64}
-                    className="text-emerald-500"
-                    strokeWidth={1.5}
-                  />
-                  <div>
-                    <span className="text-2xl font-extrabold text-emerald-800 block">
-                      Sim, Venda Concretizada! 💎
-                    </span>
-                    <span className="text-emerald-600 mt-1 block">
-                      O cliente levou o produto.
-                    </span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setFormData({ ...formData, vendaFechada: false });
-                    setStep(3);
-                  }}
-                  className="group flex flex-col items-center gap-6 p-10 bg-rose-50 border-2 border-rose-100 rounded-3xl hover:border-rose-500 hover:shadow-xl hover:shadow-rose-100 transition-all text-center"
-                >
-                  <XCircle
-                    size={64}
-                    className="text-rose-500"
-                    strokeWidth={1.5}
-                  />
-                  <div>
-                    <span className="text-2xl font-extrabold text-rose-800 block">
-                      Não houve venda
-                    </span>
-                    <span className="text-rose-600 mt-1 block">
-                      Cliente pesquisou ou não gostou.
-                    </span>
-                  </div>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/*FINALIZAÇÃO (VALOR OU MOTIVO + CRM) */}
-          {step === 3 && (
-            <div className="animate-in slide-in-from-right duration-300 max-w-4xl mx-auto w-full space-y-8">
-              <div className="text-center mb-8">
-                <h3 className="text-3xl font-bold text-slate-800">
-                  Detalhes Finais
-                </h3>
-                <p className="text-lg text-slate-500 mt-2">
-                  Vendedor:{" "}
-                  <span className="font-semibold text-primary">
-                    {formData.vendedorNome}
+                  <User size={32} className="text-[#4D7BAB]" />
+                  <span className="font-bold text-xl">
+                    {v.first_name} (ID: {v.id})
                   </span>
-                </p>
-              </div>
+                </button>
+              ))}
+            </div>
+          )}
 
+          {/* PASSO 2 */}
+          {step === 2 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto w-full">
+              <button
+                onClick={() => {
+                  setFormData({ ...formData, vendaFechada: true });
+                  setStep(3);
+                }}
+                className="p-10 bg-emerald-50 border-2 border-emerald-100 rounded-3xl flex flex-col items-center gap-4"
+              >
+                <CheckCircle2 size={48} className="text-emerald-500" />
+                <span className="text-xl font-bold text-emerald-800">
+                  Venda Fechada
+                </span>
+              </button>
+              <button
+                onClick={() => {
+                  setFormData({ ...formData, vendaFechada: false });
+                  setStep(3);
+                }}
+                className="p-10 bg-rose-50 border-2 border-rose-100 rounded-3xl flex flex-col items-center gap-4"
+              >
+                <XCircle size={48} className="text-rose-500" />
+                <span className="text-xl font-bold text-rose-800">
+                  Não houve venda
+                </span>
+              </button>
+            </div>
+          )}
+
+          {/* PASSO 3 */}
+          {step === 3 && (
+            <div className="max-w-2xl mx-auto w-full space-y-8">
               {formData.vendaFechada ? (
-                /* RAMO: VENDA REALIZADA */
-                <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 shadow-inner space-y-6">
-                  <div className="flex items-center gap-4">
-                    <DollarSign className="text-emerald-500" size={32} />
-                    <label className="block text-xl font-semibold text-slate-700">
-                      Valor total da venda concretizada:
-                    </label>
-                  </div>
-                  <div className="relative">
-                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-4xl text-slate-400 font-bold">
-                      R$
-                    </span>
-                    <input
-                      type="number"
-                      placeholder="0,00"
-                      autoFocus
-                      className="w-full text-5xl font-extrabold p-8 pl-24 bg-white border-2 border-slate-200 rounded-3xl focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none text-primary tracking-tight shadow-sm"
-                      value={formData.valor}
-                      onChange={(e) =>
-                        setFormData({ ...formData, valor: e.target.value })
-                      }
-                    />
-                  </div>
+                <div className="space-y-4">
+                  <label className="text-xl font-bold text-slate-700">
+                    Valor da Venda:
+                  </label>
+                  <input
+                    type="number"
+                    autoFocus
+                    className="w-full text-4xl p-6 border-2 rounded-2xl outline-none focus:border-[#4D7BAB]"
+                    value={formData.valor}
+                    onChange={(e) =>
+                      setFormData({ ...formData, valor: e.target.value })
+                    }
+                  />
                 </div>
               ) : (
-                /* RAMO: VENDA NÃO REALIZADA */
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4 mb-2">
-                    <MessageSquare className="text-rose-500" size={32} />
-                    <label className="block text-xl font-semibold text-slate-700">
-                      Qual foi o motivo principal?
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    {MOTIVOS.map((m) => (
+                <div className="space-y-4">
+                  <label className="text-xl font-bold text-slate-700">
+                    Selecione o motivo de teste:
+                  </label>
+                  <div className="grid grid-cols-1 gap-3">
+                    {MOTIVOS_TESTE.map((m) => (
                       <button
-                        key={m}
-                        onClick={() => setFormData({ ...formData, motivo: m })}
-                        className={`p-5 text-left text-lg rounded-2xl border-2 transition-all shadow-sm ${formData.motivo === m ? "border-primary bg-blue-50 text-primary font-bold ring-2 ring-primary/20" : "border-slate-100 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"}`}
+                        key={m.id}
+                        onClick={() =>
+                          setFormData({ ...formData, motivoId: m.id })
+                        }
+                        className={`p-6 text-center rounded-2xl border-2 transition-all ${formData.motivoId === m.id ? "border-[#4D7BAB] bg-blue-50 text-[#4D7BAB] font-bold" : "border-slate-100 bg-white"}`}
                       >
-                        {m}
+                        {m.nome}
                       </button>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* DADOS ADICIONAIS DE CRM (Opcionais) */}
-              <div className="mt-10 pt-10 border-t border-slate-100 space-y-6">
-                <h4 className="text-xl font-semibold text-slate-800">
-                  Dados do Cliente{" "}
-                  <span className="text-sm font-normal text-slate-400 ml-2">
-                    (Opcional)
-                  </span>
-                </h4>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Nome do Cliente */}
-                  <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-slate-700 ml-1">
-                      Nome
-                    </label>
-                    <div className="relative group">
-                      <User
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"
-                        size={20}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Ex: Maria Antonieta"
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none transition-all text-slate-700 font-medium"
-                        value={formData.clienteNome}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            clienteNome: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Observações */}
-                  <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-slate-700 ml-1">
-                      Observações da Visita
-                    </label>
-                    <div className="relative group">
-                      <MessageSquare
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"
-                        size={20}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Ex: Mostrou interesse em alianças de ouro"
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none transition-all text-slate-700 font-medium"
-                        value={formData.observacoes}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            observacoes: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
+              {isDispositivo && (
+                <div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl flex items-center gap-6">
+                  <Lock size={32} className="text-amber-600" />
+                  <input
+                    type="password"
+                    maxLength={4}
+                    placeholder="PIN"
+                    className="w-24 text-center text-2xl p-3 border-2 rounded-xl focus:border-amber-500 outline-none"
+                    value={formData.pin}
+                    onChange={(e) =>
+                      setFormData({ ...formData, pin: e.target.value })
+                    }
+                  />
                 </div>
-              </div>
+              )}
 
-              {/* Botão Finalizar */}
-              <div className="pt-8 text-center">
-                <button
-                  onClick={handleFinish}
-                  className="px-12 py-6 bg-primary text-white rounded-2xl font-bold text-xl shadow-xl shadow-primary/30 hover:bg-primary-dark transition-all active:scale-[0.98] w-full md:w-auto"
-                >
-                  Concluir Registro do Atendimento
-                </button>
-              </div>
+              <button
+                onClick={handleFinish}
+                disabled={loading}
+                className="w-full py-6 bg-[#4D7BAB] text-white rounded-3xl font-bold text-xl shadow-lg"
+              >
+                {loading ? "Processando..." : "Confirmar Registro"}
+              </button>
             </div>
           )}
         </div>
 
-        {/* Rodapé de navegação */}
         {step > 1 && (
-          <div className="px-10 py-6 bg-slate-50/50 border-t border-slate-100 flex justify-start">
+          <div className="px-10 py-6 border-t border-slate-100">
             <button
               onClick={() => setStep(step - 1)}
-              className="flex items-center gap-2.5 text-slate-500 hover:text-primary font-semibold text-base transition-colors p-2 rounded-lg hover:bg-white"
+              className="flex items-center gap-2 text-slate-500 font-bold"
             >
-              <ChevronLeft size={22} />
-              Voltar e corrigir passo anterior
+              <ChevronLeft size={20} /> Voltar
             </button>
           </div>
         )}

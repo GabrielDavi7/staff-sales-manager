@@ -1,51 +1,41 @@
 // frontend/src/api/axios.js
-import axios from 'axios';
-
-const baseURL = 'http://localhost:8000/api';
+import axios from "axios";
 
 const api = axios.create({
-  baseURL,
-  withCredentials: true,
+  baseURL: "http://localhost:8000",
 });
 
 api.interceptors.request.use(
   (config) => {
-    // Token de autenticação (TokenAuthentication)
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem("auth_token");
     if (token) {
-      config.headers.Authorization = `Token ${token}`;  // Django TokenAuthentication usa "Token <chave>"
+      // Forçamos o header aqui para garantir
+      config.headers["Authorization"] = `Token ${token}`;
     }
-
-    // Token CSRF para SessionAuthentication (se necessário)
-    const csrfToken = getCookie('csrftoken');
-    if (csrfToken) {
-      config.headers['X-CSRFToken'] = csrfToken;
-    }
-
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 function getCookie(name) {
   let cookieValue = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
+  if (document.cookie && document.cookie !== "") {
+    const cookies = document.cookie.split(";");
     for (let i = 0; i < cookies.length; i++) {
       const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+      if (cookie.substring(0, name.length + 1) === name + "=") {
         cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
         break;
       }

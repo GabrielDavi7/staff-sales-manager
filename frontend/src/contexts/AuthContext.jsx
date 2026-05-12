@@ -1,6 +1,6 @@
 // frontend/src/contexts/AuthContext.jsx
-import { createContext, useState, useContext, useEffect } from 'react';
-import api from '../api/axios';
+import { createContext, useState, useContext, useEffect } from "react";
+import api from "../api/axios";
 
 const AuthContext = createContext();
 
@@ -9,8 +9,8 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('auth_token');
+    const storedUser = localStorage.getItem("user");
+    const token = localStorage.getItem("auth_token");
     if (storedUser && token) {
       setUser(JSON.parse(storedUser));
     }
@@ -19,18 +19,21 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const response = await api.post('/users/login/', { username, password });
+      const response = await api.post("/api/users/login/", {
+        username,
+        password,
+      });
       const { token, user } = response.data;
 
       // Armazenar token e dados do usuário
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem("auth_token", token);
+      localStorage.setItem("user", JSON.stringify(user));
       setUser(user);
 
-      return { success: true };
+      return { success: true, user };
     } catch (error) {
-      console.error('Erro no login:', error);
-      let errorMessage = 'Falha na autenticação.';
+      console.error("Erro no login:", error);
+      let errorMessage = "Falha na autenticação.";
       if (error.response?.data) {
         const data = error.response.data;
         if (data.detail) errorMessage = data.detail;
@@ -43,8 +46,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("user");
     setUser(null);
   };
 
