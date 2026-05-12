@@ -72,7 +72,7 @@ export function Home() {
       user?.cargo === "DISPOSITIVO" &&
       location.pathname !== "/dashboard/registrar"
     ) {
-      navigate("/dashboard/registrar", { replace: true });
+      navigate("/registrarvenda", { replace: true });
     }
   }, [user, navigate, location.pathname]);
 
