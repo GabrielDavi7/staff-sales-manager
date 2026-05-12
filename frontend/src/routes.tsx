@@ -6,6 +6,7 @@ import PrivateRoute from "./routes/PrivateRoute";
 import NewAttendance from "./pages/dashboard/NewAttendance";
 import Grafics from "./pages/dashboard/Grafics";
 import Team from "./pages/dashboard/Team";
+import AcessoNegado from "./pages/AcessoNegado";
 
 export const router = createBrowserRouter([
   {
@@ -21,22 +22,26 @@ export const router = createBrowserRouter([
     ),
     children: [
       {
-        index: true, // Isso carrega a Home quando acessar "/"
+        index: true,
         element: <Home />,
       },
       {
-        path: "registrarVenda", // A URL será: /registrarVenda
+        path: "registrarVenda",
         element: <NewAttendance />,
       },
       {
         path: "funcionarios",
-        element: <Team />, // Substitua por <Funcionarios /> quando a página de funcionários estiver pronta,
+        element: <Team />,
       },
       {
         path: "graficos",
         element: <Grafics />,
       },
     ],
+  },
+  {
+    path: "/acesso-negado",
+    element: <AcessoNegado />,
   },
   {
     path: "*",

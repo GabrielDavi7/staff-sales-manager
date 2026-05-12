@@ -1,21 +1,25 @@
-/* import { http, HttpResponse } from "msw";
+import { http, HttpResponse } from "msw";
 
 export const handlers = [
-  http.get("*/ ///api/users/", () => {
-/*   return HttpResponse.json([
+  // Mock da listagem de usuários/vendedores
+  http.get("*/api/users/", () => {
+    return HttpResponse.json([
       { id: 1, first_name: "Gabriel", last_name: "Davi" },
-      { id: 2, first_name: "Caio", last_name: "Dias" },
+      { id: 4, first_name: "Caio", last_name: "Dias" }, // Usei ID 4 para bater com seu teste anterior
     ]);
   }),
-  http.post("*/ //api/core/atendimentos/", () => {
-/*   return HttpResponse.json(
+
+  // Mock do envio de atendimento (Sucesso 201)
+  http.post("*/api/core/atendimentos/", () => {
+    return HttpResponse.json(
       { message: "Atendimento registrado" },
       { status: 201 },
     );
   }),
 
-//http.get("*/ //api/analytics/meu-desempenho/", () => {
-/*   return HttpResponse.json({
+  // Mock de Analytics - VENDEDOR (Meu Desempenho)
+  http.get("*/api/analytics/meu-desempenho/", () => {
+    return HttpResponse.json({
       kpis: {
         total_vendas_valor: 15000,
         vendas_concluidas_count: 12,
@@ -25,8 +29,8 @@ export const handlers = [
         {
           id: 1,
           data_hora: "2026-05-11T10:30:00Z",
-          vendedorfirst_name: "Gabriel",
-          metricanome: "Apenas pesquisando",
+          vendedor_first_name: "Gabriel",
+          metrica_nome: "Apenas pesquisando",
           venda_fechada: false,
           valor_venda: null,
         },
@@ -34,8 +38,9 @@ export const handlers = [
     });
   }),
 
-  http.get("*/ //api/analytics/loja/", () => {
-/*   return HttpResponse.json({
+  // Mock de Analytics - SUPERVISOR (Loja)
+  http.get("*/api/analytics/loja/", () => {
+    return HttpResponse.json({
       kpis: {
         total_vendas_valor: 45000,
         vendas_concluidas_count: 35,
@@ -46,8 +51,9 @@ export const handlers = [
     });
   }),
 
-  http.get("*/ //api/analytics/geral/", () => {
-/*   return HttpResponse.json({
+  // Mock de Analytics - ADMIN (Geral)
+  http.get("*/api/analytics/geral/", () => {
+    return HttpResponse.json({
       kpis: {
         total_vendas_valor: 120000,
         vendas_concluidas_count: 90,
@@ -58,4 +64,3 @@ export const handlers = [
     });
   }),
 ];
-*/
