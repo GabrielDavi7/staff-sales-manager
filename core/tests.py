@@ -320,3 +320,79 @@ class RelatorioViewSetTests(APITestCase):
         self.client.force_authenticate(user=self.dispositivo)
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class MetricaViewSetTests(APITestCase):
+    
+    def setUp(self):
+        self.loja1 = Loja.objects.create(nome="Loja Um")
+        self.loja2 = Loja.objects.create(nome="Loja Dois")
+        
+        self.metrica_global = Metrica.objects.create(nome="Motivo Global", descricao="Global")
+        self.metrica_loja1 = Metrica.objects.create(nome="Motivo Loja 1", loja=self.loja1)
+        self.metrica_loja2 = Metrica.objects.create(nome="Motivo Loja 2", loja=self.loja2)
+        
+        self.vendedor_loja1 = CustomUser.objects.create_user(
+            username='vend1', email='v1@ex.com', password='pass', cargo='VENDEDOR', loja=self.loja1
+        )
+        self.vendedor_loja2 = CustomUser.objects.create_user(
+            username='vend2', email='v2@ex.com', password='pass', cargo='VENDEDOR', loja=self.loja2
+        )
+        self.admin = CustomUser.objects.create_user(
+            username='admin', email='ad@ex.com', password='pass', cargo='ADMIN'
+        )
+        
+        self.list_url = reverse('metrica-list')
+        self.client = APIClient()
+
+    def test_acesso_nao_autenticado(self):
+        """Garante que requisições anônimas sejam bloqueadas (401)"""
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_listagem_vendedor_loja1(self):
+        """Vendedor da loja 1 deve ver métricas globais e da sua loja, mas não da loja 2"""
+        self.client.force_authenticate(user=self.vendedor_loja1)
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Previne erros caso a paginação esteja ligada ou desligada
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        self.assertEqual(len(results), 2)
+        
+        nomes = [m['nome'] for m in results]
+        self.assertIn("Motivo Global", nomes)
+        self.assertIn("Motivo Loja 1", nomes)
+        self.assertNotIn("Motivo Loja 2", nomes)
+
+    def test_listagem_vendedor_loja2(self):
+        """Vendedor da loja 2 deve ver métricas globais e da sua loja, mas não da loja 1"""
+        self.client.force_authenticate(user=self.vendedor_loja2)
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        self.assertEqual(len(results), 2)
+        
+        nomes = [m['nome'] for m in results]
+        self.assertIn("Motivo Global", nomes)
+        self.assertIn("Motivo Loja 2", nomes)
+        self.assertNotIn("Motivo Loja 1", nomes)
+        
+    def test_listagem_usuario_sem_loja(self):
+        """Usuário sem loja vinculada (ex: Admin geral) vê apenas métricas globais"""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['nome'], "Motivo Global")
+
+    def test_metodos_escrita_bloqueados(self):
+        """A view é ReadOnly, então POST, PUT, DELETE devem retornar 405 Method Not Allowed"""
+        self.client.force_authenticate(user=self.admin)
+        
+        # Teste POST
+        response_post = self.client.post(self.list_url, {"nome": "Nova Metrica"})
+        self.assertEqual(response_post.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)

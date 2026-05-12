@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .permissions import IsAdmin, IsSupervisorOrAdmin, IsVendedor, IsDispositivo
+from core.models import Loja
 
 User = get_user_model()
 
@@ -127,3 +128,75 @@ class PermissionsTests(APITestCase):
         self._test_permission(DummyDispositivoView, self.admin, status.HTTP_403_FORBIDDEN)
         self._test_permission(DummyDispositivoView, self.supervisor, status.HTTP_403_FORBIDDEN)
         self._test_permission(DummyDispositivoView, self.vendedor, status.HTTP_403_FORBIDDEN)
+
+
+class VendedorListViewTests(APITestCase):
+    """Testes para o endpoint de listagem de vendedores (/api/users/vendedores/)"""
+    
+    def setUp(self):
+        self.loja1 = Loja.objects.create(nome="Loja 1")
+        self.loja2 = Loja.objects.create(nome="Loja 2")
+        
+        self.admin = User.objects.create_user(
+            username='admin_list', email='adminlist@ex.com', password='pass', cargo='ADMIN'
+        )
+        self.dispositivo_loja1 = User.objects.create_user(
+            username='disp_list1', email='displist1@ex.com', password='pass', cargo='DISPOSITIVO', loja=self.loja1
+        )
+        self.dispositivo_sem_loja = User.objects.create_user(
+            username='disp_sem_loja', email='dispsemloja@ex.com', password='pass', cargo='DISPOSITIVO'
+        )
+        
+        # Vendedores Loja 1
+        self.vendedor_ativo_l1 = User.objects.create_user(
+            username='vend_ativo1', email='va1@ex.com', password='pass', cargo='VENDEDOR', loja=self.loja1, first_name='Ativo', is_active=True
+        )
+        self.vendedor_inativo_l1 = User.objects.create_user(
+            username='vend_inativo1', email='vi1@ex.com', password='pass', cargo='VENDEDOR', loja=self.loja1, first_name='Inativo', is_active=False
+        )
+        
+        # Vendedores Loja 2
+        self.vendedor_ativo_l2 = User.objects.create_user(
+            username='vend_ativo2', email='va2@ex.com', password='pass', cargo='VENDEDOR', loja=self.loja2, first_name='Ativo2', is_active=True
+        )
+        
+        self.url = reverse('vendedor-list')
+        self.client = APIClient()
+
+    def test_acesso_nao_autenticado(self):
+        """Deve retornar 401 para usuários não autenticados"""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_dispositivo_loja1_ve_apenas_ativos_da_loja1(self):
+        """Dispositivo da Loja 1 deve ver apenas vendedores ativos da sua própria loja"""
+        self.client.force_authenticate(user=self.dispositivo_loja1)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['id'], self.vendedor_ativo_l1.id)
+
+    def test_admin_ve_todos_ativos(self):
+        """Admin sem loja deve conseguir ver todos os vendedores ativos do sistema"""
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        self.assertEqual(len(results), 2)
+        
+        ids = [v['id'] for v in results]
+        self.assertIn(self.vendedor_ativo_l1.id, ids)
+        self.assertIn(self.vendedor_ativo_l2.id, ids)
+        self.assertNotIn(self.vendedor_inativo_l1.id, ids)
+
+    def test_dispositivo_sem_loja_retorna_vazio(self):
+        """Se um usuário não-admin estiver sem loja vinculada, não deve ver nenhum vendedor"""
+        self.client.force_authenticate(user=self.dispositivo_sem_loja)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        self.assertEqual(len(results), 0)
