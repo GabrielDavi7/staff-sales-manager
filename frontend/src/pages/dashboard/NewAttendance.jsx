@@ -54,27 +54,32 @@ const NewAttendance = () => {
 
   // Configuração inicial baseada no cargo
   useEffect(() => {
+    // Se o usuário ainda não carregou, não faz nada
     if (!user) return;
 
+    // Lógica para VENDEDOR
     if (user.cargo === "VENDEDOR") {
       setFormData((prev) => ({
         ...prev,
         vendedorId: user.id,
         vendedorNome: user.nome,
       }));
-      setStep(2); // Pula a seleção de vendedor
-    } else if (
-      user.cargo === "DISPOSITIVO" ||
-      user.cargo === "ADMIN" ||
-      user.cargo === "SUPERVISOR"
-    ) {
-      // Busca a lista real de vendedores
-      api
-        .get("/api/users/")
-        .then((res) => setVendedores(res.data))
-        .catch(() => setVendedores(MOCK_VENDEDORES)); // Fallback
+      setStep(2); // Pula direto para Venda Concretizada/Não
     }
-  }, [user]);
+    // Lógica para outros cargos que precisam da lista
+    else {
+      const carregarVendedores = async () => {
+        try {
+          const res = await api.get("/api/users/");
+          setVendedores(res.data);
+        } catch (err) {
+          console.error("Erro ao carregar vendedores, usando mock...");
+          setVendedores(MOCK_VENDEDORES);
+        }
+      };
+      carregarVendedores();
+    }
+  }, [user]); // Remova o 'api' da dependência para evitar loops
 
   const handleFinish = async () => {
     setError("");
@@ -97,21 +102,24 @@ const NewAttendance = () => {
 
     try {
       // Monta o payload conforme esperado pelo backend
+      // No seu handleFinish, tente mudar o payload para garantir que nada vá nulo:
       const payload = {
         vendedor_id: formData.vendedorId,
         venda_fechada: formData.vendaFechada,
-        valor_venda: formData.vendaFechada ? parseFloat(formData.valor) : null,
-        metricanome: !formData.vendaFechada ? formData.motivo : "",
-        cliente_nome: formData.clienteNome,
-        observacoes: formData.observacoes,
-        ...(user?.cargo === "DISPOSITIVO" && { pin: formData.pin }),
+        valor_venda: formData.vendaFechada ? parseFloat(formData.valor) : 0, // Mande 0
+        metricanome: formData.vendaFechada
+          ? "Venda Concretizada"
+          : formData.motivo || "Não informado",
+        cliente_nome: formData.clienteNome || "Nao identificado",
+        observacoes: formData.observacoes || "",
       };
 
       await api.post("/api/core/atendimentos/", payload);
 
       alert("Atendimento registrado com sucesso!");
-      navigate(user?.cargo === "DISPOSITIVO" ? "/registrar" : "/dashboard");
-
+      navigate(user?.cargo === "DISPOSITIVO" ? "/registrar" : "/dashboard", {
+        replace: true,
+      });
       // Reseta o form para o dispositivo
       if (user?.cargo === "DISPOSITIVO") {
         setFormData({

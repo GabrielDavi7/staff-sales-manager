@@ -1,27 +1,17 @@
 // frontend/src/api/axios.js
 import axios from "axios";
 
-const baseURL = "http://localhost:8000/api";
-
 const api = axios.create({
-  // Puxa a URL base do  .env
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: "http://localhost:8000",
 });
 
 api.interceptors.request.use(
   (config) => {
-    // Token de autenticação (TokenAuthentication)
     const token = localStorage.getItem("auth_token");
     if (token) {
-      config.headers.Authorization = `Token ${token}`; // Django TokenAuthentication usa "Token <chave>"
+      // Forçamos o header aqui para garantir
+      config.headers["Authorization"] = `Token ${token}`;
     }
-
-    // Token CSRF para SessionAuthentication (se necessário)
-    const csrfToken = getCookie("csrftoken");
-    if (csrfToken) {
-      config.headers["X-CSRFToken"] = csrfToken;
-    }
-
     return config;
   },
   (error) => Promise.reject(error),
