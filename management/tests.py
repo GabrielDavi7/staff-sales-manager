@@ -123,6 +123,7 @@ class AdminUserCrudTests(APITestCase):
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
 		self.assertIn('results', response.data)
 		self.assertTrue(any('is_active' in item for item in response.data['results']))
+		self.assertTrue(any('pin' in item for item in response.data['results']))
 
 	def test_admin_can_update_is_active_and_pin(self):
 		client = self._auth_client(self.admin_token)
