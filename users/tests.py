@@ -60,6 +60,8 @@ class UserMeViewTests(APITestCase):
         self.assertEqual(response.data['first_name'], 'João')
         self.assertEqual(response.data['last_name'], 'Silva')
         self.assertEqual(response.data['cargo'], 'VENDEDOR')
+        self.assertNotIn('pin', response.data)
+        self.assertNotIn('password', response.data)
 
     def test_me_sem_token(self):
         response = self.client.get(self.url)
