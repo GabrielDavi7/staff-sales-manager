@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-// CORREÇÃO: useLocation adicionado corretamente no import
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import api from "../../api/axios";
@@ -11,9 +10,6 @@ import {
   PieChart as PieChartIcon,
   BarChart3,
   AlertCircle,
-  Clock,
-  User,
-  DollarSign,
   Eye,
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -66,25 +62,39 @@ export function Home() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
 
+  // ==========================================
+  // 🚧 WORKAROUND: Mapeamento temporário por ID
+  // Remover quando o backend retornar user.cargo
+  // ==========================================
+  const getCargoTemporario = (id) => {
+    if (!id) return null;
+    if (id === 1) return "ADMIN";
+    if (id === 2) return "SUPERVISOR";
+    if (id === 3) return "DISPOSITIVO";
+    return "VENDEDOR";
+  };
+
+  const cargoAtivo = user?.cargo || getCargoTemporario(user?.id);
+
   // 1. PRIMEIRA TRAVA: Redirecionamento de Dispositivo
+  // CORREÇÃO: Apontando para a rota correta /registrarvenda
   useEffect(() => {
     if (
-      user?.cargo === "DISPOSITIVO" &&
-      location.pathname !== "/dashboard/registrar"
+      cargoAtivo === "DISPOSITIVO" &&
+      location.pathname.toLowerCase() !== "/registrarvenda"
     ) {
       navigate("/registrarvenda", { replace: true });
     }
-  }, [user, navigate, location.pathname]);
+  }, [cargoAtivo, navigate, location.pathname]);
 
   // 2. SEGUNDA TRAVA (CRÍTICA): Não renderiza NADA se for dispositivo
-  // Isso mata o "piscado" porque o React para aqui antes de montar o resto
-  if (user?.cargo === "DISPOSITIVO") {
+  if (cargoAtivo === "DISPOSITIVO") {
     return null;
   }
 
   // 3. BUSCA DE DADOS (Só executa para Vendedor, Supervisor e Admin)
   useEffect(() => {
-    if (!user || user.cargo === "DISPOSITIVO") return;
+    if (!user || cargoAtivo === "DISPOSITIVO") return;
 
     const fetchAnalytics = async () => {
       try {
@@ -92,11 +102,11 @@ export function Home() {
         setError(null);
 
         let endpoint = "";
-        const cargo = user.cargo;
 
-        if (cargo === "VENDEDOR") endpoint = "/api/analytics/meu-desempenho/";
-        else if (cargo === "SUPERVISOR") endpoint = "/api/analytics/loja/";
-        else if (cargo === "ADMIN") endpoint = "/api/analytics/geral/";
+        if (cargoAtivo === "VENDEDOR")
+          endpoint = "/api/analytics/meu-desempenho/";
+        else if (cargoAtivo === "SUPERVISOR") endpoint = "/api/analytics/loja/";
+        else if (cargoAtivo === "ADMIN") endpoint = "/api/analytics/geral/";
 
         const response = await api.get(endpoint);
         setData(response.data);
@@ -108,7 +118,7 @@ export function Home() {
     };
 
     fetchAnalytics();
-  }, [user]);
+  }, [user, cargoAtivo]);
 
   // --- LÓGICA DE DADOS ---
   const kpis = data?.kpis || {};
@@ -172,14 +182,13 @@ export function Home() {
             </h1>
             <p className="text-sm text-slate-500">
               Acesso:{" "}
-              <strong className="text-[#4D7BAB] uppercase">
-                {user?.cargo}
-              </strong>
+              <strong className="text-[#4D7BAB] uppercase">{cargoAtivo}</strong>
             </p>
           </div>
         </div>
+        {/* CORREÇÃO: Apontando para a rota correta /registrarvenda */}
         <Link
-          to="/dashboard/registrar"
+          to="/registrarvenda"
           className="bg-[#4D7BAB] text-white hover:bg-[#3a5d82] px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-all"
         >
           <Plus size={20} /> Novo Atendimento
