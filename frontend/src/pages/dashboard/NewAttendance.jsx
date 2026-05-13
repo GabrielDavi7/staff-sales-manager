@@ -12,14 +12,13 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 
-const MOTIVOS_TESTE = [{ id: 1, nome: "Motivo de Teste (ID 1)" }];
-
 const NewAttendance = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
   const [step, setStep] = useState(1);
   const [vendedores, setVendedores] = useState([]);
+  const [motivos, setMotivos] = useState([]); // <-- AQUI: Estado para guardar os motivos reais
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({
@@ -39,7 +38,21 @@ const NewAttendance = () => {
   useEffect(() => {
     if (!user) return;
 
+    // 1. Busca as métricas (motivos) reais do Django para qualquer usuário
+    const fetchMotivos = async () => {
+      try {
+        const response = await api.get("/api/core/metricas/");
+        const listaMotivos = response.data.results || response.data;
+        setMotivos(listaMotivos);
+      } catch (err) {
+        console.error("Erro ao buscar motivos:", err);
+      }
+    };
+    fetchMotivos();
+
+    // 2. Lógica dos Vendedores
     if (user.cargo?.toUpperCase() === "VENDEDOR") {
+      // Vendedor pula direto pro passo 2
       setFormData((prev) => ({
         ...prev,
         vendedorId: user.id,
@@ -69,6 +82,9 @@ const NewAttendance = () => {
     }
   }, [user]);
 
+  // ==========================================
+  // 4. ENVIO DOS DADOS
+  // ==========================================
   const handleFinish = async () => {
     setError("");
 
@@ -77,7 +93,7 @@ const NewAttendance = () => {
       return;
     }
     if (formData.vendaFechada === false && !formData.motivoId) {
-      setError("Selecione o motivo de teste.");
+      setError("Selecione o motivo da perda."); // Mudei a mensagem de erro
       return;
     }
     if (isDispositivo && !formData.pin) {
@@ -92,7 +108,10 @@ const NewAttendance = () => {
         vendedor: Number(formData.vendedorId),
         venda_fechada: formData.vendaFechada,
         valor_venda: formData.vendaFechada ? parseFloat(formData.valor) : 0,
-        metrica: !formData.vendaFechada ? 1 : null,
+
+        // AQUI: Pegando o ID real que o usuário clicou em vez de 1
+        metrica: !formData.vendaFechada ? Number(formData.motivoId) : null,
+
         cliente_nome: formData.clienteNome || "Consumidor",
         observacoes: formData.observacoes || "",
         ...(isDispositivo && { pin: formData.pin }),
@@ -235,7 +254,13 @@ const NewAttendance = () => {
                     Selecione o motivo:
                   </label>
                   <div className="grid grid-cols-1 gap-3">
-                    {MOTIVOS_TESTE.map((m) => (
+                    {/* AQUI: Mapeando os motivos reais do banco */}
+                    {motivos.length === 0 && (
+                      <p className="text-slate-500 text-center">
+                        Carregando motivos...
+                      </p>
+                    )}
+                    {motivos.map((m) => (
                       <button
                         key={m.id}
                         onClick={() =>
@@ -270,7 +295,6 @@ const NewAttendance = () => {
                 </div>
               )}
 
-              {/* MUDANÇA: Botão de confirmação agora bloqueia se for Supervisor */}
               <button
                 onClick={handleFinish}
                 disabled={loading || isSupervisor}

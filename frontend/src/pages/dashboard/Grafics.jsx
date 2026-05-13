@@ -10,6 +10,7 @@ import {
   Filter,
   MessageSquareX,
   AlertCircle,
+  Building2,
 } from "lucide-react";
 import {
   BarChart,
@@ -32,10 +33,17 @@ export function Grafics() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Estados de Filtro
   const [periodo, setPeriodo] = useState("Hoje");
+  const [lojaSelecionada, setLojaSelecionada] = useState(""); // Vazio = Todas as lojas
+  const [lojasDisponiveis, setLojasDisponiveis] = useState([]);
+
+  // Estados de Dados
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const isAdmin = user?.cargo?.toUpperCase() === "ADMIN";
 
   // 1. TRAVA DE SEGURANÇA: Dispositivo não acessa gráficos
   useEffect(() => {
@@ -47,9 +55,25 @@ export function Grafics() {
     }
   }, [user?.cargo, navigate, location.pathname]);
 
-  if (user?.cargo === "DISPOSITIVO") return null;
+  // 2. BUSCA A LISTA DE LOJAS (Somente para ADMIN)
+  useEffect(() => {
+    if (!isAdmin) return;
 
-  // 2. BUSCA DE DADOS NA API
+    const fetchLojas = async () => {
+      try {
+        // ATENÇÃO: Confirme se essa é a rota real do seu backend para listar as lojas
+        const response = await api.get("/api/core/lojas/");
+        const listaLojas = response.data.results || response.data;
+        setLojasDisponiveis(listaLojas);
+      } catch (err) {
+        console.error("Erro ao buscar lojas:", err);
+      }
+    };
+
+    fetchLojas();
+  }, [isAdmin]);
+
+  // 3. BUSCA DE DADOS NA API DE ANALYTICS
   useEffect(() => {
     if (!user || user?.cargo === "DISPOSITIVO") return;
 
@@ -59,11 +83,18 @@ export function Grafics() {
         setError(null);
 
         let endpoint = "";
-        if (user?.cargo === "VENDEDOR")
+
+        if (user?.cargo === "VENDEDOR") {
           endpoint = "/api/analytics/meu-desempenho/";
-        else if (user?.cargo === "SUPERVISOR")
+        } else if (user?.cargo === "SUPERVISOR") {
           endpoint = "/api/analytics/loja/";
-        else if (user?.cargo === "ADMIN") endpoint = "/api/analytics/geral/";
+        } else if (isAdmin) {
+          endpoint = "/api/analytics/geral/";
+          // Se o admin escolheu uma loja, adiciona o parâmetro na URL
+          if (lojaSelecionada) {
+            endpoint += `?loja_id=${lojaSelecionada}`; // Ajuste para o nome do parâmetro que seu backend espera (ex: ?loja= ou ?loja_id=)
+          }
+        }
 
         const response = await api.get(endpoint);
         setData(response.data);
@@ -76,16 +107,16 @@ export function Grafics() {
     };
 
     fetchAnalytics();
-  }, [user, user?.cargo, periodo]); // "periodo" está no array pra quando o backend suportar o filtro de datas
+  }, [user, user?.cargo, periodo, lojaSelecionada, isAdmin]);
 
-  // --- PROCESSAMENTO DE DADOS (Transformando o JSON do Backend) ---
+  if (user?.cargo === "DISPOSITIVO") return null;
+
+  // --- PROCESSAMENTO DE DADOS ---
 
   const totalFaturamento = data?.kpis?.total_vendas_valor || 0;
 
-  // 1. Processando Horários (Junta a quantidade de vendas com a soma em R$ da tabela)
   const processadoHorario = (data?.grafico_vendas || []).map((gv) => {
-    const horaGrafico = gv.hora.substring(0, 2); // Pega "21" de "21:00"
-
+    const horaGrafico = gv.hora.substring(0, 2);
     const rendaSomada = (data?.tabela || [])
       .filter((t) => {
         if (!t.venda_fechada) return false;
@@ -100,11 +131,10 @@ export function Grafics() {
     return {
       hora: gv.hora,
       atendimentos: gv.vendas,
-      renda: rendaSomada, // Dinheiro real calculado localmente!
+      renda: rendaSomada,
     };
   });
 
-  // 2. Processando Pizza de Conversão
   const processadoConversao = [
     {
       name: "Vendas Fechadas",
@@ -118,7 +148,6 @@ export function Grafics() {
     },
   ];
 
-  // 3. Processando Pizza de Motivos de Perda
   const mapMotivos = {};
   (data?.tabela || []).forEach((t) => {
     if (!t.venda_fechada) {
@@ -174,7 +203,28 @@ export function Grafics() {
         </div>
 
         {/* Filtros */}
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
+          {/* FILTRO DE LOJAS - EXCLUSIVO PARA ADMIN */}
+          {isAdmin && (
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <Building2 size={16} />
+              </div>
+              <select
+                value={lojaSelecionada}
+                onChange={(e) => setLojaSelecionada(e.target.value)}
+                className="pl-9 pr-4 py-2 rounded-xl text-sm font-bold bg-white border-2 border-slate-100 text-slate-600 focus:outline-none focus:border-[#4D7BAB] transition-all cursor-pointer shadow-sm appearance-none min-w-[160px]"
+              >
+                <option value="">Todas as Lojas</option>
+                {lojasDisponiveis.map((loja) => (
+                  <option key={loja.id} value={loja.id}>
+                    {loja.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl p-1">
             {["Hoje", "7 Dias", "30 Dias"].map((p) => (
               <button
