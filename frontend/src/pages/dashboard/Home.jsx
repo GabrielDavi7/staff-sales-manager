@@ -62,39 +62,21 @@ export function Home() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
 
-  // ==========================================
-  // 🚧 WORKAROUND: Mapeamento temporário por ID
-  // Remover quando o backend retornar user.cargo
-  // ==========================================
-  const getCargoTemporario = (id) => {
-    if (!id) return null;
-    if (id === 1) return "ADMIN";
-    if (id === 2) return "SUPERVISOR";
-    if (id === 3) return "DISPOSITIVO";
-    return "VENDEDOR";
-  };
-
-  const cargoAtivo = user?.cargo || getCargoTemporario(user?.id);
-
-  // 1. PRIMEIRA TRAVA: Redirecionamento de Dispositivo
-  // CORREÇÃO: Apontando para a rota correta /registrarvenda
   useEffect(() => {
     if (
-      cargoAtivo === "DISPOSITIVO" &&
+      user?.cargo === "DISPOSITIVO" &&
       location.pathname.toLowerCase() !== "/registrarvenda"
     ) {
       navigate("/registrarvenda", { replace: true });
     }
-  }, [cargoAtivo, navigate, location.pathname]);
+  }, [user?.cargo, navigate, location.pathname]);
 
-  // 2. SEGUNDA TRAVA (CRÍTICA): Não renderiza NADA se for dispositivo
-  if (cargoAtivo === "DISPOSITIVO") {
+  if (user?.cargo === "DISPOSITIVO") {
     return null;
   }
 
-  // 3. BUSCA DE DADOS (Só executa para Vendedor, Supervisor e Admin)
   useEffect(() => {
-    if (!user || cargoAtivo === "DISPOSITIVO") return;
+    if (!user || user?.cargo === "DISPOSITIVO") return;
 
     const fetchAnalytics = async () => {
       try {
@@ -103,10 +85,11 @@ export function Home() {
 
         let endpoint = "";
 
-        if (cargoAtivo === "VENDEDOR")
+        if (user?.cargo === "VENDEDOR")
           endpoint = "/api/analytics/meu-desempenho/";
-        else if (cargoAtivo === "SUPERVISOR") endpoint = "/api/analytics/loja/";
-        else if (cargoAtivo === "ADMIN") endpoint = "/api/analytics/geral/";
+        else if (user?.cargo === "SUPERVISOR")
+          endpoint = "/api/analytics/loja/";
+        else if (user?.cargo === "ADMIN") endpoint = "/api/analytics/geral/";
 
         const response = await api.get(endpoint);
         setData(response.data);
@@ -118,7 +101,7 @@ export function Home() {
     };
 
     fetchAnalytics();
-  }, [user, cargoAtivo]);
+  }, [user, user?.cargo]);
 
   // --- LÓGICA DE DADOS ---
   const kpis = data?.kpis || {};
@@ -182,7 +165,9 @@ export function Home() {
             </h1>
             <p className="text-sm text-slate-500">
               Acesso:{" "}
-              <strong className="text-[#4D7BAB] uppercase">{cargoAtivo}</strong>
+              <strong className="text-[#4D7BAB] uppercase">
+                {user?.cargo}
+              </strong>
             </p>
           </div>
         </div>
