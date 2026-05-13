@@ -4,9 +4,15 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
-from .models import Relatorio, Metrica
+from .models import Relatorio, Metrica, Loja
 from .serializers import RelatorioSerializer, MetricaSerializer
 from users.models import CustomUser
+from users.serializers import LojaSerializer
+
+class LojaViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Loja.objects.all().order_by('nome')
+    serializer_class = LojaSerializer
+    permission_classes = [IsAuthenticated]
 
 class MetricaViewSet(viewsets.ReadOnlyModelViewSet):
     """
