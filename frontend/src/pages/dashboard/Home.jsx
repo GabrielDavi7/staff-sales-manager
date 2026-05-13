@@ -46,7 +46,8 @@ const getStatusColors = (status) => {
   if (
     lower.includes("não") ||
     lower.includes("alto") ||
-    lower.includes("falta")
+    lower.includes("falta") ||
+    lower.includes("caro")
   )
     return "bg-rose-50 text-rose-700 border-rose-200";
   return "bg-blue-50 text-blue-700 border-blue-200";
@@ -62,6 +63,7 @@ export function Home() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
 
+  // 1. PRIMEIRA TRAVA: Redirecionamento de Dispositivo
   useEffect(() => {
     if (
       user?.cargo === "DISPOSITIVO" &&
@@ -71,10 +73,12 @@ export function Home() {
     }
   }, [user?.cargo, navigate, location.pathname]);
 
+  // 2. SEGUNDA TRAVA (CRÍTICA): Não renderiza NADA se for dispositivo
   if (user?.cargo === "DISPOSITIVO") {
     return null;
   }
 
+  // 3. BUSCA DE DADOS
   useEffect(() => {
     if (!user || user?.cargo === "DISPOSITIVO") return;
 
@@ -103,36 +107,33 @@ export function Home() {
     fetchAnalytics();
   }, [user, user?.cargo]);
 
-  // --- LÓGICA DE DADOS ---
+  // --- LÓGICA DE DADOS (Baseado no JSON real do Django) ---
   const kpis = data?.kpis || {};
   const totalValor = kpis.total_vendas_valor || 0;
   const vendasConcluidas = kpis.vendas_concluidas_count || 0;
   const vendasPerdidas = kpis.vendas_nao_concluidas_count || 0;
   const totalAtendimentos = vendasConcluidas + vendasPerdidas;
-  const conversionRate =
-    totalAtendimentos > 0
-      ? Math.round((vendasConcluidas / totalAtendimentos) * 100)
-      : 0;
+
+  // Pegando a conversão direto do JSON
+  const conversionRate = data?.taxa_conversao
+    ? Math.round(data.taxa_conversao)
+    : 0;
 
   const dataConversao = [
     { name: "Fechadas", value: vendasConcluidas, color: "#10b981" },
     { name: "Perdidas", value: vendasPerdidas, color: "#f43f5e" },
   ];
 
-  const dataHorario = data?.grafico_vendas || [
-    { hora: "09:00", qtd: 0, renda: 0 },
-    { hora: "12:00", qtd: 0, renda: 0 },
-    { hora: "15:00", qtd: 0, renda: 0 },
-    { hora: "18:00", qtd: 0, renda: 0 },
-  ];
+  const dataHorario = data?.grafico_vendas || [];
 
   const tabelaFiltrada = (data?.tabela || []).filter((item) => {
+    // Usando os nomes exatos do JSON (com __ )
     const nomeVendedor =
-      `${item.vendedorfirst_name || ""} ${item.vendedorlast_name || ""}`.toLowerCase();
+      `${item.vendedor__first_name || ""} ${item.vendedor__last_name || ""}`.toLowerCase();
     const busca = search.toLowerCase();
     return (
       nomeVendedor.includes(busca) ||
-      (item.metricanome || "").toLowerCase().includes(busca)
+      (item.metrica__nome || "").toLowerCase().includes(busca)
     );
   });
 
@@ -171,7 +172,6 @@ export function Home() {
             </p>
           </div>
         </div>
-        {/* CORREÇÃO: Apontando para a rota correta /registrarvenda */}
         <Link
           to="/registrarvenda"
           className="bg-[#4D7BAB] text-white hover:bg-[#3a5d82] px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-all"
@@ -220,7 +220,8 @@ export function Home() {
                   style={{ fontSize: "12px" }}
                 />
                 <Tooltip cursor={{ fill: "#f8fafc" }} />
-                <Bar dataKey="qtd" fill="#4D7BAB" radius={[4, 4, 0, 0]} />
+                {/* MUDANÇA: de "qtd" para "vendas" */}
+                <Bar dataKey="vendas" fill="#4D7BAB" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -251,9 +252,10 @@ export function Home() {
                   style={{ fontSize: "12px" }}
                 />
                 <Tooltip />
+                {/* MUDANÇA: usando "vendas" provisoriamente, já que não veio "renda" no JSON */}
                 <Line
                   type="monotone"
-                  dataKey="renda"
+                  dataKey="vendas"
                   stroke="#10b981"
                   strokeWidth={3}
                   dot={{ r: 4, fill: "#10b981" }}
@@ -345,10 +347,11 @@ export function Home() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-[#4D7BAB]/10 text-[#4D7BAB] flex items-center justify-center text-xs font-bold">
-                          {row.vendedorfirst_name?.[0]}
+                          {/* Nome exato com __ */}
+                          {row.vendedor__first_name?.[0]}
                         </div>
                         <span className="text-sm font-semibold text-slate-700">
-                          {row.vendedorfirst_name} {row.vendedorlast_name}
+                          {row.vendedor__first_name} {row.vendedor__last_name}
                         </span>
                       </div>
                     </td>
@@ -366,13 +369,13 @@ export function Home() {
                           getStatusColors(
                             row.venda_fechada
                               ? "Venda concretizada"
-                              : row.metricanome,
+                              : row.metrica__nome,
                           ),
                         )}
                       >
                         {row.venda_fechada
                           ? "Concretizada"
-                          : row.metricanome || "Não informada"}
+                          : row.metrica__nome || "Não informada"}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">

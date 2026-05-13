@@ -33,7 +33,7 @@ const DashboardLayout = () => {
       label: "Equipe e Vendedores",
     },
     {
-      path: "relatorios",
+      path: "graficos",
       icon: PieChart,
       label: "Gráficos Avançados",
     },

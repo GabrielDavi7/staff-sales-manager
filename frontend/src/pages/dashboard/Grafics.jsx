@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import api from "../../api/axios";
 import {
   PieChart as PieChartIcon,
   BarChart3,
   TrendingUp,
-  Calendar,
   Download,
   Filter,
   MessageSquareX,
+  AlertCircle,
 } from "lucide-react";
 import {
   BarChart,
@@ -24,36 +27,134 @@ import {
   Legend,
 } from "recharts";
 
-// Dados Ampliados para a tela de Detalhes
-const dataHorario = [
-  { hora: "09:00", atendimentos: 2, renda: 1500 },
-  { hora: "10:00", atendimentos: 5, renda: 4200 },
-  { hora: "11:00", atendimentos: 4, renda: 1800 },
-  { hora: "12:00", atendimentos: 2, renda: 0 },
-  { hora: "13:00", atendimentos: 6, renda: 5500 },
-  { hora: "14:00", atendimentos: 3, renda: 1200 },
-  { hora: "15:00", atendimentos: 7, renda: 6800 },
-  { hora: "16:00", atendimentos: 4, renda: 2100 },
-  { hora: "17:00", atendimentos: 5, renda: 3000 },
-];
-
-const dataConversao = [
-  { name: "Vendas Fechadas", value: 18, color: "#10b981" }, // Emerald
-  { name: "Não Fechadas", value: 7, color: "#f43f5e" }, // Rose
-];
-
-const dataMotivos = [
-  { name: "Apenas pesquisando", value: 3, color: "#94a3b8" }, // Slate
-  { name: "Preço alto", value: 2, color: "#f59e0b" }, // Amber
-  { name: "Falta de estoque", value: 2, color: "#0ea5e9" }, // Sky
-];
-
 export function Grafics() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [periodo, setPeriodo] = useState("Hoje");
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // 1. TRAVA DE SEGURANÇA: Dispositivo não acessa gráficos
+  useEffect(() => {
+    if (
+      user?.cargo === "DISPOSITIVO" &&
+      location.pathname.toLowerCase() !== "/registrarvenda"
+    ) {
+      navigate("/registrarvenda", { replace: true });
+    }
+  }, [user?.cargo, navigate, location.pathname]);
+
+  if (user?.cargo === "DISPOSITIVO") return null;
+
+  // 2. BUSCA DE DADOS NA API
+  useEffect(() => {
+    if (!user || user?.cargo === "DISPOSITIVO") return;
+
+    const fetchAnalytics = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        let endpoint = "";
+        if (user?.cargo === "VENDEDOR")
+          endpoint = "/api/analytics/meu-desempenho/";
+        else if (user?.cargo === "SUPERVISOR")
+          endpoint = "/api/analytics/loja/";
+        else if (user?.cargo === "ADMIN") endpoint = "/api/analytics/geral/";
+
+        const response = await api.get(endpoint);
+        setData(response.data);
+      } catch (err) {
+        console.error("Erro ao carregar gráficos:", err);
+        setError("Não foi possível carregar os dados dos gráficos.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalytics();
+  }, [user, user?.cargo, periodo]); // "periodo" está no array pra quando o backend suportar o filtro de datas
+
+  // --- PROCESSAMENTO DE DADOS (Transformando o JSON do Backend) ---
+
+  const totalFaturamento = data?.kpis?.total_vendas_valor || 0;
+
+  // 1. Processando Horários (Junta a quantidade de vendas com a soma em R$ da tabela)
+  const processadoHorario = (data?.grafico_vendas || []).map((gv) => {
+    const horaGrafico = gv.hora.substring(0, 2); // Pega "21" de "21:00"
+
+    const rendaSomada = (data?.tabela || [])
+      .filter((t) => {
+        if (!t.venda_fechada) return false;
+        const horaTabela = new Date(t.data_hora)
+          .getHours()
+          .toString()
+          .padStart(2, "0");
+        return horaTabela === horaGrafico;
+      })
+      .reduce((acc, curr) => acc + (curr.valor_venda || 0), 0);
+
+    return {
+      hora: gv.hora,
+      atendimentos: gv.vendas,
+      renda: rendaSomada, // Dinheiro real calculado localmente!
+    };
+  });
+
+  // 2. Processando Pizza de Conversão
+  const processadoConversao = [
+    {
+      name: "Vendas Fechadas",
+      value: data?.kpis?.vendas_concluidas_count || 0,
+      color: "#10b981",
+    },
+    {
+      name: "Não Fechadas",
+      value: data?.kpis?.vendas_nao_concluidas_count || 0,
+      color: "#f43f5e",
+    },
+  ];
+
+  // 3. Processando Pizza de Motivos de Perda
+  const mapMotivos = {};
+  (data?.tabela || []).forEach((t) => {
+    if (!t.venda_fechada) {
+      const motivo = t.metrica__nome || "Não informado";
+      mapMotivos[motivo] = (mapMotivos[motivo] || 0) + 1;
+    }
+  });
+
+  const coresMotivos = ["#94a3b8", "#f59e0b", "#0ea5e9", "#8b5cf6", "#ec4899"];
+  const processadoMotivos = Object.keys(mapMotivos).map((key, index) => ({
+    name: key,
+    value: mapMotivos[key],
+    color: coresMotivos[index % coresMotivos.length],
+  }));
+
+  // --- ESTADOS DE TELA ---
+  if (loading) {
+    return (
+      <div className="h-[70vh] flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 border-4 border-[#4D7BAB]/30 border-t-[#4D7BAB] rounded-full animate-spin"></div>
+        <p className="text-slate-500 font-medium">
+          Processando gráficos detalhados...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Cabeçalho da Página de Relatórios */}
+      {error && (
+        <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-700 text-sm">
+          <AlertCircle size={18} /> {error}
+        </div>
+      )}
+
+      {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 lg:p-8 rounded-[2rem] shadow-xl shadow-blue-100/40 border border-blue-50">
         <div className="flex items-center gap-4">
           <div className="p-4 bg-[#4D7BAB]/10 rounded-2xl text-[#4D7BAB]">
@@ -64,12 +165,15 @@ export function Grafics() {
               Gráficos Avançados
             </h1>
             <p className="text-base text-slate-500 mt-1">
-              Análise detalhada de performance e faturamento.
+              Visão:{" "}
+              <strong className="uppercase text-[#4D7BAB]">
+                {user?.cargo}
+              </strong>
             </p>
           </div>
         </div>
 
-        {/* Filtros e Ações (Visuais por enquanto) */}
+        {/* Filtros */}
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl p-1">
             {["Hoje", "7 Dias", "30 Dias"].map((p) => (
@@ -86,20 +190,14 @@ export function Grafics() {
               </button>
             ))}
           </div>
-          <button
-            className="p-3 bg-white border-2 border-slate-100 rounded-2xl text-slate-500 hover:text-[#4D7BAB] hover:border-[#4D7BAB] transition-all"
-            title="Filtros"
-          >
-            <Filter size={20} />
-          </button>
-          <button className="flex items-center gap-2 px-6 py-3 bg-[#4D7BAB] text-white rounded-2xl font-bold hover:bg-[#3a5d82] shadow-lg shadow-blue-900/20 transition-all active:scale-95">
+          <button className="flex items-center gap-2 px-6 py-3 bg-[#4D7BAB] text-white rounded-2xl font-bold hover:bg-[#3a5d82] shadow-lg shadow-blue-900/20 transition-all">
             <Download size={20} />
             <span className="hidden sm:inline">Exportar PDF</span>
           </button>
         </div>
       </div>
 
-      {/*Faturamento (Ocupa a largura toda) */}
+      {/* Faturamento (Linha) */}
       <div className="bg-white p-8 rounded-[2.5rem] border border-blue-50 shadow-2xl shadow-blue-100/30">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
@@ -110,9 +208,6 @@ export function Grafics() {
               <h3 className="text-xl font-bold text-slate-800">
                 Evolução do Faturamento
               </h3>
-              <p className="text-sm text-slate-500">
-                Renda bruta gerada ao longo do dia
-              </p>
             </div>
           </div>
           <div className="text-right">
@@ -120,16 +215,18 @@ export function Grafics() {
               Total do Período
             </p>
             <p className="text-3xl font-extrabold text-emerald-600">
-              R$ 26.100,00
+              {new Intl.NumberFormat("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              }).format(totalFaturamento)}
             </p>
           </div>
         </div>
 
-        {/* Altura aumentada para 400px para visualização detalhada */}
         <div className="h-[400px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={dataHorario}
+              data={processadoHorario}
               margin={{ top: 20, right: 20, left: 20, bottom: 0 }}
             >
               <CartesianGrid
@@ -173,7 +270,6 @@ export function Grafics() {
                 strokeWidth={5}
                 dot={{ r: 6, fill: "#10b981", strokeWidth: 3, stroke: "#fff" }}
                 activeDot={{ r: 8, strokeWidth: 0 }}
-                name="Renda"
               />
             </LineChart>
           </ResponsiveContainer>
@@ -182,7 +278,7 @@ export function Grafics() {
 
       {/* Barras e Pizzas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Gráfico: Volume de Atendimentos */}
+        {/* Fluxo de Clientes (Barras) */}
         <div className="bg-white p-8 rounded-[2.5rem] border border-blue-50 shadow-2xl shadow-blue-100/30">
           <div className="flex items-center gap-3 mb-8">
             <div className="p-3 bg-blue-50 text-[#4D7BAB] rounded-xl">
@@ -192,15 +288,12 @@ export function Grafics() {
               <h3 className="text-xl font-bold text-slate-800">
                 Fluxo de Clientes
               </h3>
-              <p className="text-sm text-slate-500">
-                Volume de atendimentos por horário
-              </p>
             </div>
           </div>
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={dataHorario}
+                data={processadoHorario}
                 margin={{ top: 20, right: 0, left: -20, bottom: 0 }}
               >
                 <CartesianGrid
@@ -240,7 +333,7 @@ export function Grafics() {
           </div>
         </div>
 
-        {/* Gráfico: Taxa de Sucesso vs Perdas */}
+        {/* Pizzas */}
         <div className="bg-white p-8 rounded-[2.5rem] border border-blue-50 shadow-2xl shadow-blue-100/30 flex flex-col">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
@@ -250,9 +343,6 @@ export function Grafics() {
               <h3 className="text-xl font-bold text-slate-800">
                 Conversão e Perdas
               </h3>
-              <p className="text-sm text-slate-500">
-                Proporção de fechamento e principais objeções
-              </p>
             </div>
           </div>
 
@@ -262,7 +352,7 @@ export function Grafics() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={dataConversao}
+                    data={processadoConversao}
                     cx="50%"
                     cy="50%"
                     innerRadius={55}
@@ -271,7 +361,7 @@ export function Grafics() {
                     dataKey="value"
                     stroke="none"
                   >
-                    {dataConversao.map((entry, index) => (
+                    {processadoConversao.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -292,7 +382,7 @@ export function Grafics() {
               </ResponsiveContainer>
             </div>
 
-            {/* Pizza 2: Motivos das Perdas (Bônus) */}
+            {/* Pizza 2: Motivos */}
             <div className="h-[250px] w-full sm:w-1/2 border-t sm:border-t-0 sm:border-l border-slate-100 pt-4 sm:pt-0">
               <h4 className="text-center text-sm font-bold text-slate-500 mb-2 uppercase">
                 Por que não fecharam?
@@ -300,7 +390,7 @@ export function Grafics() {
               <ResponsiveContainer width="100%" height="80%">
                 <PieChart>
                   <Pie
-                    data={dataMotivos}
+                    data={processadoMotivos}
                     cx="50%"
                     cy="50%"
                     innerRadius={40}
@@ -309,7 +399,7 @@ export function Grafics() {
                     dataKey="value"
                     stroke="none"
                   >
-                    {dataMotivos.map((entry, index) => (
+                    {processadoMotivos.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -335,4 +425,5 @@ export function Grafics() {
     </div>
   );
 }
+
 export default Grafics;

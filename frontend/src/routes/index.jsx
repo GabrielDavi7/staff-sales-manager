@@ -66,6 +66,11 @@ export const router = createBrowserRouter([
       </PrivateRoute>
     ),
   },
+
+  {
+    path: "/dashboard/graficos",
+    element: <Grafics />,
+  },
   {
     path: "/dashboard",
     element: (
