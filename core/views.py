@@ -4,9 +4,21 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
-from .models import Relatorio
-from .serializers import RelatorioSerializer
+from .models import Relatorio, Metrica
+from .serializers import RelatorioSerializer, MetricaSerializer
 from users.models import CustomUser
+
+class MetricaViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Fornece apenas leitura para as métricas.
+    """
+    serializer_class = MetricaSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        # Retorna métricas globais (loja é nula) e métricas específicas da loja do usuário
+        return Metrica.objects.filter(Q(loja__isnull=True) | Q(loja=user.loja)).order_by('nome')
 
 class RelatorioViewSet(viewsets.ModelViewSet):
     serializer_class = RelatorioSerializer

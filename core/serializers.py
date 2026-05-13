@@ -4,6 +4,12 @@ from users.models import CustomUser
 from django.utils import timezone
 from datetime import datetime, timedelta
 
+class MetricaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Metrica
+        fields = ['id', 'nome', 'descricao', 'loja']
+        read_only_fields = ['id']
+
 class RelatorioSerializer(serializers.ModelSerializer):
     pin = serializers.CharField(
         write_only=True,
