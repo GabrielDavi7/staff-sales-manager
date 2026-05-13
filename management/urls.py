@@ -1,6 +1,10 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import UserViewSet
 
-# Por enquanto deixamos vazio ou com uma rota de teste
+router = DefaultRouter()
+router.register(r'usuarios', UserViewSet, basename='admin-usuarios')
+
 urlpatterns = [
-    # path('funcionarios/', views.listar_funcionarios, name='listar_funcionarios'),
+    path('', include(router.urls)),
 ]
