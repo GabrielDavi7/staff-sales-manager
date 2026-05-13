@@ -339,7 +339,9 @@ export function Home() {
                     className="hover:bg-blue-50/30 transition-colors group"
                   >
                     <td className="px-6 py-4 text-sm text-slate-500">
-                      {new Date(row.data_hora).toLocaleTimeString("pt-BR", {
+                      {new Date(row.data_hora).toLocaleString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
