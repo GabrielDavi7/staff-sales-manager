@@ -85,7 +85,9 @@ class AnalyticsService:
             'vendedor__last_name',
             'metrica__nome',
             'venda_fechada',
-            'valor_venda'
+            'valor_venda',
+            'cliente_nome',
+            'observacoes'
         ).order_by('-data_hora')[:20]
 
         return {

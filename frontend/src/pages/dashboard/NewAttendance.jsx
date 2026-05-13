@@ -294,7 +294,20 @@ const NewAttendance = () => {
                   />
                 </div>
               )}
-
+              <div className="space-y-2">
+                <label className="text-lg font-bold text-slate-700">
+                  Observações (Opcional):
+                </label>
+                <textarea
+                  rows="3"
+                  placeholder="Ex: Cliente prometeu voltar sábado, detalhe sobre a joia..."
+                  className="w-full p-4 border-2 rounded-2xl outline-none focus:border-[#4D7BAB] resize-none"
+                  value={formData.observacoes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, observacoes: e.target.value })
+                  }
+                />
+              </div>
               <button
                 onClick={handleFinish}
                 disabled={loading || isSupervisor}

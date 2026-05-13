@@ -28,6 +28,8 @@ class RelatorioSerializer(serializers.ModelSerializer):
             'vendedor',
             'metrica',
             'pin',
+            'cliente_nome', 
+            'observacoes'
         ]
         read_only_fields = ['id']  # 'data_hora' não é mais read_only
         # Tornar vendedor opcional na requisição (será definido pela view)

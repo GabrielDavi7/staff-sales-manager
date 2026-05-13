@@ -11,6 +11,8 @@ import {
   BarChart3,
   AlertCircle,
   Eye,
+  X,
+  ClipboardCheck,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -62,6 +64,9 @@ export function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
+
+  const [selectedAtendimento, setSelectedAtendimento] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // 1. PRIMEIRA TRAVA: Redirecionamento de Dispositivo
   useEffect(() => {
@@ -220,7 +225,6 @@ export function Home() {
                   style={{ fontSize: "12px" }}
                 />
                 <Tooltip cursor={{ fill: "#f8fafc" }} />
-                {/* MUDANÇA: de "qtd" para "vendas" */}
                 <Bar dataKey="vendas" fill="#4D7BAB" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -252,7 +256,6 @@ export function Home() {
                   style={{ fontSize: "12px" }}
                 />
                 <Tooltip />
-                {/* MUDANÇA: usando "vendas" provisoriamente, já que não veio "renda" no JSON */}
                 <Line
                   type="monotone"
                   dataKey="vendas"
@@ -349,7 +352,6 @@ export function Home() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-[#4D7BAB]/10 text-[#4D7BAB] flex items-center justify-center text-xs font-bold">
-                          {/* Nome exato com __ */}
                           {row.vendedor__first_name?.[0]}
                         </div>
                         <span className="text-sm font-semibold text-slate-700">
@@ -359,7 +361,7 @@ export function Home() {
                     </td>
                     <td className="px-6 py-4 font-bold text-slate-700 text-sm">
                       {row.venda_fechada ? (
-                        `R$ ${row.valor_venda}`
+                        `R$ ${Number(row.valor_venda).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
                       ) : (
                         <span className="text-slate-300">-</span>
                       )}
@@ -381,8 +383,15 @@ export function Home() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="p-2 text-slate-300 hover:text-[#4D7BAB] transition-colors">
-                        <Eye size={18} />
+                      <button
+                        onClick={() => {
+                          setSelectedAtendimento(row);
+                          setIsModalOpen(true);
+                        }}
+                        className="p-2 hover:bg-blue-50 rounded-full transition-colors text-[#4D7BAB]"
+                        title="Visualizar Detalhes"
+                      >
+                        <Eye size={20} />
                       </button>
                     </td>
                   </tr>
@@ -392,6 +401,128 @@ export function Home() {
           </table>
         </div>
       </div>
+
+      {/* Modal de Detalhes */}
+      {isModalOpen && selectedAtendimento && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100">
+            {/* Cabeçalho */}
+            <div className="bg-slate-50 px-8 py-6 border-b flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">
+                  Detalhes do Atendimento
+                </h2>
+                <p className="text-sm text-slate-500">
+                  Informações registradas no sistema
+                </p>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-2 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Conteúdo Principal */}
+            <div className="p-8 space-y-6">
+              {/* Vendedor e Cliente */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Vendedor
+                  </span>
+                  <p className="text-base font-semibold text-slate-700">
+                    {selectedAtendimento.vendedor__first_name}{" "}
+                    {selectedAtendimento.vendedor__last_name}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Cliente
+                  </span>
+                  <p className="text-base font-semibold text-slate-700">
+                    {selectedAtendimento.cliente_nome || "Não informado"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Status e Métrica/Valor */}
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
+                    Status da Venda
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-2 h-2 rounded-full ${selectedAtendimento.venda_fechada ? "bg-emerald-500" : "bg-rose-500"}`}
+                    />
+                    <span className="font-bold text-slate-700">
+                      {selectedAtendimento.venda_fechada
+                        ? "Concretizada"
+                        : "Não Concretizada"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  {selectedAtendimento.venda_fechada ? (
+                    <>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 block mb-1">
+                        Valor Final
+                      </span>
+                      <p className="text-xl font-black text-emerald-600">
+                        R${" "}
+                        {Number(selectedAtendimento.valor_venda).toLocaleString(
+                          "pt-BR",
+                          {
+                            minimumFractionDigits: 2,
+                          },
+                        )}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-rose-500 block mb-1">
+                        Motivo / Métrica
+                      </span>
+                      <p className="text-base font-bold text-rose-600">
+                        {selectedAtendimento.metrica__nome || "N/A"}
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Observações */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Observações
+                </span>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-sm text-slate-600 italic leading-relaxed min-h-[100px]">
+                  {selectedAtendimento.observacoes ? (
+                    selectedAtendimento.observacoes
+                  ) : (
+                    <span className="text-slate-300">
+                      Nenhuma observação detalhada para este registro.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 py-6 bg-slate-50 border-t flex justify-end">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-10 py-3 bg-[#4D7BAB] text-white font-bold rounded-2xl hover:bg-[#3a5d82] transition-all shadow-lg active:scale-95"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
