@@ -5,6 +5,7 @@ from django.utils import timezone
 from datetime import datetime, time
 
 class AnalyticsService:
+    
     @staticmethod
     def filter_by_date(queryset, data_inicio=None, data_fim=None):
         """
@@ -23,6 +24,14 @@ class AnalyticsService:
                 fim_aware = timezone.make_aware(datetime.combine(fim, time.max))
                 queryset = queryset.filter(data_hora__lte=fim_aware)
                 
+        return queryset
+    @staticmethod
+    def filter_by_store(queryset, loja_id=None):
+        """
+        Filtra o queryset pelo ID da loja, se fornecido.
+        """
+        if loja_id:
+            return queryset.filter(vendedor__loja_id=loja_id)
         return queryset
 
     @staticmethod
