@@ -11,6 +11,8 @@ import {
   BarChart3,
   AlertCircle,
   Eye,
+  X,
+  ClipboardCheck,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -46,7 +48,8 @@ const getStatusColors = (status) => {
   if (
     lower.includes("não") ||
     lower.includes("alto") ||
-    lower.includes("falta")
+    lower.includes("falta") ||
+    lower.includes("caro")
   )
     return "bg-rose-50 text-rose-700 border-rose-200";
   return "bg-blue-50 text-blue-700 border-blue-200";
@@ -62,39 +65,27 @@ export function Home() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
 
-  // ==========================================
-  // 🚧 WORKAROUND: Mapeamento temporário por ID
-  // Remover quando o backend retornar user.cargo
-  // ==========================================
-  const getCargoTemporario = (id) => {
-    if (!id) return null;
-    if (id === 1) return "ADMIN";
-    if (id === 2) return "SUPERVISOR";
-    if (id === 3) return "DISPOSITIVO";
-    return "VENDEDOR";
-  };
-
-  const cargoAtivo = user?.cargo || getCargoTemporario(user?.id);
+  const [selectedAtendimento, setSelectedAtendimento] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // 1. PRIMEIRA TRAVA: Redirecionamento de Dispositivo
-  // CORREÇÃO: Apontando para a rota correta /registrarvenda
   useEffect(() => {
     if (
-      cargoAtivo === "DISPOSITIVO" &&
+      user?.cargo === "DISPOSITIVO" &&
       location.pathname.toLowerCase() !== "/registrarvenda"
     ) {
       navigate("/registrarvenda", { replace: true });
     }
-  }, [cargoAtivo, navigate, location.pathname]);
+  }, [user?.cargo, navigate, location.pathname]);
 
   // 2. SEGUNDA TRAVA (CRÍTICA): Não renderiza NADA se for dispositivo
-  if (cargoAtivo === "DISPOSITIVO") {
+  if (user?.cargo === "DISPOSITIVO") {
     return null;
   }
 
-  // 3. BUSCA DE DADOS (Só executa para Vendedor, Supervisor e Admin)
+  // 3. BUSCA DE DADOS
   useEffect(() => {
-    if (!user || cargoAtivo === "DISPOSITIVO") return;
+    if (!user || user?.cargo === "DISPOSITIVO") return;
 
     const fetchAnalytics = async () => {
       try {
@@ -103,10 +94,11 @@ export function Home() {
 
         let endpoint = "";
 
-        if (cargoAtivo === "VENDEDOR")
+        if (user?.cargo === "VENDEDOR")
           endpoint = "/api/analytics/meu-desempenho/";
-        else if (cargoAtivo === "SUPERVISOR") endpoint = "/api/analytics/loja/";
-        else if (cargoAtivo === "ADMIN") endpoint = "/api/analytics/geral/";
+        else if (user?.cargo === "SUPERVISOR")
+          endpoint = "/api/analytics/loja/";
+        else if (user?.cargo === "ADMIN") endpoint = "/api/analytics/geral/";
 
         const response = await api.get(endpoint);
         setData(response.data);
@@ -118,38 +110,35 @@ export function Home() {
     };
 
     fetchAnalytics();
-  }, [user, cargoAtivo]);
+  }, [user, user?.cargo]);
 
-  // --- LÓGICA DE DADOS ---
+  // --- LÓGICA DE DADOS (Baseado no JSON real do Django) ---
   const kpis = data?.kpis || {};
   const totalValor = kpis.total_vendas_valor || 0;
   const vendasConcluidas = kpis.vendas_concluidas_count || 0;
   const vendasPerdidas = kpis.vendas_nao_concluidas_count || 0;
   const totalAtendimentos = vendasConcluidas + vendasPerdidas;
-  const conversionRate =
-    totalAtendimentos > 0
-      ? Math.round((vendasConcluidas / totalAtendimentos) * 100)
-      : 0;
+
+  // Pegando a conversão direto do JSON
+  const conversionRate = data?.taxa_conversao
+    ? Math.round(data.taxa_conversao)
+    : 0;
 
   const dataConversao = [
     { name: "Fechadas", value: vendasConcluidas, color: "#10b981" },
     { name: "Perdidas", value: vendasPerdidas, color: "#f43f5e" },
   ];
 
-  const dataHorario = data?.grafico_vendas || [
-    { hora: "09:00", qtd: 0, renda: 0 },
-    { hora: "12:00", qtd: 0, renda: 0 },
-    { hora: "15:00", qtd: 0, renda: 0 },
-    { hora: "18:00", qtd: 0, renda: 0 },
-  ];
+  const dataHorario = data?.grafico_vendas || [];
 
   const tabelaFiltrada = (data?.tabela || []).filter((item) => {
+    // Usando os nomes exatos do JSON (com __ )
     const nomeVendedor =
-      `${item.vendedorfirst_name || ""} ${item.vendedorlast_name || ""}`.toLowerCase();
+      `${item.vendedor__first_name || ""} ${item.vendedor__last_name || ""}`.toLowerCase();
     const busca = search.toLowerCase();
     return (
       nomeVendedor.includes(busca) ||
-      (item.metricanome || "").toLowerCase().includes(busca)
+      (item.metrica__nome || "").toLowerCase().includes(busca)
     );
   });
 
@@ -182,11 +171,12 @@ export function Home() {
             </h1>
             <p className="text-sm text-slate-500">
               Acesso:{" "}
-              <strong className="text-[#4D7BAB] uppercase">{cargoAtivo}</strong>
+              <strong className="text-[#4D7BAB] uppercase">
+                {user?.cargo}
+              </strong>
             </p>
           </div>
         </div>
-        {/* CORREÇÃO: Apontando para a rota correta /registrarvenda */}
         <Link
           to="/registrarvenda"
           className="bg-[#4D7BAB] text-white hover:bg-[#3a5d82] px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-all"
@@ -235,7 +225,7 @@ export function Home() {
                   style={{ fontSize: "12px" }}
                 />
                 <Tooltip cursor={{ fill: "#f8fafc" }} />
-                <Bar dataKey="qtd" fill="#4D7BAB" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="vendas" fill="#4D7BAB" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -268,7 +258,7 @@ export function Home() {
                 <Tooltip />
                 <Line
                   type="monotone"
-                  dataKey="renda"
+                  dataKey="vendas"
                   stroke="#10b981"
                   strokeWidth={3}
                   dot={{ r: 4, fill: "#10b981" }}
@@ -352,7 +342,9 @@ export function Home() {
                     className="hover:bg-blue-50/30 transition-colors group"
                   >
                     <td className="px-6 py-4 text-sm text-slate-500">
-                      {new Date(row.data_hora).toLocaleTimeString("pt-BR", {
+                      {new Date(row.data_hora).toLocaleString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
@@ -360,16 +352,16 @@ export function Home() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-[#4D7BAB]/10 text-[#4D7BAB] flex items-center justify-center text-xs font-bold">
-                          {row.vendedorfirst_name?.[0]}
+                          {row.vendedor__first_name?.[0]}
                         </div>
                         <span className="text-sm font-semibold text-slate-700">
-                          {row.vendedorfirst_name} {row.vendedorlast_name}
+                          {row.vendedor__first_name} {row.vendedor__last_name}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 font-bold text-slate-700 text-sm">
                       {row.venda_fechada ? (
-                        `R$ ${row.valor_venda}`
+                        `R$ ${Number(row.valor_venda).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
                       ) : (
                         <span className="text-slate-300">-</span>
                       )}
@@ -381,18 +373,25 @@ export function Home() {
                           getStatusColors(
                             row.venda_fechada
                               ? "Venda concretizada"
-                              : row.metricanome,
+                              : row.metrica__nome,
                           ),
                         )}
                       >
                         {row.venda_fechada
                           ? "Concretizada"
-                          : row.metricanome || "Não informada"}
+                          : row.metrica__nome || "Não informada"}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="p-2 text-slate-300 hover:text-[#4D7BAB] transition-colors">
-                        <Eye size={18} />
+                      <button
+                        onClick={() => {
+                          setSelectedAtendimento(row);
+                          setIsModalOpen(true);
+                        }}
+                        className="cursor-pointer p-2 hover:bg-blue-50 rounded-full transition-colors text-[#4D7BAB]"
+                        title="Visualizar Detalhes"
+                      >
+                        <Eye size={20} />
                       </button>
                     </td>
                   </tr>
@@ -402,6 +401,128 @@ export function Home() {
           </table>
         </div>
       </div>
+
+      {/* Modal de Detalhes - MANTENHA APENAS ESTA VERIFICAÇÃO */}
+      {isModalOpen && selectedAtendimento && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-100">
+            {/* Cabeçalho - Ajustado Padding */}
+            <div className="bg-slate-50 px-10 py-8 border-b flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-black text-slate-800">
+                  Detalhes do Atendimento
+                </h2>
+                <p className="text-base text-slate-500">
+                  Informações registradas no sistema
+                </p>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-3 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"
+              >
+                <X size={28} />
+              </button>
+            </div>
+
+            {/* Conteúdo Principal - Ajustado Padding Geral (p-10) */}
+            <div className="p-10 space-y-8">
+              {/* Vendedor e Cliente - Fontes Aumentadas */}
+              <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-1.5">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                    Vendedor
+                  </span>
+                  <p className="text-lg font-bold text-slate-700">
+                    {selectedAtendimento.vendedor__first_name}{" "}
+                    {selectedAtendimento.vendedor__last_name}
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                    Cliente
+                  </span>
+                  <p className="text-lg font-bold text-slate-700">
+                    {selectedAtendimento.cliente_nome || "Não informado"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Status e Métrica/Valor - Ajustes de Padding e Fontes */}
+              <div className="p-8 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-6">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">
+                    Status da Venda
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-3 h-3 rounded-full ${selectedAtendimento.venda_fechada ? "bg-emerald-500" : "bg-rose-500"}`}
+                    />
+                    <span className="text-lg font-extrabold text-slate-700">
+                      {selectedAtendimento.venda_fechada
+                        ? "Concretizada"
+                        : "Não Concretizada"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  {selectedAtendimento.venda_fechada ? (
+                    <>
+                      <span className="text-xs font-bold uppercase tracking-widest text-emerald-500 block mb-2">
+                        Valor Final
+                      </span>
+                      <p className="text-4xl font-extrabold text-emerald-600">
+                        R${" "}
+                        {Number(selectedAtendimento.valor_venda).toLocaleString(
+                          "pt-BR",
+                          {
+                            minimumFractionDigits: 2,
+                          },
+                        )}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-xs font-bold uppercase tracking-widest text-rose-500 block mb-2">
+                        Motivo / Métrica
+                      </span>
+                      <p className="text-xl font-black text-rose-600">
+                        {selectedAtendimento.metrica__nome || "N/A"}
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Observações - Fontes Aumentadas no conteúdo */}
+              <div className="space-y-3">
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                  Observações
+                </span>
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 text-base text-slate-600 italic leading-relaxed min-h-[120px]">
+                  {selectedAtendimento.observacoes ? (
+                    selectedAtendimento.observacoes
+                  ) : (
+                    <span className="text-slate-300">
+                      Nenhuma observação detalhada para este registro.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer - Padding e Botão Ajustados */}
+            <div className="px-10 py-8 bg-slate-50 border-t flex justify-end">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-12 py-4 bg-[#4D7BAB] text-white text-lg font-bold rounded-2xl hover:bg-[#3a5d82] transition-all shadow-lg active:scale-95"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

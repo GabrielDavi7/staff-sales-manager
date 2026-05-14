@@ -28,23 +28,34 @@ class UserMeView(APIView):
 
 class VendedorListView(generics.ListAPIView):
     """
-    Retorna a lista de vendedores ativos que pertencem à mesma loja do usuário autenticado.
+    Retorna a lista de vendedores ativos com base no cargo:
+    - ADMIN: Pode ver todos e filtrar por loja_id.
+    - SUPERVISOR/VENDEDOR: Vê apenas os vendedores da própria loja.
     """
     serializer_class = VendedorSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
+        loja_id = self.request.query_params.get('loja_id')
         
-        # Se o usuário não tem loja (ex: um Admin geral)
-        if not user.loja:
-            if user.cargo == 'ADMIN':
-                return CustomUser.objects.filter(cargo='VENDEDOR', is_active=True).order_by('first_name')
-            return CustomUser.objects.none()
+        # ADMIN: Vê todos os vendedores, podendo filtrar por loja específica
+        if user.cargo == 'ADMIN':
+            queryset = CustomUser.objects.filter(cargo='VENDEDOR', is_active=True)
             
-        # Retorna os Vendedores da mesma loja
-        return CustomUser.objects.filter(
-            cargo='VENDEDOR', 
-            loja=user.loja,
-            is_active=True
-        ).order_by('first_name')
+            # Aplica o filtro se o Admin escolheu uma loja no select
+            if loja_id:
+                queryset = queryset.filter(loja_id=loja_id)
+                
+            return queryset.order_by('first_name')
+            
+        # SUPERVISOR ou VENDEDOR: Vê apenas os vendedores da mesma loja (sua equipe)
+        if user.loja:
+            return CustomUser.objects.filter(
+                cargo='VENDEDOR', 
+                loja=user.loja,
+                is_active=True
+            ).order_by('first_name')
+
+        # Se não for ADMIN e não tiver loja vinculada, não retorna nada por segurança
+        return CustomUser.objects.none()

@@ -32,6 +32,8 @@ class Relatorio(models.Model):
     valor_venda = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     vendedor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='atendimentos')
     metrica = models.ForeignKey('Metrica', on_delete=models.PROTECT, related_name='registros', null=True, blank=True)
+    cliente_nome = models.CharField(max_length=255, blank=True, null=True)
+    observacoes = models.TextField(blank=True, null=True)
 
     def clean(self):
         # Regra: Se a venda foi fechada, o valor é obrigatório

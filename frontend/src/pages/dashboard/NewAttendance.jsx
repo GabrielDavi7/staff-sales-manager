@@ -7,24 +7,10 @@ import {
   CheckCircle2,
   XCircle,
   ChevronLeft,
-  DollarSign,
   ClipboardCheck,
-  Building,
   Lock,
 } from "lucide-react";
 import { clsx } from "clsx";
-
-// Deletamos as fakes e deixamos apenas uma para o teste de ID
-const MOTIVOS_TESTE = [{ id: 1, nome: "Motivo de Teste (ID 1)" }];
-
-const VENDEDOR_TESTE = [
-  {
-    id: 4,
-    first_name: "Vendedor",
-    last_name: "Teste",
-    cargo: "Vendedor",
-  },
-];
 
 const NewAttendance = () => {
   const navigate = useNavigate();
@@ -32,26 +18,41 @@ const NewAttendance = () => {
 
   const [step, setStep] = useState(1);
   const [vendedores, setVendedores] = useState([]);
+  const [motivos, setMotivos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   const [formData, setFormData] = useState({
     vendedorId: null,
     vendedorNome: "",
     vendaFechada: null,
     valor: "",
-    motivoId: null, // Agora guardamos o ID
+    motivoId: null,
     clienteNome: "",
     observacoes: "",
     pin: "",
   });
 
-  const isSupervisor = user?.cargo?.toUpperCase() === "SUPERVISOR";
   const isDispositivo = user?.cargo?.toUpperCase() === "DISPOSITIVO";
 
   useEffect(() => {
     if (!user) return;
-    if (user.cargo?.toUpperCase() === "VENDEDOR") {
+
+    // 1. Busca as métricas (motivos) reais do Django para qualquer usuário
+    const fetchMotivos = async () => {
+      try {
+        const response = await api.get("/api/core/metricas/");
+        const listaMotivos = response.data.results || response.data;
+        setMotivos(listaMotivos);
+      } catch (err) {
+        console.error("Erro ao buscar motivos:", err);
+      }
+    };
+    fetchMotivos();
+
+    // Lógica dos Vendedores e Supervisores
+    const cargo = user.cargo?.toUpperCase();
+    if (cargo === "VENDEDOR" || cargo === "SUPERVISOR") {
+      // Vendedor e Supervisor pulam direto pro passo 2 e registram em seu próprio nome
       setFormData((prev) => ({
         ...prev,
         vendedorId: user.id,
@@ -61,10 +62,29 @@ const NewAttendance = () => {
       }));
       setStep(2);
     } else {
-      setVendedores(VENDEDOR_TESTE);
+      // Dispositivo/Admin busca a lista real de vendedores
+      const fetchVendedores = async () => {
+        try {
+          setLoading(true);
+          const response = await api.get("/api/users/vendedores/");
+
+          const listaVendedores = response.data.results || response.data;
+          setVendedores(listaVendedores);
+        } catch (err) {
+          console.error("Erro ao buscar vendedores:", err);
+          setError("Não foi possível carregar a lista de vendedores.");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchVendedores();
     }
   }, [user]);
 
+  // ==========================================
+  // 4. ENVIO DOS DADOS
+  // ==========================================
   const handleFinish = async () => {
     setError("");
 
@@ -73,7 +93,7 @@ const NewAttendance = () => {
       return;
     }
     if (formData.vendaFechada === false && !formData.motivoId) {
-      setError("Selecione o motivo de teste.");
+      setError("Selecione o motivo da perda.");
       return;
     }
     if (isDispositivo && !formData.pin) {
@@ -88,17 +108,14 @@ const NewAttendance = () => {
         vendedor: Number(formData.vendedorId),
         venda_fechada: formData.vendaFechada,
         valor_venda: formData.vendaFechada ? parseFloat(formData.valor) : 0,
-
-        // AQUI ESTÁ A MUDANÇA: Enviando o ID 1 fixo para o teste
-        metrica: !formData.vendaFechada ? 1 : null,
-
-        cliente_nome: formData.clienteNome || "Consumidor",
+        metrica: !formData.vendaFechada ? Number(formData.motivoId) : null,
+        cliente_nome: formData.clienteNome || "Não informado",
         observacoes: formData.observacoes || "",
         ...(isDispositivo && { pin: formData.pin }),
       };
 
       await api.post("/api/core/atendimentos/", payload);
-      alert("Sucesso! O banco aceitou a métrica ID 1.");
+      alert("Sucesso! O banco aceitou o registro.");
 
       if (isDispositivo) {
         setFormData({
@@ -119,7 +136,7 @@ const NewAttendance = () => {
     } catch (err) {
       console.error("Erro no Django:", err.response?.data);
       setError(
-        "Erro 400: Verifique se o ID 1 existe na tabela de Métricas do Admin.",
+        "Erro 400: Não foi possível salvar. Verifique os dados ou o PIN.",
       );
     } finally {
       setLoading(false);
@@ -138,7 +155,7 @@ const NewAttendance = () => {
             <h1 className="text-3xl font-bold text-slate-900">
               Registro de Atendimento
             </h1>
-            <p className="text-sm text-slate-500">Teste de Métrica ID 1</p>
+            <p className="text-sm text-slate-500">Fluxo Dinâmico</p>
           </div>
         </div>
 
@@ -155,6 +172,9 @@ const NewAttendance = () => {
               <h3 className="text-2xl font-semibold text-slate-800">
                 Selecione o Vendedor
               </h3>
+              {vendedores.length === 0 && !loading && (
+                <p className="text-slate-500">Nenhum vendedor encontrado.</p>
+              )}
               {vendedores.map((v) => (
                 <button
                   key={v.id}
@@ -166,11 +186,11 @@ const NewAttendance = () => {
                     });
                     setStep(2);
                   }}
-                  className="flex items-center gap-4 p-6 bg-blue-50 border-2 border-[#4D7BAB] rounded-2xl w-full max-w-md"
+                  className="flex items-center gap-4 p-6 bg-blue-50 border-2 border-[#4D7BAB] rounded-2xl w-full max-w-md hover:bg-blue-100 transition-colors"
                 >
                   <User size={32} className="text-[#4D7BAB]" />
                   <span className="font-bold text-xl">
-                    {v.first_name} (ID: {v.id})
+                    {v.first_name} {v.last_name}
                   </span>
                 </button>
               ))}
@@ -185,7 +205,7 @@ const NewAttendance = () => {
                   setFormData({ ...formData, vendaFechada: true });
                   setStep(3);
                 }}
-                className="p-10 bg-emerald-50 border-2 border-emerald-100 rounded-3xl flex flex-col items-center gap-4"
+                className="p-10 bg-emerald-50 border-2 border-emerald-100 rounded-3xl flex flex-col items-center gap-4 hover:bg-emerald-100 transition-colors"
               >
                 <CheckCircle2 size={48} className="text-emerald-500" />
                 <span className="text-xl font-bold text-emerald-800">
@@ -197,7 +217,7 @@ const NewAttendance = () => {
                   setFormData({ ...formData, vendaFechada: false });
                   setStep(3);
                 }}
-                className="p-10 bg-rose-50 border-2 border-rose-100 rounded-3xl flex flex-col items-center gap-4"
+                className="p-10 bg-rose-50 border-2 border-rose-100 rounded-3xl flex flex-col items-center gap-4 hover:bg-rose-100 transition-colors"
               >
                 <XCircle size={48} className="text-rose-500" />
                 <span className="text-xl font-bold text-rose-800">
@@ -228,16 +248,25 @@ const NewAttendance = () => {
               ) : (
                 <div className="space-y-4">
                   <label className="text-xl font-bold text-slate-700">
-                    Selecione o motivo de teste:
+                    Selecione o motivo:
                   </label>
                   <div className="grid grid-cols-1 gap-3">
-                    {MOTIVOS_TESTE.map((m) => (
+                    {motivos.length === 0 && (
+                      <p className="text-slate-500 text-center">
+                        Carregando motivos...
+                      </p>
+                    )}
+                    {motivos.map((m) => (
                       <button
                         key={m.id}
                         onClick={() =>
                           setFormData({ ...formData, motivoId: m.id })
                         }
-                        className={`p-6 text-center rounded-2xl border-2 transition-all ${formData.motivoId === m.id ? "border-[#4D7BAB] bg-blue-50 text-[#4D7BAB] font-bold" : "border-slate-100 bg-white"}`}
+                        className={`p-6 text-center rounded-2xl border-2 transition-all ${
+                          formData.motivoId === m.id
+                            ? "border-[#4D7BAB] bg-blue-50 text-[#4D7BAB] font-bold"
+                            : "border-slate-100 bg-white hover:border-slate-200"
+                        }`}
                       >
                         {m.nome}
                       </button>
@@ -262,10 +291,41 @@ const NewAttendance = () => {
                 </div>
               )}
 
+              <div className="space-y-2">
+                <label className="text-lg font-bold text-slate-700">
+                  Nome do Cliente (Opcional):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: João Silva"
+                  className="w-full p-4 border-2 rounded-2xl outline-none focus:border-[#4D7BAB]"
+                  value={formData.clienteNome}
+                  onChange={(e) =>
+                    setFormData({ ...formData, clienteNome: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-lg font-bold text-slate-700">
+                  Observações (Opcional):
+                </label>
+                <textarea
+                  rows="3"
+                  placeholder="Ex: Cliente prometeu voltar sábado, detalhe sobre a joia..."
+                  className="w-full p-4 border-2 rounded-2xl outline-none focus:border-[#4D7BAB] resize-none"
+                  value={formData.observacoes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, observacoes: e.target.value })
+                  }
+                />
+              </div>
               <button
                 onClick={handleFinish}
                 disabled={loading}
-                className="w-full py-6 bg-[#4D7BAB] text-white rounded-3xl font-bold text-xl shadow-lg"
+                className={clsx(
+                  "w-full py-6 rounded-3xl font-bold text-xl shadow-lg transition-all bg-[#4D7BAB] text-white hover:bg-[#3a5d82]",
+                  loading && "opacity-50 cursor-not-allowed",
+                )}
               >
                 {loading ? "Processando..." : "Confirmar Registro"}
               </button>
@@ -277,7 +337,7 @@ const NewAttendance = () => {
           <div className="px-10 py-6 border-t border-slate-100">
             <button
               onClick={() => setStep(step - 1)}
-              className="flex items-center gap-2 text-slate-500 font-bold"
+              className="flex items-center gap-2 text-slate-500 font-bold hover:text-slate-700"
             >
               <ChevronLeft size={20} /> Voltar
             </button>
