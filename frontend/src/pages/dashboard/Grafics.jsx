@@ -191,7 +191,7 @@ export function Grafics() {
           </div>
           <div>
             <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
-              Gráficos Avançados
+              Gráficos Lojas
             </h1>
             <p className="text-base text-slate-500 mt-1">
               Visão:{" "}

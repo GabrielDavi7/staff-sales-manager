@@ -112,7 +112,7 @@ const NewAttendance = () => {
         // AQUI: Pegando o ID real que o usuário clicou em vez de 1
         metrica: !formData.vendaFechada ? Number(formData.motivoId) : null,
 
-        cliente_nome: formData.clienteNome || "Consumidor",
+        cliente_nome: formData.clienteNome || "Não informado",
         observacoes: formData.observacoes || "",
         ...(isDispositivo && { pin: formData.pin }),
       };
@@ -294,6 +294,21 @@ const NewAttendance = () => {
                   />
                 </div>
               )}
+              {/* --- NOVO CAMPO: Nome do Cliente --- */}
+              <div className="space-y-2">
+                <label className="text-lg font-bold text-slate-700">
+                  Nome do Cliente (Opcional):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: João Silva"
+                  className="w-full p-4 border-2 rounded-2xl outline-none focus:border-[#4D7BAB]"
+                  value={formData.clienteNome}
+                  onChange={(e) =>
+                    setFormData({ ...formData, clienteNome: e.target.value })
+                  }
+                />
+              </div>
               <div className="space-y-2">
                 <label className="text-lg font-bold text-slate-700">
                   Observações (Opcional):

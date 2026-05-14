@@ -388,7 +388,7 @@ export function Home() {
                           setSelectedAtendimento(row);
                           setIsModalOpen(true);
                         }}
-                        className="p-2 hover:bg-blue-50 rounded-full transition-colors text-[#4D7BAB]"
+                        className="cursor-pointer p-2 hover:bg-blue-50 rounded-full transition-colors text-[#4D7BAB]"
                         title="Visualizar Detalhes"
                       >
                         <Eye size={20} />
@@ -402,62 +402,62 @@ export function Home() {
         </div>
       </div>
 
-      {/* Modal de Detalhes */}
+      {/* Modal de Detalhes - MANTENHA APENAS ESTA VERIFICAÇÃO */}
       {isModalOpen && selectedAtendimento && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100">
-            {/* Cabeçalho */}
-            <div className="bg-slate-50 px-8 py-6 border-b flex justify-between items-center">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-100">
+            {/* Cabeçalho - Ajustado Padding */}
+            <div className="bg-slate-50 px-10 py-8 border-b flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-bold text-slate-800">
+                <h2 className="text-2xl font-black text-slate-800">
                   Detalhes do Atendimento
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-base text-slate-500">
                   Informações registradas no sistema
                 </p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-2 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"
+                className="p-3 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"
               >
-                <X size={24} />
+                <X size={28} />
               </button>
             </div>
 
-            {/* Conteúdo Principal */}
-            <div className="p-8 space-y-6">
-              {/* Vendedor e Cliente */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+            {/* Conteúdo Principal - Ajustado Padding Geral (p-10) */}
+            <div className="p-10 space-y-8">
+              {/* Vendedor e Cliente - Fontes Aumentadas */}
+              <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-1.5">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
                     Vendedor
                   </span>
-                  <p className="text-base font-semibold text-slate-700">
+                  <p className="text-lg font-bold text-slate-700">
                     {selectedAtendimento.vendedor__first_name}{" "}
                     {selectedAtendimento.vendedor__last_name}
                   </p>
                 </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <div className="space-y-1.5">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
                     Cliente
                   </span>
-                  <p className="text-base font-semibold text-slate-700">
+                  <p className="text-lg font-bold text-slate-700">
                     {selectedAtendimento.cliente_nome || "Não informado"}
                   </p>
                 </div>
               </div>
 
-              {/* Status e Métrica/Valor */}
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+              {/* Status e Métrica/Valor - Ajustes de Padding e Fontes */}
+              <div className="p-8 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-6">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">
                     Status da Venda
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <div
-                      className={`w-2 h-2 rounded-full ${selectedAtendimento.venda_fechada ? "bg-emerald-500" : "bg-rose-500"}`}
+                      className={`w-3 h-3 rounded-full ${selectedAtendimento.venda_fechada ? "bg-emerald-500" : "bg-rose-500"}`}
                     />
-                    <span className="font-bold text-slate-700">
+                    <span className="text-lg font-extrabold text-slate-700">
                       {selectedAtendimento.venda_fechada
                         ? "Concretizada"
                         : "Não Concretizada"}
@@ -468,10 +468,10 @@ export function Home() {
                 <div className="text-right">
                   {selectedAtendimento.venda_fechada ? (
                     <>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 block mb-1">
+                      <span className="text-xs font-bold uppercase tracking-widest text-emerald-500 block mb-2">
                         Valor Final
                       </span>
-                      <p className="text-xl font-black text-emerald-600">
+                      <p className="text-4xl font-extrabold text-emerald-600">
                         R${" "}
                         {Number(selectedAtendimento.valor_venda).toLocaleString(
                           "pt-BR",
@@ -483,10 +483,10 @@ export function Home() {
                     </>
                   ) : (
                     <>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-rose-500 block mb-1">
+                      <span className="text-xs font-bold uppercase tracking-widest text-rose-500 block mb-2">
                         Motivo / Métrica
                       </span>
-                      <p className="text-base font-bold text-rose-600">
+                      <p className="text-xl font-black text-rose-600">
                         {selectedAtendimento.metrica__nome || "N/A"}
                       </p>
                     </>
@@ -494,12 +494,12 @@ export function Home() {
                 </div>
               </div>
 
-              {/* Observações */}
-              <div className="space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              {/* Observações - Fontes Aumentadas no conteúdo */}
+              <div className="space-y-3">
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
                   Observações
                 </span>
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-sm text-slate-600 italic leading-relaxed min-h-[100px]">
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 text-base text-slate-600 italic leading-relaxed min-h-[120px]">
                   {selectedAtendimento.observacoes ? (
                     selectedAtendimento.observacoes
                   ) : (
@@ -511,11 +511,11 @@ export function Home() {
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="px-8 py-6 bg-slate-50 border-t flex justify-end">
+            {/* Footer - Padding e Botão Ajustados */}
+            <div className="px-10 py-8 bg-slate-50 border-t flex justify-end">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-10 py-3 bg-[#4D7BAB] text-white font-bold rounded-2xl hover:bg-[#3a5d82] transition-all shadow-lg active:scale-95"
+                className="px-12 py-4 bg-[#4D7BAB] text-white text-lg font-bold rounded-2xl hover:bg-[#3a5d82] transition-all shadow-lg active:scale-95"
               >
                 Entendido
               </button>
