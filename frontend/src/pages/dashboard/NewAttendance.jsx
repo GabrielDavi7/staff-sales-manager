@@ -18,7 +18,7 @@ const NewAttendance = () => {
 
   const [step, setStep] = useState(1);
   const [vendedores, setVendedores] = useState([]);
-  const [motivos, setMotivos] = useState([]); // <-- AQUI: Estado para guardar os motivos reais
+  const [motivos, setMotivos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({
@@ -32,7 +32,6 @@ const NewAttendance = () => {
     pin: "",
   });
 
-  const isSupervisor = user?.cargo?.toUpperCase() === "SUPERVISOR";
   const isDispositivo = user?.cargo?.toUpperCase() === "DISPOSITIVO";
 
   useEffect(() => {
@@ -50,9 +49,10 @@ const NewAttendance = () => {
     };
     fetchMotivos();
 
-    // 2. Lógica dos Vendedores
-    if (user.cargo?.toUpperCase() === "VENDEDOR") {
-      // Vendedor pula direto pro passo 2
+    // Lógica dos Vendedores e Supervisores
+    const cargo = user.cargo?.toUpperCase();
+    if (cargo === "VENDEDOR" || cargo === "SUPERVISOR") {
+      // Vendedor e Supervisor pulam direto pro passo 2 e registram em seu próprio nome
       setFormData((prev) => ({
         ...prev,
         vendedorId: user.id,
@@ -93,7 +93,7 @@ const NewAttendance = () => {
       return;
     }
     if (formData.vendaFechada === false && !formData.motivoId) {
-      setError("Selecione o motivo da perda."); // Mudei a mensagem de erro
+      setError("Selecione o motivo da perda.");
       return;
     }
     if (isDispositivo && !formData.pin) {
@@ -108,10 +108,7 @@ const NewAttendance = () => {
         vendedor: Number(formData.vendedorId),
         venda_fechada: formData.vendaFechada,
         valor_venda: formData.vendaFechada ? parseFloat(formData.valor) : 0,
-
-        // AQUI: Pegando o ID real que o usuário clicou em vez de 1
         metrica: !formData.vendaFechada ? Number(formData.motivoId) : null,
-
         cliente_nome: formData.clienteNome || "Não informado",
         observacoes: formData.observacoes || "",
         ...(isDispositivo && { pin: formData.pin }),
@@ -254,7 +251,6 @@ const NewAttendance = () => {
                     Selecione o motivo:
                   </label>
                   <div className="grid grid-cols-1 gap-3">
-                    {/* AQUI: Mapeando os motivos reais do banco */}
                     {motivos.length === 0 && (
                       <p className="text-slate-500 text-center">
                         Carregando motivos...
@@ -294,7 +290,7 @@ const NewAttendance = () => {
                   />
                 </div>
               )}
-              {/* --- NOVO CAMPO: Nome do Cliente --- */}
+
               <div className="space-y-2">
                 <label className="text-lg font-bold text-slate-700">
                   Nome do Cliente (Opcional):
@@ -325,19 +321,13 @@ const NewAttendance = () => {
               </div>
               <button
                 onClick={handleFinish}
-                disabled={loading || isSupervisor}
+                disabled={loading}
                 className={clsx(
-                  "w-full py-6 rounded-3xl font-bold text-xl shadow-lg transition-all",
-                  isSupervisor
-                    ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                    : "bg-[#4D7BAB] text-white hover:bg-[#3a5d82]",
+                  "w-full py-6 rounded-3xl font-bold text-xl shadow-lg transition-all bg-[#4D7BAB] text-white hover:bg-[#3a5d82]",
+                  loading && "opacity-50 cursor-not-allowed",
                 )}
               >
-                {isSupervisor
-                  ? "Acesso restrito a vendas"
-                  : loading
-                    ? "Processando..."
-                    : "Confirmar Registro"}
+                {loading ? "Processando..." : "Confirmar Registro"}
               </button>
             </div>
           )}
