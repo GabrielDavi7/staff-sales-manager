@@ -1,3 +1,4 @@
+import pytest
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient, force_authenticate
@@ -7,6 +8,7 @@ from datetime import timedelta
 from users.models import CustomUser
 from core.models import Loja, Equipe, Metrica, Relatorio
 from decimal import Decimal
+from django.contrib.auth import get_user_model
 
 class RelatorioViewSetTests(APITestCase):
     
@@ -396,3 +398,110 @@ class MetricaViewSetTests(APITestCase):
         # Teste POST
         response_post = self.client.post(self.list_url, {"nome": "Nova Metrica"})
         self.assertEqual(response_post.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+User = get_user_model()
+
+@pytest.fixture
+def admin():
+    return User.objects.create_user(username='admin', email='admin@ex.com', password='pass', cargo='ADMIN')
+
+@pytest.fixture
+def api_client():
+    return APIClient()
+
+@pytest.fixture
+def supervisor(loja, equipe):
+    return User.objects.create_user(username='sup', email='sup@ex.com', password='pass', cargo='SUPERVISOR', loja=loja, equipe=equipe)
+
+@pytest.fixture
+def vendedor(loja, equipe):
+    return User.objects.create_user(username='vendedor', email='vend@ex.com', password='pass', cargo='VENDEDOR', loja=loja, equipe=equipe, pin='1234')
+
+@pytest.fixture
+def loja():
+    return Loja.objects.create(nome='Loja Teste', cidade='Cidade', ativo=True)
+
+@pytest.fixture
+def equipe(loja):
+    return Equipe.objects.create(nome='Equipe Alpha', loja=loja, ativo=True)
+
+@pytest.fixture
+def metrica(loja):
+    return Metrica.objects.create(nome='Motivo', loja=loja, ativo=True)
+
+@pytest.fixture
+def relatorio_fechado(vendedor, metrica):
+    return Relatorio.objects.create(
+        data_hora=timezone.now(),
+        venda_fechada=True,
+        valor_venda=1000.00,
+        vendedor=vendedor,
+        metrica=None,
+        cliente_nome='Cliente'
+    )
+
+@pytest.mark.django_db
+class TestFiltrosAtivo:
+
+    def test_lojas_ativas_sao_retornadas(self, api_client, admin, loja):
+        loja_inativa = Loja.objects.create(nome='Inativa', cidade='X', ativo=False)
+        api_client.force_authenticate(admin)
+        response = api_client.get('/api/core/lojas/')
+        assert response.status_code == 200
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        ids = [l['id'] for l in results]
+        assert loja.id in ids
+        assert loja_inativa.id not in ids
+
+    def test_metricas_ativas_sao_retornadas(self, api_client, supervisor, loja, metrica):
+        metrica_inativa = Metrica.objects.create(nome='Inativa', loja=loja, ativo=False)
+        api_client.force_authenticate(supervisor)
+        response = api_client.get('/api/core/metricas/')
+        assert response.status_code == 200
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        ids = [m['id'] for m in results]
+        assert metrica.id in ids
+        assert metrica_inativa.id not in ids
+
+@pytest.mark.django_db
+class TestEquipeInfoViewSet:
+
+    def test_vendedor_ve_sua_equipe(self, api_client, vendedor, equipe, loja, relatorio_fechado):
+        outro = User.objects.create_user(username='outro', email='outro@ex.com', password='pass', cargo='VENDEDOR', loja=loja, equipe=equipe, pin='5678')
+        api_client.force_authenticate(vendedor)
+        response = api_client.get('/api/core/equipe-info/')
+        assert response.status_code == 200
+        assert len(response.data) == 1
+        data = response.data[0]
+        assert data['id'] == equipe.id
+        assert data['nome'] == 'Equipe Alpha'
+        assert float(data['total_vendas']) == 1000.00
+        membros = data['membros']
+        assert len(membros) == 2
+        ids_membros = [m['id'] for m in membros]
+        assert vendedor.id in ids_membros
+        assert outro.id in ids_membros
+
+    def test_supervisor_ve_sua_propria_equipe(self, api_client, supervisor, loja, equipe):
+        outra_equipe = Equipe.objects.create(nome='Outra', loja=loja, ativo=True)
+        equipe_outra_loja = Equipe.objects.create(nome='Fora', loja=Loja.objects.create(nome='Outra Loja'), ativo=True)
+        api_client.force_authenticate(supervisor)
+        response = api_client.get('/api/core/equipe-info/')
+        assert response.status_code == 200
+        assert len(response.data) == 1
+        assert response.data[0]['id'] == equipe.id
+
+    def test_admin_ve_todas_equipes(self, api_client, admin, loja, equipe):
+        outra_equipe = Equipe.objects.create(nome='Outra', loja=loja, ativo=True)
+        equipe_outra_loja = Equipe.objects.create(nome='Fora', loja=Loja.objects.create(nome='Outra Loja'), ativo=True)
+        api_client.force_authenticate(admin)
+        response = api_client.get('/api/core/equipe-info/')
+        assert response.status_code == 200
+        assert len(response.data) == 3
+
+    def test_dispositivo_sem_acesso(self, api_client, loja):
+        disp = User.objects.create_user(username='disp', email='disp@ex.com', password='pass', cargo='DISPOSITIVO', loja=loja)
+        api_client.force_authenticate(disp)
+        response = api_client.get('/api/core/equipe-info/')
+        assert response.status_code == 200
+        assert response.data == []

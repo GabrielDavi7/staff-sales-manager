@@ -81,3 +81,22 @@ class UserAdminSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+# management/serializers.py
+from rest_framework import serializers
+from core.models import Loja, Equipe, Metrica
+
+class LojaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Loja
+        fields = ['id', 'nome', 'cidade', 'ativo']
+
+class EquipeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Equipe
+        fields = ['id', 'nome', 'loja', 'ativo']
+
+class MetricaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Metrica
+        fields = ['id', 'nome', 'descricao', 'loja', 'ativo']

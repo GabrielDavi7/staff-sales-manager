@@ -6,6 +6,9 @@ from rest_framework.test import APITestCase, APIClient
 from core.models import Loja, Equipe, Metrica, Relatorio
 from users.models import CustomUser
 
+import pytest
+from django.contrib.auth import get_user_model
+
 
 class AdminUserCrudTests(APITestCase):
 	def setUp(self):
@@ -183,3 +186,229 @@ class AdminUserCrudTests(APITestCase):
 		self.assertTrue(Relatorio.objects.filter(id=relatorio.id).exists())
 		relatorio.refresh_from_db()
 		self.assertEqual(relatorio.vendedor_id, self.vendedor.id)
+
+
+User = get_user_model()
+
+@pytest.fixture
+def admin_user():
+    return User.objects.create_user(
+        username='admin',
+        email='admin@example.com',
+        password='admin123',
+        cargo='ADMIN'
+    )
+
+@pytest.fixture
+def supervisor_user():
+    return User.objects.create_user(
+        username='supervisor',
+        email='sup@example.com',
+        password='sup123',
+        cargo='SUPERVISOR'
+    )
+
+@pytest.fixture
+def vendedor_user():
+    return User.objects.create_user(
+        username='vendedor',
+        email='vend@example.com',
+        password='vend123',
+        cargo='VENDEDOR'
+    )
+
+@pytest.fixture
+def dispositivo_user():
+    return User.objects.create_user(
+        username='disp',
+        email='disp@example.com',
+        password='disp123',
+        cargo='DISPOSITIVO'
+    )
+
+@pytest.fixture
+def loja():
+    return Loja.objects.create(nome='Loja Teste', cidade='Cidade Teste', ativo=True)
+
+@pytest.fixture
+def equipe(loja):
+    return Equipe.objects.create(nome='Equipe Teste', loja=loja, ativo=True)
+
+@pytest.fixture
+def metrica(loja):
+    return Metrica.objects.create(nome='Métrica Teste', descricao='Desc', loja=loja, ativo=True)
+
+@pytest.fixture
+def relatorio(vendedor_user, metrica, loja):
+    # Necessário associar o vendedor a uma loja para testar vínculo de loja via atendimento
+    vendedor_user.loja = loja
+    vendedor_user.save()
+    return Relatorio.objects.create(
+        data_hora=timezone.now(),
+        venda_fechada=False,
+        vendedor=vendedor_user,
+        metrica=metrica,
+        cliente_nome='Cliente Teste'
+    )
+
+@pytest.fixture
+def api_client():
+    return APIClient()
+
+@pytest.mark.django_db
+class TestManagementEndpoints:
+
+    # -------------------- Testes de permissão --------------------
+    def test_admin_can_list_lojas(self, api_client, admin_user, loja):
+        api_client.force_authenticate(user=admin_user)
+        response = api_client.get('/api/admin/lojas/')
+        assert response.status_code == status.HTTP_200_OK
+        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        assert any(item['id'] == loja.id for item in results)
+        assert results[0]['nome'] == loja.nome
+
+    def test_non_admin_cannot_list_lojas(self, api_client, supervisor_user, vendedor_user, dispositivo_user):
+        for user in [supervisor_user, vendedor_user, dispositivo_user]:
+            api_client.force_authenticate(user=user)
+            response = api_client.get('/api/admin/lojas/')
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    # CREATE
+    def test_admin_can_create_loja(self, api_client, admin_user):
+        api_client.force_authenticate(user=admin_user)
+        data = {'nome': 'Nova Loja', 'cidade': 'Nova Cidade', 'ativo': True}
+        response = api_client.post('/api/admin/lojas/', data)
+        assert response.status_code == status.HTTP_201_CREATED
+        assert Loja.objects.filter(nome='Nova Loja').exists()
+
+    def test_non_admin_cannot_create_loja(self, api_client, supervisor_user):
+        api_client.force_authenticate(user=supervisor_user)
+        data = {'nome': 'Nova Loja 2', 'cidade': 'Outra'}
+        response = api_client.post('/api/admin/lojas/', data)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    # UPDATE (PUT/PATCH)
+    def test_admin_can_update_loja(self, api_client, admin_user, loja):
+        api_client.force_authenticate(user=admin_user)
+        data = {'nome': 'Loja Atualizada', 'cidade': 'Cidade Atualizada', 'ativo': True}
+        response = api_client.put(f'/api/admin/lojas/{loja.id}/', data)
+        assert response.status_code == status.HTTP_200_OK
+        loja.refresh_from_db()
+        assert loja.nome == 'Loja Atualizada'
+
+    def test_admin_can_partial_update_loja_soft_delete(self, api_client, admin_user, loja):
+        api_client.force_authenticate(user=admin_user)
+        response = api_client.patch(f'/api/admin/lojas/{loja.id}/', {'ativo': False})
+        assert response.status_code == status.HTTP_200_OK
+        loja.refresh_from_db()
+        assert loja.ativo is False
+
+    # DELETE condicional
+    def test_admin_can_delete_loja_sem_vinculos(self, api_client, admin_user):
+        loja = Loja.objects.create(nome='Só Loja', cidade='Sem vínculos', ativo=True)
+        api_client.force_authenticate(user=admin_user)
+        response = api_client.delete(f'/api/admin/lojas/{loja.id}/')
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Loja.objects.filter(id=loja.id).exists()
+
+    def test_admin_cannot_delete_loja_com_usuarios_vinculados(self, api_client, admin_user, loja, vendedor_user):
+        vendedor_user.loja = loja
+        vendedor_user.save()
+        api_client.force_authenticate(user=admin_user)
+        response = api_client.delete(f'/api/admin/lojas/{loja.id}/')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'registros vinculados' in response.data['detail'].lower()
+        assert Loja.objects.filter(id=loja.id).exists()  # ainda existe
+
+    def test_admin_cannot_delete_loja_com_equipes_vinculadas(self, api_client, admin_user, loja, equipe):
+        api_client.force_authenticate(user=admin_user)
+        response = api_client.delete(f'/api/admin/lojas/{loja.id}/')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Loja.objects.filter(id=loja.id).exists()
+
+    def test_admin_cannot_delete_loja_com_metricas_vinculadas(self, api_client, admin_user, loja, metrica):
+        api_client.force_authenticate(user=admin_user)
+        response = api_client.delete(f'/api/admin/lojas/{loja.id}/')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Loja.objects.filter(id=loja.id).exists()
+
+    def test_admin_cannot_delete_loja_com_atendimentos_vinculados(self, api_client, admin_user, loja, relatorio):
+        # relatório já associa vendedor->loja
+        api_client.force_authenticate(user=admin_user)
+        response = api_client.delete(f'/api/admin/lojas/{loja.id}/')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Loja.objects.filter(id=loja.id).exists()
+
+    # -------------------- Testes para Equipe --------------------
+    def test_admin_can_create_equipe(self, api_client, admin_user, loja):
+        api_client.force_authenticate(user=admin_user)
+        data = {'nome': 'Equipe Nova', 'loja': loja.id, 'ativo': True}
+        response = api_client.post('/api/admin/equipes/', data)
+        assert response.status_code == status.HTTP_201_CREATED
+        assert Equipe.objects.filter(nome='Equipe Nova').exists()
+
+    def test_admin_can_delete_equipe_sem_usuarios(self, api_client, admin_user, loja):
+        equipe = Equipe.objects.create(nome='Equipe Solta', loja=loja)
+        api_client.force_authenticate(user=admin_user)
+        response = api_client.delete(f'/api/admin/equipes/{equipe.id}/')
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Equipe.objects.filter(id=equipe.id).exists()
+
+    def test_admin_cannot_delete_equipe_com_usuarios(self, api_client, admin_user, equipe, vendedor_user):
+        vendedor_user.equipe = equipe
+        vendedor_user.save()
+        api_client.force_authenticate(user=admin_user)
+        response = api_client.delete(f'/api/admin/equipes/{equipe.id}/')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Equipe.objects.filter(id=equipe.id).exists()
+
+    def test_non_admin_cannot_manage_equipe(self, api_client, supervisor_user, loja):
+        api_client.force_authenticate(user=supervisor_user)
+        response = api_client.get('/api/admin/equipes/')
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    # -------------------- Testes para Métrica --------------------
+    def test_admin_can_create_metrica_global(self, api_client, admin_user):
+        api_client.force_authenticate(user=admin_user)
+        data = {'nome': 'Métrica Global', 'descricao': 'Sem loja', 'loja': None, 'ativo': True}
+        response = api_client.post('/api/admin/metricas/', data, format='json') #Alt
+        assert response.status_code == status.HTTP_201_CREATED
+        assert Metrica.objects.filter(nome='Métrica Global', loja__isnull=True).exists()
+
+    def test_admin_can_create_metrica_especifica(self, api_client, admin_user, loja):
+        api_client.force_authenticate(user=admin_user)
+        data = {'nome': 'Métrica Local', 'loja': loja.id, 'ativo': True}
+        response = api_client.post('/api/admin/metricas/', data)
+        assert response.status_code == status.HTTP_201_CREATED
+        assert Metrica.objects.filter(nome='Métrica Local', loja=loja).exists()
+
+    def test_admin_can_delete_metrica_sem_relatorios(self, api_client, admin_user, loja):
+        metrica = Metrica.objects.create(nome='Métrica Teste', loja=loja)
+        api_client.force_authenticate(user=admin_user)
+        response = api_client.delete(f'/api/admin/metricas/{metrica.id}/')
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Metrica.objects.filter(id=metrica.id).exists()
+
+    def test_admin_cannot_delete_metrica_com_relatorios(self, api_client, admin_user, relatorio):
+        metrica = relatorio.metrica  # já associada a um relatório
+        api_client.force_authenticate(user=admin_user)
+        response = api_client.delete(f'/api/admin/metricas/{metrica.id}/')
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Metrica.objects.filter(id=metrica.id).exists()
+
+    def test_non_admin_cannot_manage_metrica(self, api_client, vendedor_user):
+        api_client.force_authenticate(user=vendedor_user)
+        response = api_client.get('/api/admin/metricas/')
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    # Teste extra: PATCH para ativar/desativar funciona
+    def test_admin_can_toggle_loja_active(self, api_client, admin_user, loja):
+        api_client.force_authenticate(user=admin_user)
+        response = api_client.patch(f'/api/admin/lojas/{loja.id}/', {'ativo': False})
+        assert response.status_code == 200
+        loja.refresh_from_db()
+        assert loja.ativo is False
+        response = api_client.patch(f'/api/admin/lojas/{loja.id}/', {'ativo': True})
+        assert response.status_code == 200
+        loja.refresh_from_db()
+        assert loja.ativo is True
