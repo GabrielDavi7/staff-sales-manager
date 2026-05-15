@@ -23,7 +23,7 @@ const DashboardLayout = () => {
     // Define os itens do menu da sidebar
     { path: "/dashboard", icon: LayoutDashboard, label: "Visão Geral" },
     {
-      path: "registrar",
+      path: "registrarvenda",
       icon: PlusCircle,
       label: "Novo Atendimento",
     },
