@@ -38,7 +38,6 @@ export const router = createBrowserRouter([
         path: "graficos",
         element: <Grafics />,
       },
-      // 👇 Apenas a opção do painel admin modificada e protegida!
       {
         path: "adminpainel",
         element: (
