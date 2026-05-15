@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 class Loja(models.Model):
     nome = models.CharField(max_length=100)
     cidade = models.CharField(max_length=100)
+    ativo = models.BooleanField(default=True, verbose_name='Ativo')
 
     def __str__(self):
         return f"{self.nome} - {self.cidade}"
@@ -13,14 +14,20 @@ class Loja(models.Model):
 class Equipe(models.Model):
     nome = models.CharField(max_length=100)
     loja = models.ForeignKey(Loja, on_delete=models.CASCADE, related_name='equipes')
+    ativo = models.BooleanField(default=True, verbose_name='Ativo')
 
     def __str__(self):
         return f"{self.nome} ({self.loja.nome})"
+
+    def get_vendedores(self):
+        return self.customuser_set.filter(cargo='VENDEDOR', is_active=True)
+
 
 class Metrica(models.Model):
     nome = models.CharField(max_length=100)
     descricao = models.TextField(blank=True, null=True)
     loja = models.ForeignKey(Loja, on_delete=models.CASCADE, related_name='metricas', null=True, blank=True)
+    ativo = models.BooleanField(default=True, verbose_name='Ativo')
 
     def __str__(self):
         return self.nome

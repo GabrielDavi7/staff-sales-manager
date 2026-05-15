@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Relatorio, Metrica
+from .models import Relatorio, Metrica, Equipe
 from users.models import CustomUser
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -96,3 +96,18 @@ class RelatorioSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         validated_data.pop('pin', None)
         return super().update(instance, validated_data)
+
+
+class UserSimpleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'first_name', 'last_name', 'username']
+
+class EquipeInfoSerializer(serializers.ModelSerializer):
+    loja_nome = serializers.CharField(source='loja.nome', read_only=True)
+    membros = UserSimpleSerializer(source='get_vendedores', many=True, read_only=True)  # método no modelo
+    total_vendas = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = Equipe
+        fields = ['id', 'nome', 'loja_id', 'loja_nome', 'membros', 'total_vendas']

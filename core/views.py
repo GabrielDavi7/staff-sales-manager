@@ -3,14 +3,14 @@ from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from django.db.models import Q
-from .models import Relatorio, Metrica, Loja
-from .serializers import RelatorioSerializer, MetricaSerializer
+from django.db.models import Q, Sum
+from .models import Relatorio, Metrica, Loja, Equipe
+from .serializers import RelatorioSerializer, MetricaSerializer, EquipeInfoSerializer
 from users.models import CustomUser
 from users.serializers import LojaSerializer
 
 class LojaViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Loja.objects.all().order_by('nome')
+    queryset = Loja.objects.filter(ativo=True).order_by('nome')
     serializer_class = LojaSerializer
     permission_classes = [IsAuthenticated]
 
@@ -24,7 +24,8 @@ class MetricaViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         user = self.request.user
         # Retorna métricas globais (loja é nula) e métricas específicas da loja do usuário
-        return Metrica.objects.filter(Q(loja__isnull=True) | Q(loja=user.loja)).order_by('nome')
+        queryset = Metrica.objects.filter(ativo=True)
+        return queryset.filter(Q(loja__isnull=True) | Q(loja=user.loja)).order_by('nome')
 
 class RelatorioViewSet(viewsets.ModelViewSet):
     serializer_class = RelatorioSerializer
@@ -127,3 +128,42 @@ class RelatorioViewSet(viewsets.ModelViewSet):
             instance.delete()
         else:
             raise PermissionDenied("Você não tem permissão para excluir este atendimento.")
+
+class EquipeInfoViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = EquipeInfoSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Equipe.objects.filter(ativo=True)  # apenas equipes ativas
+
+        if user.cargo == 'ADMIN':
+            return queryset
+        elif user.cargo == 'SUPERVISOR':
+            # Supervisor vê apenas a equipe que ele supervisiona (campo user.equipe)
+            if user.equipe:
+                return Equipe.objects.filter(id=user.equipe.id, ativo=True)
+            return Equipe.objects.none()
+        elif user.cargo == 'VENDEDOR':
+            # Vendedor vê apenas sua própria equipe
+            if not user.equipe:
+                return Equipe.objects.none()
+            return queryset.filter(id=user.equipe.id)
+        else:
+            # DISPOSITIVO ou outros
+            return Equipe.objects.none()
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        # Para cada equipe, anexar o total_vendas (soma dos valor_venda dos relatórios fechados)
+        result = []
+        for equipe in queryset:
+            total = Relatorio.objects.filter(
+                vendedor__equipe=equipe,
+                venda_fechada=True
+            ).aggregate(total=Sum('valor_venda'))['total'] or 0
+            serializer = self.get_serializer(equipe)
+            data = serializer.data
+            data['total_vendas'] = total
+            result.append(data)
+        return Response(result)
