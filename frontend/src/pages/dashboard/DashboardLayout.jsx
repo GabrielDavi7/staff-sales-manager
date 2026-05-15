@@ -37,6 +37,11 @@ const DashboardLayout = () => {
       icon: PieChart,
       label: "Gráficos Avançados",
     },
+    {
+      path: "adminpainel",
+      icon: Users,
+      label: "Painel Administrativo",
+    },
   ];
 
   return (
