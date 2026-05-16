@@ -42,22 +42,32 @@ export default function AdminPainel() {
       const fetchTotaisAPI = async () => {
         try {
           // Buscando simultaneamente de todas as rotas mapeadas no Django
-          // Substitua o bloco correspondente dentro do useEffect do seu AdminPainel.jsx
           const [resLojas, resMetricas, resUsuarios, resEquipes] =
             await Promise.all([
-              api.get("/api/admin/lojas/"), // Atualizado para /api/admin/
-              api.get("/api/admin/metricas/"), // Atualizado para /api/admin/
-              api.get("/api/admin/usuarios/"), // Mantido
-              api.get("/api/admin/equipes/"), // Mantido
+              api.get("/api/admin/lojas/"),
+              api.get("/api/admin/metricas/"),
+              api.get("/api/admin/usuarios/"),
+              api.get("/api/admin/equipes/"),
             ]);
 
-          // A função de contagem agora fica super limpa e direta:
+          // Função de contagem adaptiva e protegida contra campos inexistentes
+          // Substitua APENAS a função contarAtivos dentro do useEffect do seu AdminPainel.jsx
+
           const contarAtivos = (response) => {
             const dados = response?.data?.results || response?.data;
             if (!Array.isArray(dados)) return 0;
 
-            // Como todos agora retornam 'ativo' por padrão do back-end:
-            return dados.filter((item) => item.ativo === true).length;
+            // Filtra a lista dinamicamente checando os dois padrões do Django
+            return dados.filter((item) => {
+              // 1. Se for uma Loja/Métrica/Equipe e estiver explicitamente falsa
+              if (item.ativo === false) return false;
+
+              // 2. Se for um Usuário do Django (is_active) e estiver explicitamente falso
+              if (item.is_active === false) return false;
+
+              // Se passou pelas checagens, o registro está ativo e deve ser contado
+              return true;
+            }).length;
           };
 
           setDashboardData({
