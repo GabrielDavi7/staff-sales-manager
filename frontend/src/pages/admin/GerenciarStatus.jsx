@@ -493,7 +493,7 @@ export default function GerenciarStatus({ onBack }) {
               {/* PIN do PDV */}
               <div>
                 <label className="text-xs font-bold text-slate-300 block mb-1 flex items-center gap-1">
-                  <KeyRound size={12} /> PIN (6 Dígitos)
+                  <KeyRound size={12} /> PIN (4 Dígitos)
                 </label>
                 <input
                   type="text"
