@@ -13,27 +13,31 @@ import {
   ClipboardCheck,
   Loader2,
   AlertCircle,
-  Save,
+  KeyRound,
 } from "lucide-react";
 import { clsx } from "clsx";
 
 export function Perfil() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
-  // Dados do formulário
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
     email: "",
     pin: "",
-    senha: "",
   });
 
-  // Controla qual campo está em modo de edição individual
+  const [passwordData, setPasswordData] = useState({
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
+
   const [editMode, setEditMode] = useState({
     first_name: false,
     last_name: false,
@@ -42,111 +46,248 @@ export function Perfil() {
     senha: false,
   });
 
-  // Controla a visibilidade visual de campos mascarados
   const [showPin, setShowPin] = useState(false);
   const [showSenha, setShowSenha] = useState(false);
 
-  // Inicializa os dados com o usuário logado no Context
-  useEffect(() => {
-    if (user) {
-      setFormData({
-        first_name: user.first_name || user.nome || "",
-        last_name: user.last_name || "",
-        email: user.email || "",
-        pin: user.pin || "",
-        senha: "", // Senha nunca vem preenchida do backend por segurança
-      });
-    }
-  }, [user]);
+  const currentRole = user?.cargo?.toUpperCase() || "";
+  const isVendedor = currentRole === "VENDEDOR";
 
-  // Ativa/Desativa o modo de edição de um campo específico
+  // Temas Dinâmicos
+  const roleStyles = {
+    ADMIN: {
+      wrapper: "bg-rose-50 border-rose-100",
+      headerBg: "bg-rose-500 text-white",
+      title: "text-rose-900",
+      subtitle: "text-rose-600",
+      iconBox: "text-rose-500 border-rose-100 bg-white",
+      activeInput: "border-rose-500 text-rose-900",
+      editBtn: "bg-rose-100 text-rose-700 hover:bg-rose-200",
+      badge: "bg-rose-200 text-rose-800 border-rose-300",
+    },
+    SUPERVISOR: {
+      wrapper: "bg-amber-50 border-amber-100",
+      headerBg: "bg-amber-500 text-white",
+      title: "text-amber-900",
+      subtitle: "text-amber-600",
+      iconBox: "text-amber-600 border-amber-200 bg-white",
+      activeInput: "border-amber-500 text-amber-900",
+      editBtn: "bg-amber-100 text-amber-700 hover:bg-amber-200",
+      badge: "bg-amber-200 text-amber-800 border-amber-300",
+    },
+    VENDEDOR: {
+      wrapper: "bg-blue-50 border-blue-100",
+      headerBg: "bg-[#4D7BAB] text-white",
+      title: "text-blue-900",
+      subtitle: "text-blue-600",
+      iconBox: "text-[#4D7BAB] border-blue-100 bg-white",
+      activeInput: "border-[#4D7BAB] text-blue-900",
+      editBtn: "bg-blue-100 text-[#4D7BAB] hover:bg-blue-200",
+      badge: "bg-blue-200 text-blue-800 border-blue-300",
+    },
+  };
+  const theme = roleStyles[currentRole] || roleStyles.VENDEDOR;
+
+  // Busca os dados do endpoint unificado do usuário logado
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get("/api/users/user/me/");
+        const data = response.data;
+        setFormData({
+          first_name: data.first_name || "",
+          last_name: data.last_name || "",
+          email: data.email || "",
+          pin: data.pin || "",
+        });
+      } catch (err) {
+        setError("Não foi possível carregar os dados do perfil.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUserData();
+  }, []);
+
   const toggleEdit = (field) => {
     setEditMode((prev) => ({ ...prev, [field]: !prev[field] }));
     setError("");
     setSuccess("");
   };
 
-  // Cancela a edição e restaura o valor original do Context
   const handleCancel = (field) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: field === "senha" ? "" : user[field] || "",
-    }));
+    if (field === "senha") {
+      setPasswordData({
+        current_password: "",
+        new_password: "",
+        confirm_password: "",
+      });
+    }
     toggleEdit(field);
   };
 
-  // Salva a alteração de um campo individual no banco de dados
+  // Salva dados pessoais via PUT/PATCH
   const handleSaveField = async (field) => {
     setError("");
     setSuccess("");
 
-    // Validações básicas antes do envio
-    if (!formData[field] && field !== "senha") {
+    if (!formData[field]) {
       setError("Este campo não pode ficar vazio.");
       return;
     }
 
+    if (field === "pin" && formData.pin.length !== 4) {
+      setError("O PIN deve conter exatamente 4 dígitos.");
+      return;
+    }
+
     try {
-      setLoading(true);
+      setSaving(true);
+      const payload = { [field]: formData[field] };
 
-      // Payload dinâmico contendo apenas o campo modificado
-      const payload = {
-        [field]: formData[field],
-      };
+      const response = await api.patch("/api/users/user/me/", payload);
 
-      // Ajuste para a sua rota exata de atualização de perfil/usuário se for diferente
-      await api.patch(`/api/admin/usuarios/${user.id}/`, payload);
+      // Atualiza o contexto caso o nome seja alterado
+      if (field === "first_name" || field === "last_name") {
+        setUser((prev) => ({ ...prev, ...payload }));
+      }
 
-      setSuccess(
-        `Campo ${field === "first_name" ? "Nome" : field} atualizado com sucesso!`,
-      );
+      setSuccess("Perfil atualizado com sucesso!");
       setEditMode((prev) => ({ ...prev, [field]: false }));
     } catch (err) {
-      console.error("Erro ao atualizar campo:", err);
-      setError("Não foi possível salvar a alteração no servidor.");
+      setError(err.response?.data?.detail || "Erro ao atualizar os dados.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
+  // Salva alteração de senha
+  const handleSavePassword = async () => {
+    setError("");
+    setSuccess("");
+
+    if (
+      !passwordData.current_password ||
+      !passwordData.new_password ||
+      !passwordData.confirm_password
+    ) {
+      setError("Preencha todos os campos de senha.");
+      return;
+    }
+
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      setError("A nova senha e a confirmação não coincidem.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const payload = {
+        current_password: passwordData.current_password,
+        new_password: passwordData.new_password,
+      };
+
+      await api.patch("/api/users/user/me/", payload);
+
+      setSuccess("Senha atualizada com sucesso!");
+      setPasswordData({
+        current_password: "",
+        new_password: "",
+        confirm_password: "",
+      });
+      setEditMode((prev) => ({ ...prev, senha: false }));
+    } catch (err) {
+      setError(
+        err.response?.data?.current_password?.[0] ||
+          err.response?.data?.detail ||
+          "Senha atual incorreta ou erro ao atualizar.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+        <Loader2 className="animate-spin text-[#4D7BAB]" size={48} />
+        <p className="text-slate-500 font-medium">Carregando seus dados...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 animate-in fade-in duration-500">
-      <div className="bg-white rounded-3xl shadow-2xl border border-blue-50 overflow-hidden">
+    <div className="max-w-4xl mx-auto py-8 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div
+        className={clsx(
+          "rounded-[2.5rem] shadow-2xl border overflow-hidden",
+          theme.wrapper,
+        )}
+      >
         {/* Cabeçalho */}
-        <div className="bg-[#4D7BAB]/5 px-10 py-8 border-b border-blue-50 flex items-center gap-5">
-          <div className="p-4 bg-[#4D7BAB] rounded-2xl text-white shadow-lg">
+        <div className="px-10 py-8 border-b border-white/40 flex items-center gap-5">
+          <div className={clsx("p-4 rounded-2xl shadow-lg", theme.headerBg)}>
             <User size={32} />
           </div>
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Meu Perfil</h1>
-            <p className="text-sm text-slate-500">
-              Gerencie suas informações de acesso e segurança
-            </p>
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1
+                  className={clsx(
+                    "text-3xl font-extrabold tracking-tight",
+                    theme.title,
+                  )}
+                >
+                  Meu Perfil
+                </h1>
+                <p className={clsx("text-sm font-medium mt-1", theme.subtitle)}>
+                  Gerencie suas informações de acesso e segurança
+                </p>
+              </div>
+              <span
+                className={clsx(
+                  "px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border shadow-sm",
+                  theme.badge,
+                )}
+              >
+                {currentRole}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Alertas de Feedback */}
+        {/* Alertas */}
         {error && (
-          <div className="mx-10 mt-6 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-center font-medium flex items-center justify-center gap-2">
-            <AlertCircle size={18} /> {error}
+          <div className="mx-10 mt-6 p-4 bg-white/60 border border-rose-200 text-rose-700 rounded-2xl font-bold flex items-center gap-3 backdrop-blur-sm">
+            <AlertCircle size={20} /> {error}
           </div>
         )}
         {success && (
-          <div className="mx-10 mt-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-center font-medium flex items-center justify-center gap-2">
-            <ClipboardCheck size={18} /> {success}
+          <div className="mx-10 mt-6 p-4 bg-white/60 border border-emerald-200 text-emerald-700 rounded-2xl font-bold flex items-center gap-3 backdrop-blur-sm">
+            <ClipboardCheck size={20} /> {success}
           </div>
         )}
 
-        {/* Formulário/Grid de Dados */}
-        <div className="p-10 space-y-6">
-          {/* CAMPO: NOME */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-100">
+        {/* Formulário / Grid */}
+        <div className="p-10 space-y-5">
+          {/* NOME */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm">
             <div className="flex items-center gap-4 flex-1">
-              <div className="p-3 bg-white text-slate-400 rounded-xl border border-slate-100">
+              <div
+                className={clsx(
+                  "p-3 rounded-xl border shadow-sm",
+                  theme.iconBox,
+                )}
+              >
                 <User size={20} />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                <label
+                  className={clsx(
+                    "block text-xs font-bold uppercase tracking-wider mb-1",
+                    theme.subtitle,
+                  )}
+                >
                   Nome
                 </label>
                 <input
@@ -157,27 +298,26 @@ export function Perfil() {
                     setFormData({ ...formData, first_name: e.target.value })
                   }
                   className={clsx(
-                    "w-full bg-transparent font-bold text-slate-700 outline-none transition-all text-lg",
-                    editMode.first_name && "border-b-2 border-[#4D7BAB] pb-0.5",
+                    "w-full bg-transparent font-bold outline-none transition-all text-lg text-slate-800",
+                    editMode.first_name &&
+                      `border-b-2 pb-0.5 ${theme.activeInput}`,
                   )}
                 />
               </div>
             </div>
-
-            {/* Botões laterais de Ação */}
-            <div className="flex items-center gap-2 self-end sm:self-center">
+            <div className="flex items-center gap-2">
               {editMode.first_name ? (
                 <>
                   <button
                     onClick={() => handleSaveField("first_name")}
-                    disabled={loading}
-                    className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all cursor-pointer"
+                    disabled={saving}
+                    className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-md"
                   >
                     <Check size={18} />
                   </button>
                   <button
                     onClick={() => handleCancel("first_name")}
-                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition-all cursor-pointer"
+                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300"
                   >
                     <X size={18} />
                   </button>
@@ -185,7 +325,10 @@ export function Perfil() {
               ) : (
                 <button
                   onClick={() => toggleEdit("first_name")}
-                  className="p-2.5 bg-blue-50 text-[#4D7BAB] rounded-xl hover:bg-blue-100 transition-all cursor-pointer flex items-center gap-1 font-bold text-sm"
+                  className={clsx(
+                    "p-2.5 rounded-xl transition-all flex items-center gap-2 font-bold text-sm",
+                    theme.editBtn,
+                  )}
                 >
                   <Edit2 size={16} /> Editar
                 </button>
@@ -193,14 +336,24 @@ export function Perfil() {
             </div>
           </div>
 
-          {/* CAMPO: SOBRENOME */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-100">
+          {/* SOBRENOME */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm">
             <div className="flex items-center gap-4 flex-1">
-              <div className="p-3 bg-white text-slate-400 rounded-xl border border-slate-100">
+              <div
+                className={clsx(
+                  "p-3 rounded-xl border shadow-sm",
+                  theme.iconBox,
+                )}
+              >
                 <User size={20} />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                <label
+                  className={clsx(
+                    "block text-xs font-bold uppercase tracking-wider mb-1",
+                    theme.subtitle,
+                  )}
+                >
                   Sobrenome
                 </label>
                 <input
@@ -211,26 +364,26 @@ export function Perfil() {
                     setFormData({ ...formData, last_name: e.target.value })
                   }
                   className={clsx(
-                    "w-full bg-transparent font-bold text-slate-700 outline-none transition-all text-lg",
-                    editMode.last_name && "border-b-2 border-[#4D7BAB] pb-0.5",
+                    "w-full bg-transparent font-bold outline-none transition-all text-lg text-slate-800",
+                    editMode.last_name &&
+                      `border-b-2 pb-0.5 ${theme.activeInput}`,
                   )}
                 />
               </div>
             </div>
-
-            <div className="flex items-center gap-2 self-end sm:self-center">
+            <div className="flex items-center gap-2">
               {editMode.last_name ? (
                 <>
                   <button
                     onClick={() => handleSaveField("last_name")}
-                    disabled={loading}
-                    className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all cursor-pointer"
+                    disabled={saving}
+                    className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-md"
                   >
                     <Check size={18} />
                   </button>
                   <button
                     onClick={() => handleCancel("last_name")}
-                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition-all cursor-pointer"
+                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300"
                   >
                     <X size={18} />
                   </button>
@@ -238,7 +391,10 @@ export function Perfil() {
               ) : (
                 <button
                   onClick={() => toggleEdit("last_name")}
-                  className="p-2.5 bg-blue-50 text-[#4D7BAB] rounded-xl hover:bg-blue-100 transition-all cursor-pointer flex items-center gap-1 font-bold text-sm"
+                  className={clsx(
+                    "p-2.5 rounded-xl transition-all flex items-center gap-2 font-bold text-sm",
+                    theme.editBtn,
+                  )}
                 >
                   <Edit2 size={16} /> Editar
                 </button>
@@ -246,14 +402,24 @@ export function Perfil() {
             </div>
           </div>
 
-          {/* CAMPO: E-MAIL */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-100">
+          {/* E-MAIL */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm">
             <div className="flex items-center gap-4 flex-1">
-              <div className="p-3 bg-white text-slate-400 rounded-xl border border-slate-100">
+              <div
+                className={clsx(
+                  "p-3 rounded-xl border shadow-sm",
+                  theme.iconBox,
+                )}
+              >
                 <Mail size={20} />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                <label
+                  className={clsx(
+                    "block text-xs font-bold uppercase tracking-wider mb-1",
+                    theme.subtitle,
+                  )}
+                >
                   E-mail
                 </label>
                 <input
@@ -264,26 +430,25 @@ export function Perfil() {
                     setFormData({ ...formData, email: e.target.value })
                   }
                   className={clsx(
-                    "w-full bg-transparent font-bold text-slate-700 outline-none transition-all text-lg",
-                    editMode.email && "border-b-2 border-[#4D7BAB] pb-0.5",
+                    "w-full bg-transparent font-bold outline-none transition-all text-lg text-slate-800",
+                    editMode.email && `border-b-2 pb-0.5 ${theme.activeInput}`,
                   )}
                 />
               </div>
             </div>
-
-            <div className="flex items-center gap-2 self-end sm:self-center">
+            <div className="flex items-center gap-2">
               {editMode.email ? (
                 <>
                   <button
                     onClick={() => handleSaveField("email")}
-                    disabled={loading}
-                    className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all cursor-pointer"
+                    disabled={saving}
+                    className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-md"
                   >
                     <Check size={18} />
                   </button>
                   <button
                     onClick={() => handleCancel("email")}
-                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition-all cursor-pointer"
+                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300"
                   >
                     <X size={18} />
                   </button>
@@ -291,7 +456,10 @@ export function Perfil() {
               ) : (
                 <button
                   onClick={() => toggleEdit("email")}
-                  className="p-2.5 bg-blue-50 text-[#4D7BAB] rounded-xl hover:bg-blue-100 transition-all cursor-pointer flex items-center gap-1 font-bold text-sm"
+                  className={clsx(
+                    "p-2.5 rounded-xl transition-all flex items-center gap-2 font-bold text-sm",
+                    theme.editBtn,
+                  )}
                 >
                   <Edit2 size={16} /> Editar
                 </button>
@@ -299,138 +467,226 @@ export function Perfil() {
             </div>
           </div>
 
-          {/* CAMPO: PIN (MASCARADO) */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-100">
-            <div className="flex items-center gap-4 flex-1 w-full">
-              <div className="p-3 bg-white text-slate-400 rounded-xl border border-slate-100">
-                <Lock size={20} />
-              </div>
-              <div className="flex-1 relative pr-10">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  PIN Operacional
-                </label>
-                <input
-                  type={showPin ? "text" : "password"}
-                  maxLength={6}
-                  disabled={!editMode.pin}
-                  value={formData.pin}
-                  onChange={(e) =>
-                    setFormData({ ...formData, pin: e.target.value })
-                  }
+          {/* PIN (EXCLUSIVO PARA VENDEDOR) */}
+          {isVendedor && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm">
+              <div className="flex items-center gap-4 flex-1">
+                <div
                   className={clsx(
-                    "w-full bg-transparent font-mono font-bold text-slate-700 outline-none transition-all text-lg tracking-widest",
-                    editMode.pin && "border-b-2 border-[#4D7BAB] pb-0.5",
+                    "p-3 rounded-xl border shadow-sm",
+                    theme.iconBox,
                   )}
-                />
-                {/* Olho para ver/esconder PIN */}
-                <button
-                  type="button"
-                  onClick={() => setShowPin(!showPin)}
-                  className="absolute right-2 top-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer bg-transparent border-none outline-none"
                 >
-                  {showPin ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+                  <Lock size={20} />
+                </div>
+                <div className="flex-1 relative pr-10">
+                  <label
+                    className={clsx(
+                      "block text-xs font-bold uppercase tracking-wider mb-1",
+                      theme.subtitle,
+                    )}
+                  >
+                    PIN Operacional
+                  </label>
+                  <input
+                    type={showPin ? "text" : "password"}
+                    maxLength={4} // Requisito: Apenas 4 dígitos numéricos
+                    disabled={!editMode.pin}
+                    value={formData.pin}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        pin: e.target.value.replace(/\D/g, ""),
+                      })
+                    }
+                    className={clsx(
+                      "w-full bg-transparent font-mono font-bold outline-none transition-all text-lg tracking-widest text-slate-800",
+                      editMode.pin && `border-b-2 pb-0.5 ${theme.activeInput}`,
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPin(!showPin)}
+                    className="absolute right-2 top-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPin ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {editMode.pin ? (
+                  <>
+                    <button
+                      onClick={() => handleSaveField("pin")}
+                      disabled={saving}
+                      className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-md"
+                    >
+                      <Check size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleCancel("pin")}
+                      className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300"
+                    >
+                      <X size={18} />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => toggleEdit("pin")}
+                    className={clsx(
+                      "p-2.5 rounded-xl transition-all flex items-center gap-2 font-bold text-sm",
+                      theme.editBtn,
+                    )}
+                  >
+                    <Edit2 size={16} /> Editar
+                  </button>
+                )}
               </div>
             </div>
+          )}
 
-            <div className="flex items-center gap-2 self-end sm:self-center">
-              {editMode.pin ? (
-                <>
-                  <button
-                    onClick={() => handleSaveField("pin")}
-                    disabled={loading}
-                    className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all cursor-pointer"
-                  >
-                    <Check size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleCancel("pin")}
-                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition-all cursor-pointer"
-                  >
-                    <X size={18} />
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => toggleEdit("pin")}
-                  className="p-2.5 bg-blue-50 text-[#4D7BAB] rounded-xl hover:bg-blue-100 transition-all cursor-pointer flex items-center gap-1 font-bold text-sm"
-                >
-                  <Edit2 size={16} /> Editar
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* CAMPO: SENHA (MASCARADO) */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-100">
-            <div className="flex items-center gap-4 flex-1 w-full">
-              <div className="p-3 bg-white text-slate-400 rounded-xl border border-slate-100">
-                <Lock size={20} />
-              </div>
-              <div className="flex-1 relative pr-10">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  Nova Senha
-                </label>
-                <input
-                  type={showSenha ? "text" : "password"}
-                  placeholder={
-                    editMode.senha ? "Insira a nova senha..." : "••••••••••••"
-                  }
-                  disabled={!editMode.senha}
-                  value={formData.senha}
-                  onChange={(e) =>
-                    setFormData({ ...formData, senha: e.target.value })
-                  }
+          {/* ALTERAÇÃO DE SENHA (MODAL INLINE) */}
+          <div className="p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div
                   className={clsx(
-                    "w-full bg-transparent font-bold text-slate-700 outline-none transition-all text-lg",
-                    editMode.senha && "border-b-2 border-[#4D7BAB] pb-0.5",
+                    "p-3 rounded-xl border shadow-sm",
+                    theme.iconBox,
                   )}
-                />
-                {/* Olho para ver/esconder Senha */}
-                <button
-                  type="button"
-                  onClick={() => setShowSenha(!showSenha)}
-                  className="absolute right-2 top-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer bg-transparent border-none outline-none"
                 >
-                  {showSenha ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+                  <KeyRound size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-lg">
+                    Alterar Senha
+                  </h3>
+                  <p
+                    className={clsx(
+                      "text-xs font-bold uppercase tracking-wider",
+                      theme.subtitle,
+                    )}
+                  >
+                    Proteja sua conta
+                  </p>
+                </div>
               </div>
-            </div>
-
-            <div className="flex items-center gap-2 self-end sm:self-center">
-              {editMode.senha ? (
-                <>
-                  <button
-                    onClick={() => handleSaveField("senha")}
-                    disabled={loading}
-                    className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all cursor-pointer"
-                  >
-                    <Check size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleCancel("senha")}
-                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition-all cursor-pointer"
-                  >
-                    <X size={18} />
-                  </button>
-                </>
-              ) : (
+              {!editMode.senha && (
                 <button
                   onClick={() => toggleEdit("senha")}
-                  className="p-2.5 bg-blue-50 text-[#4D7BAB] rounded-xl hover:bg-blue-100 transition-all cursor-pointer flex items-center gap-1 font-bold text-sm"
+                  className={clsx(
+                    "px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 font-bold text-sm",
+                    theme.editBtn,
+                  )}
                 >
                   <Edit2 size={16} /> Alterar
                 </button>
               )}
             </div>
+
+            {/* Sub-formulário de Senha */}
+            {editMode.senha && (
+              <div className="mt-6 space-y-4 pt-6 border-t border-slate-200/50 animate-in fade-in slide-in-from-top-4">
+                <div className="relative">
+                  <label className="block text-xs font-bold text-slate-500 mb-1">
+                    Senha Atual
+                  </label>
+                  <input
+                    type={showSenha ? "text" : "password"}
+                    value={passwordData.current_password}
+                    onChange={(e) =>
+                      setPasswordData({
+                        ...passwordData,
+                        current_password: e.target.value,
+                      })
+                    }
+                    className={clsx(
+                      "w-full p-3 rounded-xl bg-white border outline-none font-bold text-slate-700",
+                      theme.activeInput,
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="relative">
+                    <label className="block text-xs font-bold text-slate-500 mb-1">
+                      Nova Senha
+                    </label>
+                    <input
+                      type={showSenha ? "text" : "password"}
+                      value={passwordData.new_password}
+                      onChange={(e) =>
+                        setPasswordData({
+                          ...passwordData,
+                          new_password: e.target.value,
+                        })
+                      }
+                      className={clsx(
+                        "w-full p-3 rounded-xl bg-white border outline-none font-bold text-slate-700",
+                        theme.activeInput,
+                      )}
+                    />
+                  </div>
+                  <div className="relative">
+                    <label className="block text-xs font-bold text-slate-500 mb-1">
+                      Confirmar Nova Senha
+                    </label>
+                    <input
+                      type={showSenha ? "text" : "password"}
+                      value={passwordData.confirm_password}
+                      onChange={(e) =>
+                        setPasswordData({
+                          ...passwordData,
+                          confirm_password: e.target.value,
+                        })
+                      }
+                      className={clsx(
+                        "w-full p-3 rounded-xl bg-white border outline-none font-bold text-slate-700",
+                        theme.activeInput,
+                      )}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowSenha(!showSenha)}
+                    className="text-sm font-bold text-slate-500 flex items-center gap-2 hover:text-slate-700"
+                  >
+                    {showSenha ? (
+                      <>
+                        <EyeOff size={16} /> Ocultar Senhas
+                      </>
+                    ) : (
+                      <>
+                        <Eye size={16} /> Mostrar Senhas
+                      </>
+                    )}
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleCancel("senha")}
+                      className="px-4 py-2 bg-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-300"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSavePassword}
+                      disabled={saving}
+                      className="px-6 py-2 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 shadow-md"
+                    >
+                      Salvar Senha
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Loader global para feedback visual de carregamento */}
-        {loading && (
-          <div className="px-10 py-4 bg-slate-50 border-t flex items-center justify-center gap-2 text-[#4D7BAB] font-medium text-sm">
-            <Loader2 className="animate-spin" size={16} /> Salvando alterações
-            no servidor...
+        {saving && (
+          <div className="px-10 py-4 bg-white/40 border-t border-white/40 flex items-center justify-center gap-2 text-slate-600 font-bold text-sm">
+            <Loader2 className="animate-spin" size={16} /> Salvando
+            alterações...
           </div>
         )}
       </div>

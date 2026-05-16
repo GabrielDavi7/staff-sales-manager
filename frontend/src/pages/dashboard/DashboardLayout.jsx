@@ -57,12 +57,14 @@ const DashboardLayout = () => {
       path: "meuperfil",
       icon: Users,
       label: "Meu Perfil",
+      roles: ["ADMIN", "SUPERVISOR", "VENDEDOR"],
     },
   ];
 
-  // Filtra dinamicamente os itens que o cargo logado possui direito de ver
+  // CORREÇÃO 2: Filtra dinamicamente os itens com proteção "?." (Optional Chaining)
+  // Isso impede que o sistema quebre se algum item do menu não tiver a chave "roles"
   const menuFiltrado = menuItems.filter((item) =>
-    item.roles.includes(cargoLogado),
+    item.roles?.includes(cargoLogado),
   );
 
   return (
