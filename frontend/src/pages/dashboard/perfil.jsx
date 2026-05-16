@@ -87,7 +87,7 @@ export function Perfil() {
   };
   const theme = roleStyles[currentRole] || roleStyles.VENDEDOR;
 
-  // Busca os dados do endpoint unificado do usuário logado
+  // Busca os dados do endpoint
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -147,6 +147,7 @@ export function Perfil() {
 
       await api.patch("/api/users/user/me/", payload);
 
+      // Atualiza o contexto caso o nome seja alterado
       if (field === "first_name" || field === "last_name") {
         if (typeof setUser === "function") {
           setUser((prev) => ({ ...prev, ...payload }));
@@ -156,7 +157,7 @@ export function Perfil() {
       setSuccess("Perfil atualizado com sucesso!");
       setEditMode((prev) => ({ ...prev, [field]: false }));
     } catch (err) {
-      console.error("Erro capturado:", err); // Ajuda a debugar se houver outro problema
+      console.error("Erro capturado:", err);
       setError(err.response?.data?.detail || "Erro ao atualizar os dados.");
     } finally {
       setSaving(false);
@@ -492,7 +493,7 @@ export function Perfil() {
                   </label>
                   <input
                     type={showPin ? "text" : "password"}
-                    maxLength={4} // Requisito: Apenas 4 dígitos numéricos
+                    maxLength={4}
                     disabled={!editMode.pin}
                     value={formData.pin}
                     onChange={(e) =>
@@ -590,10 +591,14 @@ export function Perfil() {
             {editMode.senha && (
               <div className="mt-6 space-y-4 pt-6 border-t border-slate-200/50 animate-in fade-in slide-in-from-top-4">
                 <div className="relative">
-                  <label className="block text-xs font-bold text-slate-500 mb-1">
+                  <label
+                    htmlFor="current_password"
+                    className="block text-xs font-bold text-slate-500 mb-1"
+                  >
                     Senha Atual
                   </label>
                   <input
+                    id="current_password"
                     type={showSenha ? "text" : "password"}
                     value={passwordData.current_password}
                     onChange={(e) =>
@@ -610,10 +615,14 @@ export function Perfil() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="relative">
-                    <label className="block text-xs font-bold text-slate-500 mb-1">
+                    <label
+                      htmlFor="new_password"
+                      className="block text-xs font-bold text-slate-500 mb-1"
+                    >
                       Nova Senha
                     </label>
                     <input
+                      id="new_password"
                       type={showSenha ? "text" : "password"}
                       value={passwordData.new_password}
                       onChange={(e) =>
@@ -629,10 +638,14 @@ export function Perfil() {
                     />
                   </div>
                   <div className="relative">
-                    <label className="block text-xs font-bold text-slate-500 mb-1">
+                    <label
+                      htmlFor="confirm_password"
+                      className="block text-xs font-bold text-slate-500 mb-1"
+                    >
                       Confirmar Nova Senha
                     </label>
                     <input
+                      id="confirm_password"
                       type={showSenha ? "text" : "password"}
                       value={passwordData.confirm_password}
                       onChange={(e) =>
