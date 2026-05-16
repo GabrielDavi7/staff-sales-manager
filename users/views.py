@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework import generics
-from .serializers import UserSerializer, VendedorSerializer
 from .models import CustomUser
+from .serializers import UserSerializer, UserUpdateSerializer, VendedorSerializer
 
 class CustomLoginView(ObtainAuthToken):
     def post(self, request, *args, **kwargs):
@@ -22,9 +22,39 @@ class CustomLoginView(ObtainAuthToken):
 class UserMeView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def _filtered_update_data(self, data):
+        allowed_fields = {
+            'first_name',
+            'last_name',
+            'email',
+            'pin',
+            'current_password',
+            'new_password',
+        }
+        return {key: value for key, value in data.items() if key in allowed_fields}
+
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+
+    def put(self, request):
+        filtered_data = self._filtered_update_data(request.data)
+        serializer = UserUpdateSerializer(instance=request.user, data=filtered_data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(UserSerializer(request.user).data)
+
+    def patch(self, request):
+        filtered_data = self._filtered_update_data(request.data)
+        serializer = UserUpdateSerializer(
+            instance=request.user,
+            data=filtered_data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(UserSerializer(request.user).data)
+
 
 class VendedorListView(generics.ListAPIView):
     """
@@ -38,23 +68,23 @@ class VendedorListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         loja_id = self.request.query_params.get('loja_id')
-        
+
         # ADMIN: Vê todos os vendedores, podendo filtrar por loja específica
         if user.cargo == 'ADMIN':
             queryset = CustomUser.objects.filter(cargo='VENDEDOR', is_active=True)
-            
+
             # Aplica o filtro se o Admin escolheu uma loja no select
             if loja_id:
                 queryset = queryset.filter(loja_id=loja_id)
-                
+
             return queryset.order_by('first_name')
-            
+
         # SUPERVISOR ou VENDEDOR: Vê apenas os vendedores da mesma loja (sua equipe)
         if user.loja:
             return CustomUser.objects.filter(
-                cargo='VENDEDOR', 
+                cargo='VENDEDOR',
                 loja=user.loja,
-                is_active=True
+                is_active=True,
             ).order_by('first_name')
 
         # Se não for ADMIN e não tiver loja vinculada, não retorna nada por segurança

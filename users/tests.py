@@ -74,6 +74,121 @@ class UserMeViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
+class UserMeUpdateTests(APITestCase):
+    """Testes de atualizacao do endpoint /api/users/user/me/"""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='vendedor1',
+            email='vendedor@exemplo.com',
+            password='testpass123',
+            first_name='Joao',
+            last_name='Silva',
+            cargo='VENDEDOR',
+            pin='1234',
+        )
+        self.token = Token.objects.create(user=self.user)
+        self.url = reverse('user-me')
+
+    def _auth(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+
+    def test_put_atualiza_dados_basicos(self):
+        self._auth()
+        payload = {
+            'first_name': 'Maria',
+            'last_name': 'Souza',
+            'email': 'maria@exemplo.com',
+            'pin': '4321',
+        }
+        response = self.client.put(self.url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'Maria')
+        self.assertEqual(self.user.last_name, 'Souza')
+        self.assertEqual(self.user.email, 'maria@exemplo.com')
+        self.assertEqual(self.user.pin, '4321')
+
+    def test_patch_atualiza_parcial(self):
+        self._auth()
+        payload = {'last_name': 'Lima'}
+        response = self.client.patch(self.url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.last_name, 'Lima')
+
+    def test_vendedor_pin_invalido(self):
+        self._auth()
+        payload = {'pin': '12'}
+        response = self.client.patch(self.url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_nao_vendedor_tenta_atualizar_pin(self):
+        supervisor = User.objects.create_user(
+            username='super',
+            email='super@exemplo.com',
+            password='testpass123',
+            cargo='SUPERVISOR',
+        )
+        token = Token.objects.create(user=supervisor)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+        payload = {'pin': '1234'}
+        response = self.client.patch(self.url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_alterar_senha_com_sucesso(self):
+        self._auth()
+        payload = {
+            'current_password': 'testpass123',
+            'new_password': 'newpass456',
+        }
+        response = self.client.patch(self.url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('newpass456'))
+
+    def test_alterar_senha_com_senha_atual_incorreta(self):
+        self._auth()
+        payload = {
+            'current_password': 'senha_errada',
+            'new_password': 'newpass456',
+        }
+        response = self.client.patch(self.url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_campos_restritos_ignorados(self):
+        self._auth()
+        payload = {
+            'cargo': 'ADMIN',
+            'username': 'novo',
+            'is_active': False,
+            'first_name': 'Pedro',
+        }
+        response = self.client.patch(self.url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.cargo, 'VENDEDOR')
+        self.assertEqual(self.user.username, 'vendedor1')
+        self.assertTrue(self.user.is_active)
+        self.assertEqual(self.user.first_name, 'Pedro')
+
+    def test_email_unico(self):
+        self._auth()
+        User.objects.create_user(
+            username='outro',
+            email='outro@exemplo.com',
+            password='testpass123',
+        )
+        payload = {'email': 'outro@exemplo.com'}
+        response = self.client.patch(self.url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_atualizacao_sem_autenticacao(self):
+        response = self.client.patch(self.url, {'first_name': 'Ana'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
 class PermissionsTests(APITestCase):
     """Testes unitários para cada classe de permissão usando views dummy"""
     
