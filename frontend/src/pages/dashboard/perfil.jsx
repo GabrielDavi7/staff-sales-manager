@@ -145,16 +145,18 @@ export function Perfil() {
       setSaving(true);
       const payload = { [field]: formData[field] };
 
-      const response = await api.patch("/api/users/user/me/", payload);
+      await api.patch("/api/users/user/me/", payload);
 
-      // Atualiza o contexto caso o nome seja alterado
       if (field === "first_name" || field === "last_name") {
-        setUser((prev) => ({ ...prev, ...payload }));
+        if (typeof setUser === "function") {
+          setUser((prev) => ({ ...prev, ...payload }));
+        }
       }
 
       setSuccess("Perfil atualizado com sucesso!");
       setEditMode((prev) => ({ ...prev, [field]: false }));
     } catch (err) {
+      console.error("Erro capturado:", err); // Ajuda a debugar se houver outro problema
       setError(err.response?.data?.detail || "Erro ao atualizar os dados.");
     } finally {
       setSaving(false);
