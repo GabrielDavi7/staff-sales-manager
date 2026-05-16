@@ -7,16 +7,13 @@ import NewAttendance from "../pages/dashboard/NewAttendance";
 import Team from "../pages/team/Team";
 import Grafics from "../pages/dashboard/Grafics";
 import AdminPainel from "../pages/admin/AdminPainel";
+import Perfil from "../pages/dashboard/perfil"; // Import do Perfil adicionado e corrigido
 
 import { useAuth } from "../contexts/AuthContext";
 
-/* =========================================================
-   ROLE GUARD
-========================================================= */
 const RoleGuard = ({ allowedRoles, children }) => {
   const { user } = useAuth();
 
-  // Enquanto carrega autenticação
   if (user === undefined) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -27,31 +24,24 @@ const RoleGuard = ({ allowedRoles, children }) => {
 
   const cargo = user?.cargo?.trim()?.toUpperCase();
 
-  // Se não tiver permissão
   if (!allowedRoles.includes(cargo)) {
     console.log(
       `[RoleGuard] Acesso bloqueado. Cargo '${cargo}' não permitido.`,
     );
 
-    // Redirect inteligente
     switch (cargo) {
       case "DISPOSITIVO":
         return <Navigate to="/registrarvenda" replace />;
-
       case "ADMIN":
         return <Navigate to="/adminpainel" replace />;
-
       default:
-        return <Navigate to="/dashboard" replace />;
+        return <Navigate to="/login" replace />;
     }
   }
 
   return children;
 };
 
-/* =========================================================
-   REDIRECT INICIAL
-========================================================= */
 const InitialRedirect = () => {
   const { user } = useAuth();
 
@@ -72,30 +62,18 @@ const InitialRedirect = () => {
   switch (cargo) {
     case "DISPOSITIVO":
       return <Navigate to="/registrarvenda" replace />;
-
     case "ADMIN":
       return <Navigate to="/adminpainel" replace />;
-
     default:
       return <Navigate to="/dashboard" replace />;
   }
 };
 
-/* =========================================================
-   ROUTER
-========================================================= */
 export const router = createBrowserRouter([
-  /* =========================================================
-     LOGIN
-  ========================================================= */
   {
     path: "/login",
     element: <LoginPage />,
   },
-
-  /* =========================================================
-     REDIRECT INICIAL
-  ========================================================= */
   {
     path: "/",
     element: (
@@ -104,10 +82,6 @@ export const router = createBrowserRouter([
       </PrivateRoute>
     ),
   },
-
-  /* =========================================================
-     REGISTRAR VENDA
-  ========================================================= */
   {
     path: "/registrarvenda",
     element: (
@@ -117,40 +91,8 @@ export const router = createBrowserRouter([
     ),
   },
 
-  /* =========================================================
-     FUNCIONÁRIOS
-  ========================================================= */
-  {
-    path: "/funcionarios",
-    element: (
-      <PrivateRoute>
-        <RoleGuard allowedRoles={["ADMIN", "SUPERVISOR", "VENDEDOR"]}>
-          <Team />
-        </RoleGuard>
-      </PrivateRoute>
-    ),
-  },
-
-  /* =========================================================
-     GRÁFICOS
-  ========================================================= */
-  {
-    path: "/dashboard/graficos",
-    element: (
-      <PrivateRoute>
-        <RoleGuard allowedRoles={["ADMIN", "SUPERVISOR"]}>
-          <Grafics />
-        </RoleGuard>
-      </PrivateRoute>
-    ),
-  },
-
-  /* =========================================================
-     ADMIN
-  ========================================================= */
   {
     path: "/adminpainel",
-
     element: (
       <PrivateRoute>
         <RoleGuard allowedRoles={["ADMIN"]}>
@@ -162,7 +104,6 @@ export const router = createBrowserRouter([
         </RoleGuard>
       </PrivateRoute>
     ),
-
     children: [
       {
         index: true,
@@ -171,12 +112,8 @@ export const router = createBrowserRouter([
     ],
   },
 
-  /* =========================================================
-     DASHBOARD
-  ========================================================= */
   {
     path: "/dashboard",
-
     element: (
       <PrivateRoute>
         <RoleGuard allowedRoles={["ADMIN", "SUPERVISOR", "VENDEDOR"]}>
@@ -185,7 +122,6 @@ export const router = createBrowserRouter([
               <h1 className="text-xl font-bold mb-4 text-primary">
                 Joias Manager
               </h1>
-
               <hr className="mb-6 border-secondary" />
 
               <Outlet />
@@ -194,29 +130,47 @@ export const router = createBrowserRouter([
         </RoleGuard>
       </PrivateRoute>
     ),
-
     children: [
       {
         index: true,
         element: (
           <div className="animate-in fade-in duration-500">
             <h2 className="text-2xl font-bold">Painel de Controle</h2>
-
             <p className="text-gray-600">Bem-vindo de volta!</p>
           </div>
         ),
       },
-
       {
         path: "venda",
         element: <NewAttendance />,
       },
+      {
+        path: "funcionarios",
+        element: (
+          <RoleGuard allowedRoles={["ADMIN", "SUPERVISOR", "VENDEDOR"]}>
+            <Team />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: "graficos",
+        element: (
+          <RoleGuard allowedRoles={["ADMIN", "SUPERVISOR"]}>
+            <Grafics />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: "meuperfil",
+        element: (
+          <RoleGuard allowedRoles={["ADMIN", "SUPERVISOR", "VENDEDOR"]}>
+            <Perfil />
+          </RoleGuard>
+        ),
+      },
     ],
   },
 
-  /* =========================================================
-     FALLBACK
-  ========================================================= */
   {
     path: "*",
     element: <Navigate to="/" replace />,

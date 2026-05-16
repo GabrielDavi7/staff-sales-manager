@@ -42,6 +42,11 @@ const DashboardLayout = () => {
       icon: Users,
       label: "Painel Administrativo",
     },
+    {
+      path: "meuperfil",
+      icon: Users,
+      label: "Meu Perfil",
+    },
   ];
 
   return (
