@@ -10,31 +10,40 @@ export default function RelatorioAtendimento({ onBack }) {
   const [atendimentoSelecionado, setAtendimentoSelecionado] = useState(null);
 
   const [lojas, setLojas] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
+  const [metricas, setMetricas] = useState([]);
   const [atendimentos, setAtendimentos] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 1. CARREGA AS LOJAS PARA O FILTRO DROPDOWN
+  // 1. CARREGA OS DADOS MESTRE DO BANCO PARA CRUZAMENTO DE IDENTIFICADORES
   useEffect(() => {
-    const fetchLojas = async () => {
+    const carregarDadosSuporte = async () => {
       try {
-        const response = await api.get("/api/admin/lojas/");
-        setLojas(response.data?.results || response.data || []);
+        const [resLojas, resUsuarios, resMetricas] = await Promise.all([
+          api.get("/api/admin/lojas/"),
+          api.get("/api/admin/usuarios/"),
+          api.get("/api/admin/metricas/"),
+        ]);
+
+        const dadosLojas = resLojas.data?.results || resLojas.data || [];
+
+        // REQUISITO ATUALIZADO: Mostra apenas as lojas ATIVAS no dropdown de filtro superior
+        setLojas(dadosLojas.filter((l) => l.ativo === true));
+
+        setUsuarios(resUsuarios.data?.results || resUsuarios.data || []);
+        setMetricas(resMetricas.data?.results || resMetricas.data || []);
       } catch (err) {
-        console.error("Erro ao carregar lojas no relatório:", err);
+        console.error("Erro ao carregar dados mestres de suporte:", err);
       }
     };
-    fetchLojas();
+    carregarDadosSuporte();
   }, []);
 
-  // 2. CARREGA OS ATENDIMENTOS DO BACK-END (REATIVO AO FILTRO DE LOJA)
+  // 2. CARREGA O HISTÓRICO COMPLETO DE ATENDIMENTOS (UMA ÚNICA VEZ)
   const fetchAtendimentos = async () => {
     try {
       setLoading(true);
-
-      // Utiliza o mesmo padrão de parâmetros estruturado no seu arquivo Team.jsx
-      const params = filtroLoja ? { params: { loja_id: filtroLoja } } : {};
-      const response = await api.get("/api/atendimentos/", params);
-
+      const response = await api.get("/api/core/atendimentos/");
       setAtendimentos(response.data?.results || response.data || []);
     } catch (err) {
       console.error("Erro ao carregar histórico de atendimentos:", err);
@@ -45,13 +54,37 @@ export default function RelatorioAtendimento({ onBack }) {
 
   useEffect(() => {
     fetchAtendimentos();
-  }, [filtroLoja]);
+  }, []);
 
-  // 3. EXECUTA APÓS SALVAR A EDIÇÃO NO SUB-COMPONENTE
+  // 3. CAMADA DE FILTRAGEM DEFENSIVA E MULTI-NÍVEL (MUDANÇA DE LOJA EM TEMPO REAL)
+  const atendimentosFiltrados = atendimentos.filter((item) => {
+    if (!filtroLoja) return true; // Se estiver em "Todas as Lojas", mostra tudo
+
+    // Caminho 1: Tenta ler o ID da loja direto do objeto de atendimento
+    const lojaIdDireto =
+      item.loja?.id || item.loja || item.loja_id || item.loja__id;
+    if (lojaIdDireto && String(lojaIdDireto) === String(filtroLoja)) {
+      return true;
+    }
+
+    // Caminho 2: Se o atendimento não tiver loja direta, cruza com a loja do Vendedor responsável
+    const idVendedor = item.vendedor?.id || item.vendedor;
+    const vend = usuarios.find((u) => String(u.id) === String(idVendedor));
+
+    if (vend) {
+      const lojaIdVendedor = vend.loja?.id || vend.loja || vend.loja_id;
+      if (lojaIdVendedor && String(lojaIdVendedor) === String(filtroLoja)) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+
   const handleSalvarEdicao = () => {
     alert("Atendimento atualizado com sucesso!");
     setAtendimentoSelecionado(null);
-    fetchAtendimentos(); // Recarrega os dados atualizados direto do banco
+    fetchAtendimentos(); // Recarrega a listagem atualizada do banco
   };
 
   if (loading && atendimentos.length === 0) {
@@ -59,7 +92,7 @@ export default function RelatorioAtendimento({ onBack }) {
       <div className="h-[50vh] flex flex-col items-center justify-center gap-4 text-white">
         <Loader2 className="animate-spin text-[#3E5641]" size={48} />
         <p className="text-slate-300 font-medium">
-          Sincronizando registros de auditoria...
+          Sincronizando logs de atendimento e dados mestre...
         </p>
       </div>
     );
@@ -86,18 +119,18 @@ export default function RelatorioAtendimento({ onBack }) {
                   Relatório de Atendimentos
                 </h2>
                 <p className="text-slate-400 text-sm mt-1">
-                  Histórico completo de vendas e interações para auditoria.
+                  Auditoria de performance de vendas e motivos de perda da rede.
                 </p>
               </div>
             </div>
 
-            {/* Seletor de Filtro de Lojas Dinâmico */}
+            {/* Dropdown com a lista filtrada de Lojas Ativas */}
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
               <Filter size={18} className="text-[#a8d3b2]" />
               <select
                 value={filtroLoja}
                 onChange={(e) => setFiltroLoja(e.target.value)}
-                className="bg-transparent text-white focus:outline-none cursor-pointer border-none outline-none pr-4"
+                className="bg-transparent text-white focus:outline-none cursor-pointer border-none outline-none pr-4 font-bold"
               >
                 <option value="" className="bg-[#003847]">
                   Todas as Lojas
@@ -111,74 +144,109 @@ export default function RelatorioAtendimento({ onBack }) {
             </div>
           </div>
 
-          {/* Tabela de Dados Vinculada ao Django */}
           <div className="bg-white/5 border border-white/10 rounded-[2rem] overflow-hidden shadow-xl backdrop-blur-md">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-white/5 border-b border-white/10 text-slate-300 text-sm uppercase tracking-wider">
                     <th className="p-5 font-semibold">Data/Hora</th>
-                    <th className="px-5 py-4">Cliente</th>
-                    <th className="px-5 py-4">Vendedor</th>
-                    <th className="px-5 py-4">Métrica / Status</th>
-                    <th className="px-5 py-4">Valor</th>
-                    <th className="px-5 py-4 text-center">Ações</th>
+                    <th className="p-5 font-semibold">Cliente</th>
+                    <th className="p-5 font-semibold">Vendedor</th>
+                    <th className="p-5 font-semibold">Métrica / Status</th>
+                    <th className="p-5 font-semibold">Valor</th>
+                    <th className="p-5 font-semibold text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {atendimentos.map((item) => {
-                    // Tratamento seguro de renderização dos nomes de relacionamentos do Django
-                    const nomeVendedor = item.vendedor__first_name
-                      ? `${item.vendedor__first_name} ${item.vendedor__last_name || ""}`.trim()
-                      : item.vendedor_nome || "Não informado";
+                  {atendimentosFiltrados.map((item) => {
+                    // 1. RESOLUÇÃO DO VENDEDOR
+                    let nomeVendedor = "Não informado";
+                    if (item.vendedor && typeof item.vendedor === "object") {
+                      nomeVendedor =
+                        `${item.vendedor.first_name || ""} ${item.vendedor.last_name || ""}`.trim();
+                    } else if (item.vendedor__first_name) {
+                      nomeVendedor =
+                        `${item.vendedor__first_name} ${item.vendedor__last_name || ""}`.trim();
+                    } else if (item.vendedor_nome) {
+                      nomeVendedor = item.vendedor_nome;
+                    } else if (item.vendedor) {
+                      const correspondente = usuarios.find(
+                        (u) => String(u.id) === String(item.vendedor),
+                      );
+                      if (correspondente) {
+                        nomeVendedor =
+                          `${correspondente.first_name || ""} ${correspondente.last_name || ""}`.trim();
+                      } else {
+                        nomeVendedor = `Vendedor ID #${item.vendedor}`;
+                      }
+                    }
 
-                    const statusMetrica = item.venda_fechada
-                      ? "Concretizada"
-                      : item.metrica__nome ||
-                        item.metrica_nome ||
-                        "Não informada";
+                    // 2. RESOLUÇÃO DA MÉTRICA
+                    let statusMetrica = "Não informada";
+                    if (item.venda_fechada) {
+                      statusMetrica = "Concretizada";
+                    } else if (
+                      item.metrica &&
+                      typeof item.metrica === "object"
+                    ) {
+                      statusMetrica = item.metrica.nome || "Não informada";
+                    } else if (item.metrica__nome) {
+                      statusMetrica = item.metrica__nome;
+                    } else if (item.metrica_nome) {
+                      statusMetrica = item.metrica_nome;
+                    } else if (item.metrica) {
+                      const correspondente = metricas.find(
+                        (m) => String(m.id) === String(item.metrica),
+                      );
+                      if (correspondente) {
+                        statusMetrica = correspondente.nome;
+                      } else {
+                        statusMetrica = `Métrica ID #${item.metrica}`;
+                      }
+                    }
+
+                    const valorExibido =
+                      item.valor_venda !== undefined
+                        ? item.valor_venda
+                        : item.valor || 0;
+                    const clienteExibido =
+                      item.cliente_nome || item.cliente || "Não informado";
 
                     return (
                       <tr
                         key={item.id}
-                        className="border-b border-white/5 hover:bg-white/5 transition-colors group"
+                        className="border-b border-white/5 hover:bg-white/5 transition-colors"
                       >
+                        <td className="p-5 text-slate-300 text-sm">
+                          {item.data_hora
+                            ? new Date(item.data_hora).toLocaleString("pt-BR")
+                            : "Sem data"}
+                        </td>
+                        <td className="p-5 font-medium text-white">
+                          {clienteExibido}
+                        </td>
+                        <td className="p-5 text-slate-300">{nomeVendedor}</td>
                         <td className="p-5 text-slate-300">
-                          {new Date(item.data_hora).toLocaleString("pt-BR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </td>
-                        <td className="px-5 py-4 font-medium text-white">
-                          {item.cliente_nome || "Não informado"}
-                        </td>
-                        <td className="px-5 py-4 text-slate-300">
-                          {nomeVendedor}
-                        </td>
-                        <td className="px-5 py-4">
                           <span
-                            className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                            className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
                               item.venda_fechada
-                                ? "bg-emerald-500/20 text-emerald-300"
-                                : "bg-rose-500/20 text-rose-300"
+                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
                             }`}
                           >
                             {statusMetrica}
                           </span>
                         </td>
                         <td
-                          className={`px-5 py-4 font-bold ${item.venda_fechada ? "text-[#a8d3b2]" : "text-slate-400"}`}
+                          className={`p-5 font-black text-base ${item.venda_fechada ? "text-[#a8d3b2]" : "text-slate-400"}`}
                         >
-                          R$ {parseFloat(item.valor_venda || 0).toFixed(2)}
+                          R$ {parseFloat(valorExibido).toFixed(2)}
                         </td>
-                        <td className="px-5 py-4 text-center">
+                        <td className="p-5 text-center">
                           <button
+                            type="button"
                             onClick={() => setAtendimentoSelecionado(item)}
                             className="p-2 bg-[#3E5641]/20 text-[#a8d3b2] hover:bg-[#3E5641] hover:text-white rounded-lg transition-colors cursor-pointer border-none inline-flex"
-                            title="Editar Registro"
                           >
                             <Edit size={18} />
                           </button>
@@ -189,9 +257,10 @@ export default function RelatorioAtendimento({ onBack }) {
                 </tbody>
               </table>
 
-              {atendimentos.length === 0 && !loading && (
-                <p className="text-center text-slate-400 py-12">
-                  Nenhum registro de atendimento encontrado para esta seleção.
+              {atendimentosFiltrados.length === 0 && !loading && (
+                <p className="text-center text-slate-400 py-12 font-medium">
+                  Nenhum registro de atendimento localizado para a loja
+                  selecionada.
                 </p>
               )}
             </div>
