@@ -23,7 +23,7 @@ const DashboardLayout = () => {
     // Define os itens do menu da sidebar
     { path: "/dashboard", icon: LayoutDashboard, label: "Visão Geral" },
     {
-      path: "registrar",
+      path: "registrarvenda",
       icon: PlusCircle,
       label: "Novo Atendimento",
     },
@@ -36,6 +36,11 @@ const DashboardLayout = () => {
       path: "graficos",
       icon: PieChart,
       label: "Gráficos Avançados",
+    },
+    {
+      path: "adminpainel",
+      icon: Users,
+      label: "Painel Administrativo",
     },
   ];
 

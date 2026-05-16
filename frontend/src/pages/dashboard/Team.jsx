@@ -38,7 +38,7 @@ export function Team() {
     if (isAdmin) {
       // Ajuste para a sua rota exata de listar lojas, caso seja diferente
       api
-        .get("/api/core/lojas/") // ou "/api/management/lojas/" dependendo do seu backend
+        .get("/api/core/lojas/")
         .then((res) => setLojas(res.data.results || res.data))
         .catch((err) => console.error("Erro ao buscar lojas:", err));
     }
