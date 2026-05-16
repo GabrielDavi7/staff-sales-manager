@@ -68,7 +68,6 @@ export function Team() {
         // ESTRATÉGIA ANTIBLOQUEIO 403 PARA VENDEDORES E SUPERVISORES
         // =================================================================
         if (isVendedor) {
-          // VENDEDOR: Só enxerga a si mesmo e consome rotas públicas/core
           const resMetricas = await api.get("/api/core/metricas/");
           setMetricasMestre(
             resMetricas.data?.results || resMetricas.data || [],
@@ -87,46 +86,85 @@ export function Team() {
             },
           ]);
         } else if (isSupervisor) {
-          // SUPERVISOR: Consome rotas do core para métricas para evitar 403
           const resMetricas = await api.get("/api/core/metricas/");
           setMetricasMestre(
             resMetricas.data?.results || resMetricas.data || [],
           );
 
           try {
-            // Tenta buscar da rota administrativa se o Django permitir
-            const resUsuarios = await api.get("/api/admin/usuarios/");
-            setUsuariosRaw(resUsuarios.data?.results || resUsuarios.data || []);
+            // Tenta primeiro a rota pública de vendedores operacionais
+            const resVendedores = await api.get("/api/users/vendedores/");
+            const dadosProd =
+              resVendedores.data?.results || resVendedores.data || [];
+
+            // CORREÇÃO: Normaliza o objeto injetando cargo e ativação se vierem ausentes do Django
+            const timeMapeado = dadosProd.map((v) => ({
+              ...v,
+              cargo: v.cargo || "VENDEDOR",
+              is_active: v.is_active !== undefined ? v.is_active : true,
+            }));
+
+            // Inclui o próprio supervisor na listagem lateral para autoverificação
+            timeMapeado.push({
+              id: user.id,
+              first_name: user.first_name || "Eu",
+              last_name: user.last_name || "(Supervisor)",
+              username: user.username,
+              email: user.email,
+              cargo: "SUPERVISOR",
+              loja: user.loja,
+              is_active: true,
+            });
+
+            setUsuariosRaw(timeMapeado);
           } catch (uErr) {
             console.warn(
               "Acesso admin restrito ao Supervisor, aplicando extração via logs do core...",
             );
 
-            // SEGUNDA CAMADA DE PROTEÇÃO: Se der 403, reconstrói o time da loja usando os dados do histórico
             const mapaVendedores = {};
             const idLojaSupervisor = user.loja?.id || user.loja;
 
             listaAtendimentos.forEach((atend) => {
-              const vend = atend.vendedor;
-              if (vend && typeof vend === "object" && vend.id) {
-                const idLojaVendedor = vend.loja?.id || vend.loja;
-                // Só adiciona na lista se o vendedor pertencer à mesma loja do Supervisor
-                if (String(idLojaVendedor) === String(idLojaSupervisor)) {
-                  mapaVendedores[vend.id] = {
-                    id: vend.id,
-                    first_name: vend.first_name,
-                    last_name: vend.last_name || "",
-                    username: vend.username || vend.first_name?.toLowerCase(),
-                    email: vend.email || "",
-                    cargo: "VENDEDOR",
-                    loja: vend.loja,
-                    is_active: true,
-                  };
+              let vId = null;
+              let fName = "";
+              let lName = "";
+              let vLoja = atend.loja?.id || atend.loja || atend.loja_id;
+
+              if (atend.vendedor && typeof atend.vendedor === "object") {
+                vId = atend.vendedor.id;
+                fName = atend.vendedor.first_name || "";
+                lName = atend.vendedor.last_name || "";
+                if (!vLoja)
+                  vLoja = atend.vendedor.loja?.id || atend.vendedor.loja;
+              } else if (atend.vendedor_id) {
+                vId = atend.vendedor_id;
+                fName = atend.vendedor_nome || "Vendedor";
+              } else if (atend.vendedor && !isNaN(atend.vendedor)) {
+                vId = atend.vendedor;
+                if (atend.vendedor_nome) fName = atend.vendedor_nome;
+                else if (atend.vendedor__first_name) {
+                  fName = atend.vendedor__first_name;
+                  lName = atend.vendedor__last_name || "";
+                } else {
+                  fName = `Vendedor #${vId}`;
                 }
+              }
+
+              if (vId && String(vLoja) === String(idLojaSupervisor)) {
+                mapaVendedores[vId] = {
+                  id: vId,
+                  first_name: fName,
+                  last_name: lName,
+                  username: atend.vendedor_username || fName.toLowerCase(),
+                  email: atend.vendedor_email || "",
+                  cargo: "VENDEDOR",
+                  loja: vLoja,
+                  is_active: true,
+                };
               }
             });
 
-            // Inclui o próprio supervisor na lista para ele auditar a si mesmo se necessário
             mapaVendedores[user.id] = {
               id: user.id,
               first_name: user.first_name || "Eu",
@@ -141,7 +179,6 @@ export function Team() {
             setUsuariosRaw(Object.values(mapaVendedores));
           }
         } else if (isAdmin) {
-          // ADMINISTRADOR GLOBAL: Acesso livre total a todas as rotas admin
           const [resMetricas, resUsuarios, resLojas] = await Promise.all([
             api.get("/api/admin/metricas/"),
             api.get("/api/admin/usuarios/"),
@@ -170,13 +207,15 @@ export function Team() {
   // REGRAS DE VISUALIZAÇÃO E PRIVACIDADE LATERAL (RBAC)
   // =================================================================
   const vendedoresFiltrados = usuariosRaw.filter((u) => {
-    const contaAtiva = u.is_active === true || u.ativo === true;
+    // CORREÇÃO: Caso as propriedades is_active ou ativo não venham descritas, assume true
+    const contaAtiva =
+      u.is_active === true ||
+      u.ativo === true ||
+      (u.is_active === undefined && u.ativo === undefined);
     if (!contaAtiva) return false;
 
-    // 1. VENDEDOR: Já está travado contendo apenas ele mesmo
     if (isVendedor) return true;
 
-    // 2. SUPERVISOR: Vê apenas os colaboradores da MESMA LOJA que ele está alocado
     if (isSupervisor) {
       const cargoValido =
         u.cargo?.toUpperCase() === "VENDEDOR" ||
@@ -184,14 +223,14 @@ export function Team() {
       if (!cargoValido) return false;
 
       const idLojaSupervisor = user?.loja?.id || user?.loja;
-      if (idLojaSupervisor) {
-        const idLojaVendedor = u.loja?.id || u.loja;
-        return String(idLojaVendedor) === String(idLojaSupervisor);
-      }
-      return false;
+      const idLojaVendedor = u.loja?.id || u.loja || u.loja_id;
+
+      // Se o endpoint filtrado omitir o ID da loja por redundância, exibe o vendedor na tela
+      if (!idLojaVendedor) return true;
+
+      return String(idLojaVendedor) === String(idLojaSupervisor);
     }
 
-    // 3. ADMIN: Visão total segmentada pelo seletor de lojas do topo
     if (isAdmin) {
       const cargoValido =
         u.cargo?.toUpperCase() === "VENDEDOR" ||
@@ -208,14 +247,12 @@ export function Team() {
     return false;
   });
 
-  // Filtro de texto da barra de busca lateral
   const filteredTeam = vendedoresFiltrados.filter((v) =>
     `${v.first_name || ""} ${v.last_name || ""}`
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
 
-  // Auto-seleção inteligente do primeiro registro disponível na lista lateral
   useEffect(() => {
     if (filteredTeam.length > 0 && !selectedUser) {
       setSelectedUser(filteredTeam[0]);
@@ -284,11 +321,8 @@ export function Team() {
     });
 
     const dadosGrafico = Object.keys(contagemMetricas)
-      .map((key) => ({
-        name: key,
-        quantidade: contagemMetricas[key],
-      }))
-      .filter((d) => d.quantidade > 0);
+      .map((key) => ({ name: key, quantity: contagemMetricas[key] }))
+      .filter((d) => d.quantity > 0);
 
     return { totalFaturado, taxaConversao, totalAtendimentos, dadosGrafico };
   };
@@ -333,7 +367,6 @@ export function Team() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-          {/* Dropdown de Lojas: Exclusivo para ADMIN mestre */}
           {isAdmin && (
             <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200 w-full sm:w-auto">
               <Store size={20} className="text-[#4D7BAB] ml-2" />
@@ -354,7 +387,6 @@ export function Team() {
             </div>
           )}
 
-          {/* Badge de Contexto de Loja Fixo para o Supervisor */}
           {isSupervisor && user?.loja && (
             <div className="flex items-center gap-2 px-5 py-3 bg-blue-50 text-[#4D7BAB] rounded-2xl font-bold text-sm border border-blue-100">
               <Store size={18} /> Filial Protegida
@@ -369,7 +401,6 @@ export function Team() {
         </div>
       )}
 
-      {/* Grid Lateral Mestre-Detalhe */}
       <div className="flex flex-col lg:flex-row gap-6">
         {/* COLUNA ESQUERDA: Lista Lateral */}
         <div className="w-full lg:w-1/3 bg-white p-6 rounded-[2rem] shadow-xl border border-blue-50 flex flex-col h-[650px]">
@@ -410,18 +441,10 @@ export function Team() {
                     key={v.id}
                     type="button"
                     onClick={() => setSelectedUser(v)}
-                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left ${
-                      selectedUser?.id === v.id
-                        ? "border-[#4D7BAB] bg-blue-50/50 shadow-md shadow-blue-100/50"
-                        : "border-transparent hover:bg-slate-50"
-                    }`}
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left ${selectedUser?.id === v.id ? "border-[#4D7BAB] bg-blue-50/50 shadow-md shadow-blue-100/50" : "border-transparent hover:bg-slate-50"}`}
                   >
                     <div
-                      className={`w-11 h-11 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-base ${
-                        selectedUser?.id === v.id
-                          ? "bg-[#4D7BAB] text-white"
-                          : "bg-slate-100 text-[#4D7BAB]"
-                      }`}
+                      className={`w-11 h-11 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-base ${selectedUser?.id === v.id ? "bg-[#4D7BAB] text-white" : "bg-slate-100 text-[#4D7BAB]"}`}
                     >
                       {v.first_name?.[0].toUpperCase()}
                     </div>
@@ -442,11 +465,10 @@ export function Team() {
           </div>
         </div>
 
-        {/* COLUNA DIREITA: Painel Gráfico de Performance Segura */}
+        {/* COLUNA DIREITA: Painel Gráfico */}
         <div className="w-full lg:w-2/3 bg-white p-8 rounded-[2.5rem] shadow-xl border border-blue-50 h-[650px] flex flex-col overflow-hidden">
           {selectedUser && performanceAtual ? (
             <>
-              {/* Identificação da Ficha */}
               <div className="flex items-center gap-5 mb-6 pb-5 border-b border-slate-100">
                 <div className="w-16 h-16 rounded-2xl bg-[#4D7BAB] text-white flex items-center justify-center font-black text-2xl flex-shrink-0">
                   {selectedUser.first_name?.[0].toUpperCase()}
@@ -462,9 +484,7 @@ export function Team() {
                 </div>
               </div>
 
-              {/* Grid dos Cards de Acumulados Dinâmicos */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                {/* Dinheiro Faturado */}
                 <div className="p-5 bg-emerald-50/40 rounded-2xl border border-emerald-100 shadow-sm">
                   <span className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1.5 mb-1.5 tracking-wider">
                     <TrendingUp size={14} /> Total Faturado
@@ -473,8 +493,6 @@ export function Team() {
                     R$ {performanceAtual.totalFaturado.toFixed(2)}
                   </p>
                 </div>
-
-                {/* Taxa de Conversão */}
                 <div className="p-5 bg-blue-50/40 rounded-2xl border border-blue-100 shadow-sm">
                   <span className="text-[10px] font-black text-[#4D7BAB] uppercase flex items-center gap-1.5 mb-1.5 tracking-wider">
                     <Percent size={14} /> Conversão Comercial
@@ -483,8 +501,6 @@ export function Team() {
                     {performanceAtual.taxaConversao}%
                   </p>
                 </div>
-
-                {/* Atendimentos Totais */}
                 <div className="p-5 bg-purple-50/40 rounded-2xl border border-purple-100 shadow-sm">
                   <span className="text-[10px] font-black text-purple-600 uppercase flex items-center gap-1.5 mb-1.5 tracking-wider">
                     <Activity size={14} /> Atendimentos
@@ -495,13 +511,11 @@ export function Team() {
                 </div>
               </div>
 
-              {/* GRÁFICO DE BARRAS REAL DE INTERAÇÕES COMERCIAIS */}
               <div className="flex-1 flex flex-col bg-slate-50/50 border border-slate-100 rounded-3xl p-5 overflow-hidden">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
                   <Trophy size={14} className="text-amber-500" /> Histograma
                   Analítico de Resultados
                 </h3>
-
                 {performanceAtual.dadosGrafico.length > 0 ? (
                   <div className="w-full h-full min-h-[220px]">
                     <ResponsiveContainer width="100%" height="100%">
@@ -532,7 +546,7 @@ export function Team() {
                           itemStyle={{ color: "#a8d3b2", fontWeight: "bold" }}
                         />
                         <Bar
-                          dataKey="quantidade"
+                          dataKey="quantity"
                           radius={[8, 8, 0, 0]}
                           maxBarSize={45}
                         >
@@ -553,8 +567,8 @@ export function Team() {
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-sm italic py-10">
-                    Nenhum log operacional de atendimento localizado para este
-                    funcionário.
+                    Você ainda não possui históricos de atendimento registrados
+                    no banco de dados.
                   </div>
                 )}
               </div>

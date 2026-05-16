@@ -7,10 +7,9 @@ import {
   BarChart3,
   TrendingUp,
   Download,
-  Filter,
-  MessageSquareX,
   AlertCircle,
   Building2,
+  MessageSquareX,
 } from "lucide-react";
 import {
   BarChart,
@@ -35,7 +34,7 @@ export function Grafics() {
 
   // Estados de Filtro
   const [periodo, setPeriodo] = useState("Hoje");
-  const [lojaSelecionada, setLojaSelecionada] = useState(""); // Vazio = Todas as lojas
+  const [lojaSelecionada, setLojaSelecionada] = useState("");
   const [lojasDisponiveis, setLojasDisponiveis] = useState([]);
 
   // Estados de Dados
@@ -61,8 +60,7 @@ export function Grafics() {
 
     const fetchLojas = async () => {
       try {
-        // ATENÇÃO: Confirme se essa é a rota real do seu backend para listar as lojas
-        const response = await api.get("/api/core/lojas/");
+        const response = await api.get("/api/admin/lojas/");
         const listaLojas = response.data.results || response.data;
         setLojasDisponiveis(listaLojas);
       } catch (err) {
@@ -73,7 +71,7 @@ export function Grafics() {
     fetchLojas();
   }, [isAdmin]);
 
-  // 3. BUSCA DE DADOS NA API DE ANALYTICS
+  // 3. BUSCA DE DADOS NA API DE ANALYTICS CORRIGIDA
   useEffect(() => {
     if (!user || user?.cargo === "DISPOSITIVO") return;
 
@@ -87,12 +85,15 @@ export function Grafics() {
         if (user?.cargo === "VENDEDOR") {
           endpoint = "/api/analytics/meu-desempenho/";
         } else if (user?.cargo === "SUPERVISOR") {
-          endpoint = "/api/analytics/loja/";
+          // CORREÇÃO: Passa o ID da filial sob supervisão para filtrar as barras e evolução financeira
+          const idLojaSupervisor = user.loja?.id || user.loja;
+          endpoint = idLojaSupervisor
+            ? `/api/analytics/loja/?loja_id=${idLojaSupervisor}`
+            : "/api/analytics/loja/";
         } else if (isAdmin) {
           endpoint = "/api/analytics/geral/";
-          // Se o admin escolheu uma loja, adiciona o parâmetro na URL
           if (lojaSelecionada) {
-            endpoint += `?loja_id=${lojaSelecionada}`; // Ajuste para o nome do parâmetro que seu backend espera (ex: ?loja= ou ?loja_id=)
+            endpoint += `?loja_id=${lojaSelecionada}`;
           }
         }
 
@@ -112,7 +113,6 @@ export function Grafics() {
   if (user?.cargo === "DISPOSITIVO") return null;
 
   // --- PROCESSAMENTO DE DADOS ---
-
   const totalFaturamento = data?.kpis?.total_vendas_valor || 0;
 
   const processadoHorario = (data?.grafico_vendas || []).map((gv) => {
@@ -163,7 +163,6 @@ export function Grafics() {
     color: coresMotivos[index % coresMotivos.length],
   }));
 
-  // --- ESTADOS DE TELA ---
   if (loading) {
     return (
       <div className="h-[70vh] flex flex-col items-center justify-center space-y-4">
@@ -202,9 +201,7 @@ export function Grafics() {
           </div>
         </div>
 
-        {/* Filtros */}
         <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
-          {/* FILTRO DE LOJAS - EXCLUSIVO PARA ADMIN */}
           {isAdmin && (
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -230,20 +227,12 @@ export function Grafics() {
               <button
                 key={p}
                 onClick={() => setPeriodo(p)}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                  periodo === p
-                    ? "bg-white text-[#4D7BAB] shadow-sm border border-slate-100"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${periodo === p ? "bg-white text-[#4D7BAB] shadow-sm border border-slate-100" : "text-slate-500 hover:text-slate-700"}`}
               >
                 {p}
               </button>
             ))}
           </div>
-          <button className="flex items-center gap-2 px-6 py-3 bg-[#4D7BAB] text-white rounded-2xl font-bold hover:bg-[#3a5d82] shadow-lg shadow-blue-900/20 transition-all">
-            <Download size={20} />
-            <span className="hidden sm:inline">Exportar PDF</span>
-          </button>
         </div>
       </div>
 
@@ -328,7 +317,6 @@ export function Grafics() {
 
       {/* Barras e Pizzas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Fluxo de Clientes (Barras) */}
         <div className="bg-white p-8 rounded-[2.5rem] border border-blue-50 shadow-2xl shadow-blue-100/30">
           <div className="flex items-center gap-3 mb-8">
             <div className="p-3 bg-blue-50 text-[#4D7BAB] rounded-xl">
@@ -383,7 +371,6 @@ export function Grafics() {
           </div>
         </div>
 
-        {/* Pizzas */}
         <div className="bg-white p-8 rounded-[2.5rem] border border-blue-50 shadow-2xl shadow-blue-100/30 flex flex-col">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
@@ -397,7 +384,6 @@ export function Grafics() {
           </div>
 
           <div className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-4">
-            {/* Pizza 1: Sucesso x Falha */}
             <div className="h-[250px] w-full sm:w-1/2">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -432,7 +418,6 @@ export function Grafics() {
               </ResponsiveContainer>
             </div>
 
-            {/* Pizza 2: Motivos */}
             <div className="h-[250px] w-full sm:w-1/2 border-t sm:border-t-0 sm:border-l border-slate-100 pt-4 sm:pt-0">
               <h4 className="text-center text-sm font-bold text-slate-500 mb-2 uppercase">
                 Por que não fecharam?

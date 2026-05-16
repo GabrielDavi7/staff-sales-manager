@@ -83,7 +83,7 @@ export function Home() {
     return null;
   }
 
-  // 3. BUSCA DE DADOS
+  // 3. BUSCA DE DADOS CORRIGIDA PARA O SUPERVISOR
   useEffect(() => {
     if (!user || user?.cargo === "DISPOSITIVO") return;
 
@@ -94,11 +94,17 @@ export function Home() {
 
         let endpoint = "";
 
-        if (user?.cargo === "VENDEDOR")
+        if (user?.cargo === "VENDEDOR") {
           endpoint = "/api/analytics/meu-desempenho/";
-        else if (user?.cargo === "SUPERVISOR")
-          endpoint = "/api/analytics/loja/";
-        else if (user?.cargo === "ADMIN") endpoint = "/api/analytics/geral/";
+        } else if (user?.cargo === "SUPERVISOR") {
+          // CORREÇÃO: Envia o ID da loja vinculada ao supervisor para alimentar os KPIs reais da filial
+          const idLojaSupervisor = user.loja?.id || user.loja;
+          endpoint = idLojaSupervisor
+            ? `/api/analytics/loja/?loja_id=${idLojaSupervisor}`
+            : "/api/analytics/loja/";
+        } else if (user?.cargo === "ADMIN") {
+          endpoint = "/api/analytics/geral/";
+        }
 
         const response = await api.get(endpoint);
         setData(response.data);
@@ -119,7 +125,6 @@ export function Home() {
   const vendasPerdidas = kpis.vendas_nao_concluidas_count || 0;
   const totalAtendimentos = vendasConcluidas + vendasPerdidas;
 
-  // Pegando a conversão direto do JSON
   const conversionRate = data?.taxa_conversao
     ? Math.round(data.taxa_conversao)
     : 0;
@@ -132,7 +137,6 @@ export function Home() {
   const dataHorario = data?.grafico_vendas || [];
 
   const tabelaFiltrada = (data?.tabela || []).filter((item) => {
-    // Usando os nomes exatos do JSON (com __ )
     const nomeVendedor =
       `${item.vendedor__first_name || ""} ${item.vendedor__last_name || ""}`.toLowerCase();
     const busca = search.toLowerCase();
@@ -402,11 +406,10 @@ export function Home() {
         </div>
       </div>
 
-      {/* Modal de Detalhes - MANTENHA APENAS ESTA VERIFICAÇÃO */}
+      {/* Modal de Detalhes */}
       {isModalOpen && selectedAtendimento && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-100">
-            {/* Cabeçalho - Ajustado Padding */}
             <div className="bg-slate-50 px-10 py-8 border-b flex justify-between items-center">
               <div>
                 <h2 className="text-2xl font-black text-slate-800">
@@ -424,9 +427,7 @@ export function Home() {
               </button>
             </div>
 
-            {/* Conteúdo Principal - Ajustado Padding Geral (p-10) */}
             <div className="p-10 space-y-8">
-              {/* Vendedor e Cliente - Fontes Aumentadas */}
               <div className="grid grid-cols-2 gap-8">
                 <div className="space-y-1.5">
                   <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
@@ -447,7 +448,6 @@ export function Home() {
                 </div>
               </div>
 
-              {/* Status e Métrica/Valor - Ajustes de Padding e Fontes */}
               <div className="p-8 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-6">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">
@@ -475,9 +475,7 @@ export function Home() {
                         R${" "}
                         {Number(selectedAtendimento.valor_venda).toLocaleString(
                           "pt-BR",
-                          {
-                            minimumFractionDigits: 2,
-                          },
+                          { minimumFractionDigits: 2 },
                         )}
                       </p>
                     </>
@@ -494,7 +492,6 @@ export function Home() {
                 </div>
               </div>
 
-              {/* Observações - Fontes Aumentadas no conteúdo */}
               <div className="space-y-3">
                 <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
                   Observações
@@ -511,7 +508,6 @@ export function Home() {
               </div>
             </div>
 
-            {/* Footer - Padding e Botão Ajustados */}
             <div className="px-10 py-8 bg-slate-50 border-t flex justify-end">
               <button
                 onClick={() => setIsModalOpen(false)}
