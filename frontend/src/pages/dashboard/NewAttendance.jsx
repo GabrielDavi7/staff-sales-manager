@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom"; // Adicionado o Navigate para bloqueio de URL
 import { useAuth } from "../../contexts/AuthContext";
 import api from "../../api/axios";
 import {
@@ -32,7 +32,13 @@ const NewAttendance = () => {
     pin: "",
   });
 
-  const isDispositivo = user?.cargo?.toUpperCase() === "DISPOSITIVO";
+  const cargoLogado = user?.cargo?.toUpperCase();
+  const isDispositivo = cargoLogado === "DISPOSITIVO";
+
+  // TRAVA DE SEGURANÇA: Impede que o Supervisor acesse a rota pela URL direta
+  if (cargoLogado === "SUPERVISOR") {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -49,10 +55,9 @@ const NewAttendance = () => {
     };
     fetchMotivos();
 
-    // Lógica dos Vendedores e Supervisores
-    const cargo = user.cargo?.toUpperCase();
-    if (cargo === "VENDEDOR" || cargo === "SUPERVISOR") {
-      // Vendedor e Supervisor pulam direto pro passo 2 e registram em seu próprio nome
+    // Lógica dos Vendedores
+    if (cargoLogado === "VENDEDOR") {
+      // Vendedor pula direto pro passo 2 e registra em seu próprio nome
       setFormData((prev) => ({
         ...prev,
         vendedorId: user.id,
@@ -80,7 +85,7 @@ const NewAttendance = () => {
 
       fetchVendedores();
     }
-  }, [user]);
+  }, [user, cargoLogado]);
 
   // ==========================================
   // 4. ENVIO DOS DADOS
@@ -178,6 +183,7 @@ const NewAttendance = () => {
               {vendedores.map((v) => (
                 <button
                   key={v.id}
+                  type="button"
                   onClick={() => {
                     setFormData({
                       ...formData,
@@ -186,7 +192,7 @@ const NewAttendance = () => {
                     });
                     setStep(2);
                   }}
-                  className="flex items-center gap-4 p-6 bg-blue-50 border-2 border-[#4D7BAB] rounded-2xl w-full max-w-md hover:bg-blue-100 transition-colors"
+                  className="flex items-center gap-4 p-6 bg-blue-50 border-2 border-[#4D7BAB] rounded-2xl w-full max-w-md hover:bg-blue-100 transition-colors cursor-pointer"
                 >
                   <User size={32} className="text-[#4D7BAB]" />
                   <span className="font-bold text-xl">
@@ -201,11 +207,12 @@ const NewAttendance = () => {
           {step === 2 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto w-full">
               <button
+                type="button"
                 onClick={() => {
                   setFormData({ ...formData, vendaFechada: true });
                   setStep(3);
                 }}
-                className="p-10 bg-emerald-50 border-2 border-emerald-100 rounded-3xl flex flex-col items-center gap-4 hover:bg-emerald-100 transition-colors"
+                className="p-10 bg-emerald-50 border-2 border-emerald-100 rounded-3xl flex flex-col items-center gap-4 hover:bg-emerald-100 transition-colors cursor-pointer"
               >
                 <CheckCircle2 size={48} className="text-emerald-500" />
                 <span className="text-xl font-bold text-emerald-800">
@@ -213,11 +220,12 @@ const NewAttendance = () => {
                 </span>
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setFormData({ ...formData, vendaFechada: false });
                   setStep(3);
                 }}
-                className="p-10 bg-rose-50 border-2 border-rose-100 rounded-3xl flex flex-col items-center gap-4 hover:bg-rose-100 transition-colors"
+                className="p-10 bg-rose-50 border-2 border-rose-100 rounded-3xl flex flex-col items-center gap-4 hover:bg-rose-100 transition-colors cursor-pointer"
               >
                 <XCircle size={48} className="text-rose-500" />
                 <span className="text-xl font-bold text-rose-800">
@@ -259,10 +267,11 @@ const NewAttendance = () => {
                     {motivos.map((m) => (
                       <button
                         key={m.id}
+                        type="button"
                         onClick={() =>
                           setFormData({ ...formData, motivoId: m.id })
                         }
-                        className={`p-6 text-center rounded-2xl border-2 transition-all ${
+                        className={`p-6 text-center rounded-2xl border-2 transition-all cursor-pointer ${
                           formData.motivoId === m.id
                             ? "border-[#4D7BAB] bg-blue-50 text-[#4D7BAB] font-bold"
                             : "border-slate-100 bg-white hover:border-slate-200"
@@ -320,10 +329,11 @@ const NewAttendance = () => {
                 />
               </div>
               <button
+                type="button"
                 onClick={handleFinish}
                 disabled={loading}
                 className={clsx(
-                  "w-full py-6 rounded-3xl font-bold text-xl shadow-lg transition-all bg-[#4D7BAB] text-white hover:bg-[#3a5d82]",
+                  "w-full py-6 rounded-3xl font-bold text-xl shadow-lg transition-all bg-[#4D7BAB] text-white hover:bg-[#3a5d82] cursor-pointer",
                   loading && "opacity-50 cursor-not-allowed",
                 )}
               >
@@ -336,8 +346,9 @@ const NewAttendance = () => {
         {step > 1 && (
           <div className="px-10 py-6 border-t border-slate-100">
             <button
+              type="button"
               onClick={() => setStep(step - 1)}
-              className="flex items-center gap-2 text-slate-500 font-bold hover:text-slate-700"
+              className="flex items-center gap-2 text-slate-500 font-bold hover:text-slate-700 cursor-pointer bg-transparent border-none outline-none"
             >
               <ChevronLeft size={20} /> Voltar
             </button>

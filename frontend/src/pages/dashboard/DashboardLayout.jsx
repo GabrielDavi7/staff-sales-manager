@@ -19,28 +19,39 @@ const DashboardLayout = () => {
     navigate("/login");
   };
 
+  const cargoLogado = user?.cargo?.toUpperCase();
+
+  // Configuração mestre com array de permissões por item de menu
   const menuItems = [
-    // Define os itens do menu da sidebar
-    { path: "/dashboard", icon: LayoutDashboard, label: "Visão Geral" },
+    {
+      path: "/dashboard",
+      icon: LayoutDashboard,
+      label: "Visão Geral",
+      roles: ["ADMIN", "SUPERVISOR", "VENDEDOR"],
+    },
     {
       path: "registrarvenda",
       icon: PlusCircle,
       label: "Novo Atendimento",
+      roles: ["ADMIN", "VENDEDOR", "DISPOSITIVO"], // SUPERVISOR removido daqui
     },
     {
       path: "funcionarios",
       icon: Users,
       label: "Equipe e Vendedores",
+      roles: ["ADMIN", "SUPERVISOR", "VENDEDOR"],
     },
     {
       path: "graficos",
       icon: PieChart,
       label: "Gráficos Avançados",
+      roles: ["ADMIN", "SUPERVISOR", "VENDEDOR"],
     },
     {
       path: "adminpainel",
       icon: Users,
       label: "Painel Administrativo",
+      roles: ["ADMIN"],
     },
     {
       path: "meuperfil",
@@ -48,6 +59,11 @@ const DashboardLayout = () => {
       label: "Meu Perfil",
     },
   ];
+
+  // Filtra dinamicamente os itens que o cargo logado possui direito de ver
+  const menuFiltrado = menuItems.filter((item) =>
+    item.roles.includes(cargoLogado),
+  );
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">
@@ -69,7 +85,7 @@ const DashboardLayout = () => {
             Menu Principal
           </p>
 
-          {menuItems.map((item) => (
+          {menuFiltrado.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
@@ -106,7 +122,7 @@ const DashboardLayout = () => {
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 w-full px-4 py-3 text-rose-500 hover:bg-rose-50 rounded-2xl font-semibold transition-colors"
+            className="flex items-center gap-2 w-full px-4 py-3 text-rose-500 hover:bg-rose-50 rounded-2xl font-semibold transition-colors cursor-pointer"
           >
             <LogOut size={18} strokeWidth={2.5} />
             Sair do Sistema
@@ -114,9 +130,8 @@ const DashboardLayout = () => {
         </div>
       </aside>
 
-      {/* Área Principal de Conteúdo (Onde as páginas carregam) */}
+      {/* Área Principal de Conteúdo */}
       <main className="flex-1 overflow-y-auto bg-[#F8FAFC]">
-        {/* O Outlet é o "buraco" onde o React Router vai renderizar a Home, o Registrar, os Funcionarios, etc. */}
         <div className="p-4 sm:p-8 lg:p-10 pb-24">
           <Outlet />
         </div>
