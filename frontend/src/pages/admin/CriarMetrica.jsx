@@ -53,16 +53,13 @@ export default function CriarMetrica({ onBack }) {
     setMetricFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 2. SUBMETE A NOVA MÉTRICA PARA O BACK-END DIANGO
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
 
-    // Ajusta o payload conforme as regras do Serializer do Django
     const payload = {
       nome: metricFormData.nome,
       descricao: metricFormData.descricao,
-      // Se selecionou GLOBAL, envia null (campo opcional no banco para métricas globais)
       loja:
         metricFormData.loja === "GLOBAL" ? null : Number(metricFormData.loja),
     };
@@ -70,7 +67,7 @@ export default function CriarMetrica({ onBack }) {
     try {
       await api.post("/api/admin/metricas/", payload);
       alert(`Métrica "${metricFormData.nome}" cadastrada com sucesso!`);
-      onBack(); // Retorna ao Centro de Comando atualizando os contadores
+      onBack();
     } catch (err) {
       console.error(
         "Erro ao salvar métrica no Django:",
