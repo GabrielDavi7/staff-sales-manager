@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Navigate } from "react-router-dom"; // Adicionado o Navigate para bloqueio de URL
+import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import api from "../../api/axios";
 import {
@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ClipboardCheck,
   Lock,
+  Calendar, // Importando ícone de calendário
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -21,6 +22,8 @@ const NewAttendance = () => {
   const [motivos, setMotivos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Adicionado o dataHora no estado inicial
   const [formData, setFormData] = useState({
     vendedorId: null,
     vendedorNome: "",
@@ -30,6 +33,7 @@ const NewAttendance = () => {
     clienteNome: "",
     observacoes: "",
     pin: "",
+    dataHora: "",
   });
 
   const cargoLogado = user?.cargo?.toUpperCase();
@@ -108,6 +112,17 @@ const NewAttendance = () => {
 
     setLoading(true);
 
+    // LÓGICA DA DATA E HORA: Usa a inserida ou gera a atual
+    let dataHoraFinal = formData.dataHora;
+    if (!dataHoraFinal) {
+      const agora = new Date();
+      // Ajusta o fuso horário local para o formato ISO aceito pelo Django (YYYY-MM-DDTHH:MM)
+      const offset = agora.getTimezoneOffset() * 60000;
+      dataHoraFinal = new Date(agora.getTime() - offset)
+        .toISOString()
+        .substring(0, 16);
+    }
+
     try {
       const payload = {
         vendedor: Number(formData.vendedorId),
@@ -116,6 +131,7 @@ const NewAttendance = () => {
         metrica: !formData.vendaFechada ? Number(formData.motivoId) : null,
         cliente_nome: formData.clienteNome || "Não informado",
         observacoes: formData.observacoes || "",
+        data_hora: dataHoraFinal, // Adicionado o envio da data para o Django
         ...(isDispositivo && { pin: formData.pin }),
       };
 
@@ -132,6 +148,7 @@ const NewAttendance = () => {
           clienteNome: "",
           observacoes: "",
           pin: "",
+          dataHora: "", // Reseta a data no dispositivo
         });
         setStep(1);
         navigate("/registrarvenda", { replace: true });
@@ -284,6 +301,41 @@ const NewAttendance = () => {
                 </div>
               )}
 
+              {/* DATA E HORA RETROATIVA */}
+              <div className="space-y-2">
+                <label className="text-lg font-bold text-slate-700 flex items-center gap-2">
+                  <Calendar size={20} className="text-[#4D7BAB]" /> Data e Hora
+                  (Opcional):
+                </label>
+                <input
+                  type="datetime-local"
+                  className="w-full p-4 border-2 rounded-2xl outline-none focus:border-[#4D7BAB]"
+                  value={formData.dataHora}
+                  onChange={(e) =>
+                    setFormData({ ...formData, dataHora: e.target.value })
+                  }
+                />
+                <p className="text-[12px] text-slate-400 italic pl-1 font-medium">
+                  Deixe em branco para registrar com a data e hora exatas de
+                  agora.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-lg font-bold text-slate-700">
+                  Nome do Cliente (Opcional):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: João Silva"
+                  className="w-full p-4 border-2 rounded-2xl outline-none focus:border-[#4D7BAB]"
+                  value={formData.clienteNome}
+                  onChange={(e) =>
+                    setFormData({ ...formData, clienteNome: e.target.value })
+                  }
+                />
+              </div>
+
               {isDispositivo && (
                 <div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl flex items-center gap-6">
                   <Lock size={32} className="text-amber-600" />
@@ -302,20 +354,6 @@ const NewAttendance = () => {
 
               <div className="space-y-2">
                 <label className="text-lg font-bold text-slate-700">
-                  Nome do Cliente (Opcional):
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: João Silva"
-                  className="w-full p-4 border-2 rounded-2xl outline-none focus:border-[#4D7BAB]"
-                  value={formData.clienteNome}
-                  onChange={(e) =>
-                    setFormData({ ...formData, clienteNome: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-lg font-bold text-slate-700">
                   Observações (Opcional):
                 </label>
                 <textarea
@@ -328,6 +366,7 @@ const NewAttendance = () => {
                   }
                 />
               </div>
+
               <button
                 type="button"
                 onClick={handleFinish}
