@@ -27,7 +27,7 @@ export default function CriarUsuario({ onBack }) {
     pin: "",
     cargo: "",
     loja: "",
-    equipe: "",
+    equipe: "", // Agora passará a ser opcional
   });
 
   const [cargosDisponiveis] = useState([
@@ -52,7 +52,6 @@ export default function CriarUsuario({ onBack }) {
         const dadosLojas = resLojas.data?.results || resLojas.data;
         const dadosEquipes = resEquipes.data?.results || resEquipes.data;
 
-        // Regra de negócio: Só permite alocar novos usuários em Lojas e Equipes ativas
         if (Array.isArray(dadosLojas)) {
           setLojasDisponiveis(dadosLojas.filter((l) => l.ativo === true));
         }
@@ -82,23 +81,24 @@ export default function CriarUsuario({ onBack }) {
     e.preventDefault();
     setSubmitting(true);
 
-    // Mapeia os campos da convenção do front para o padrão snake_case/nativo do Django CustomUser
+    // Mapeia os campos tratando a 'equipe' como opcional (null se vazia)
     const payload = {
       username: formData.username,
-      password: formData.senha, // Django espera 'password'
-      first_name: formData.primeiro_nome, // Django espera 'first_name'
-      last_name: formData.ultimo_nome, // Django espera 'last_name'
+      password: formData.senha,
+      first_name: formData.primeiro_nome,
+      last_name: formData.ultimo_nome,
       email: formData.email,
       pin: formData.pin,
       cargo: formData.cargo,
       loja: Number(formData.loja),
-      equipe: Number(formData.equipe),
+      // REQUISITO: Se não selecionou equipe, envia null de forma limpa para o Django
+      equipe: formData.equipe ? Number(formData.equipe) : null,
     };
 
     try {
       await api.post("/api/admin/usuarios/", payload);
       alert(`Colaborador "${formData.primeiro_nome}" cadastrado com sucesso!`);
-      onBack(); // Retorna ao Centro de Comando atualizando os contadores em tempo real
+      onBack();
     } catch (err) {
       console.error(
         "Erro ao cadastrar usuário no Django:",
@@ -307,21 +307,22 @@ export default function CriarUsuario({ onBack }) {
               </select>
             </div>
 
-            {/* Seletor Equipe Dinâmico */}
+            {/* Seletor Equipe Dinâmico e Opcional */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-300 flex items-center gap-2">
                 <Users size={16} className="text-[#3E5641]" /> Equipe
               </label>
               <select
                 name="equipe"
-                required
                 disabled={submitting || loadingDados}
                 value={formData.equipe}
                 onChange={handleChange}
                 className="w-full bg-[#003847] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#3E5641] cursor-pointer disabled:opacity-50"
               >
-                <option value="" disabled>
-                  {loadingDados ? "Carregando times..." : "Selecione..."}
+                <option value="">
+                  {loadingDados
+                    ? "Carregando times..."
+                    : "Nenhuma equipe (Trabalha sem time)"}
                 </option>
                 {equipesDisponiveis.map((e) => (
                   <option key={e.id} value={e.id}>

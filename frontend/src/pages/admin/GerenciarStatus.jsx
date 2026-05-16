@@ -9,9 +9,10 @@ import {
   Component,
   ShieldCheck,
   Loader2,
-  AlertTriangle,
-  CheckCircle,
   X,
+  Edit,
+  Save,
+  KeyRound,
 } from "lucide-react";
 
 // Instância personalizada do Axios do seu projeto
@@ -20,9 +21,11 @@ import api from "../../api/axios";
 export default function GerenciarStatus({ onBack }) {
   const [subAba, setSubAba] = useState("usuarios");
   const [loading, setLoading] = useState(true);
+  const [savingUser, setSavingUser] = useState(false);
 
-  // Estado para controlar o item que o Admin clicou para alterar o status (ativar/desativar)
+  // Estados para modais
   const [itemConfirmacao, setItemConfirmacao] = useState(null);
+  const [usuarioEditando, setUsuarioEditando] = useState(null);
 
   // Estados das entidades vindas da API
   const [usuarios, setUsuarios] = useState([]);
@@ -31,33 +34,33 @@ export default function GerenciarStatus({ onBack }) {
   const [metricas, setMetricas] = useState([]);
 
   // Carregamento inicial do banco de dados
+  const carregarDadosGerenciamento = async () => {
+    try {
+      setLoading(true);
+      const [resLojas, resMetricas, resUsuarios, resEquipes] =
+        await Promise.all([
+          api.get("/api/admin/lojas/"),
+          api.get("/api/admin/metricas/"),
+          api.get("/api/admin/usuarios/"),
+          api.get("/api/admin/equipes/"),
+        ]);
+
+      setLojas(resLojas.data.results || resLojas.data || []);
+      setMetricas(resMetricas.data.results || resMetricas.data || []);
+      setUsuarios(resUsuarios.data.results || resUsuarios.data || []);
+      setEquipes(resEquipes.data.results || resEquipes.data || []);
+    } catch (error) {
+      console.error("Erro ao buscar dados das entidades:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const carregarDadosGerenciamento = async () => {
-      try {
-        setLoading(true);
-        const [resLojas, resMetricas, resUsuarios, resEquipes] =
-          await Promise.all([
-            api.get("/api/admin/lojas/"),
-            api.get("/api/admin/metricas/"),
-            api.get("/api/admin/usuarios/"),
-            api.get("/api/admin/equipes/"),
-          ]);
-
-        setLojas(resLojas.data.results || resLojas.data);
-        setMetricas(resMetricas.data.results || resMetricas.data);
-        setUsuarios(resUsuarios.data.results || resUsuarios.data);
-        setEquipes(resEquipes.data.results || resEquipes.data);
-      } catch (error) {
-        console.error("Erro ao buscar dados das entidades:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     carregarDadosGerenciamento();
   }, []);
 
-  // Dispara o PATCH real para o Django
+  // Dispara o PATCH de Status (Soft Delete)
   const toggleStatusAPI = async (tipo, idField, idValue, statusAtual) => {
     let endpoint = "";
     let payload = {};
@@ -72,47 +75,72 @@ export default function GerenciarStatus({ onBack }) {
 
     try {
       await api.patch(endpoint, payload);
-
-      // Atualização síncrona do estado no React
-      if (tipo === "usuarios") {
-        setUsuarios((prev) =>
-          prev.map((u) =>
-            u[idField] === idValue ? { ...u, is_active: !statusAtual } : u,
-          ),
-        );
-      } else if (tipo === "lojas") {
-        setLojas((prev) =>
-          prev.map((l) =>
-            l[idField] === idValue ? { ...l, ativo: !statusAtual } : l,
-          ),
-        );
-      } else if (tipo === "equipes") {
-        setEquipes((prev) =>
-          prev.map((e) =>
-            e[idField] === idValue ? { ...e, ativo: !statusAtual } : e,
-          ),
-        );
-      } else if (tipo === "metricas") {
-        setMetricas((prev) =>
-          prev.map((m) =>
-            m[idField] === idValue ? { ...m, ativo: !statusAtual } : m,
-          ),
-        );
-      }
+      carregarDadosGerenciamento();
     } catch (error) {
       console.error(`Erro ao atualizar status de ${tipo}:`, error);
-      alert(
-        "Erro na operação. Verifique se existem dependências ativas ou permissões de ADMIN.",
-      );
+      alert("Erro na operação.");
     }
   };
 
-  // Interceptador de clique: Abre o modal de confirmação tanto para ATIVAR quanto para DESATIVAR
+  // Envia a Edição Completa de forma inteligente (Apenas campos modificados de fato)
+  const handleSalvarEdicaoUsuario = async (e) => {
+    e.preventDefault();
+    setSavingUser(true);
+
+    // Localiza o registro original vindo do banco antes da edição do formulário
+    const usuarioOriginal = usuarios.find((u) => u.id === usuarioEditando.id);
+
+    // Monta o payload base com os dados comuns
+    const payload = {
+      first_name: usuarioEditando.first_name,
+      last_name: usuarioEditando.last_name,
+      pin: usuarioEditando.pin,
+      cargo: usuarioEditando.cargo,
+      loja: usuarioEditando.loja ? Number(usuarioEditando.loja) : null,
+      equipe: usuarioEditando.equipe ? Number(usuarioEditando.equipe) : null,
+    };
+
+    // ESTRATÉGIA DEFENSIVA: Só envia username/email se o admin realmente digitou algo diferente do original
+    if (
+      usuarioOriginal &&
+      usuarioEditando.username !== usuarioOriginal.username
+    ) {
+      payload.username = usuarioEditando.username;
+    }
+    if (usuarioOriginal && usuarioEditando.email !== usuarioOriginal.email) {
+      payload.email = usuarioEditando.email;
+    }
+
+    // Só insere password no payload se o admin digitou uma nova senha
+    if (usuarioEditando.senha && usuarioEditando.senha.trim() !== "") {
+      payload.password = usuarioEditando.senha;
+    }
+
+    try {
+      await api.patch(`/api/admin/usuarios/${usuarioEditando.id}/`, payload);
+      alert("Colaborador atualizado com sucesso!");
+      setUsuarioEditando(null);
+      carregarDadosGerenciamento();
+    } catch (err) {
+      console.error(
+        "Erro detalhado retornado pelo Django:",
+        err.response?.data || err.message,
+      );
+
+      // Dinamiza o alerta para exibir o erro exato do Django na tela, facilitando seu debug
+      const detalheErro = err.response?.data
+        ? JSON.stringify(err.response.data)
+        : "Verifique os campos preenchidos ou a sua conexão.";
+      alert(`Erro ao salvar alterações: ${detalheErro}`);
+    } finally {
+      setSavingUser(false);
+    }
+  };
+
   const handleToggleClick = (tipo, idField, idValue, statusAtual, nome) => {
     setItemConfirmacao({ tipo, idField, idValue, statusAtual, nome });
   };
 
-  // Executa após o Admin confirmar a ação dentro do Modal
   const confirmarAlteracaoStatus = () => {
     if (itemConfirmacao) {
       toggleStatusAPI(
@@ -121,16 +149,15 @@ export default function GerenciarStatus({ onBack }) {
         itemConfirmacao.idValue,
         itemConfirmacao.statusAtual,
       );
-      setItemConfirmacao(null); // Fecha o modal
+      setItemConfirmacao(null);
     }
   };
 
-  // Filtra as contas de ADM para que elas fiquem invisíveis e protegidas na listagem
   const usuariosFiltrados = usuarios.filter(
     (u) => u.cargo?.toUpperCase() !== "ADMIN",
   );
 
-  if (loading) {
+  if (loading && usuarios.length === 0) {
     return (
       <div className="h-[50vh] flex flex-col items-center justify-center gap-4 text-white">
         <Loader2 className="animate-spin text-[#822659]" size={48} />
@@ -159,7 +186,8 @@ export default function GerenciarStatus({ onBack }) {
             Gerenciamento de Status
           </h2>
           <p className="text-slate-400 text-sm mt-1">
-            Gerencie a ativação de acessos, filiais, grupos e indicadores.
+            Gerencie e edite acessos, filiais, grupos e indicadores em tempo
+            real.
           </p>
         </div>
       </div>
@@ -192,7 +220,6 @@ export default function GerenciarStatus({ onBack }) {
         </button>
       </div>
 
-      {/* Conteúdo das tabelas */}
       <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 shadow-xl backdrop-blur-md">
         {/* Tabela Usuários */}
         {subAba === "usuarios" && (
@@ -204,9 +231,7 @@ export default function GerenciarStatus({ onBack }) {
               >
                 <div>
                   <h4 className="font-bold text-white text-lg">
-                    {u.first_name || u.last_name
-                      ? `${u.first_name || ""} ${u.last_name || ""}`.trim()
-                      : u.username}
+                    {u.first_name} {u.last_name}
                   </h4>
                   <p className="text-sm text-slate-400">
                     @{u.username} •{" "}
@@ -215,32 +240,45 @@ export default function GerenciarStatus({ onBack }) {
                     </span>
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleToggleClick(
-                      "usuarios",
-                      "id",
-                      u.id,
-                      u.is_active,
-                      u.username,
-                    )
-                  }
-                  className="bg-transparent border-none cursor-pointer outline-none"
-                >
-                  {u.is_active ? (
-                    <ToggleRight size={44} className="text-[#a8d3b2]" />
-                  ) : (
-                    <ToggleLeft size={44} className="text-slate-500" />
-                  )}
-                </button>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    // CORREÇÃO E EXTRAÇÃO EXPLICÍTICA DE IDS CASO SEJAM RETORNADOS COMO OBJETOS ANINHADOS
+                    onClick={() =>
+                      setUsuarioEditando({
+                        ...u,
+                        loja: u.loja?.id || u.loja || "",
+                        equipe: u.equipe?.id || u.equipe || "",
+                        senha: "",
+                      })
+                    }
+                    className="p-2.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-xl transition-all border-none cursor-pointer flex"
+                    title="Editar Usuário"
+                  >
+                    <Edit size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleToggleClick(
+                        "usuarios",
+                        "id",
+                        u.id,
+                        u.is_active,
+                        u.username,
+                      )
+                    }
+                    className="bg-transparent border-none cursor-pointer outline-none"
+                  >
+                    {u.is_active ? (
+                      <ToggleRight size={44} className="text-[#a8d3b2]" />
+                    ) : (
+                      <ToggleLeft size={44} className="text-slate-500" />
+                    )}
+                  </button>
+                </div>
               </div>
             ))}
-            {usuariosFiltrados.length === 0 && (
-              <p className="text-center text-slate-400 py-4">
-                Nenhum funcionário operacional registrado.
-              </p>
-            )}
           </div>
         )}
 
@@ -271,11 +309,6 @@ export default function GerenciarStatus({ onBack }) {
                 </button>
               </div>
             ))}
-            {lojas.length === 0 && (
-              <p className="text-center text-slate-400 py-4">
-                Nenhuma loja registrada.
-              </p>
-            )}
           </div>
         )}
 
@@ -289,9 +322,7 @@ export default function GerenciarStatus({ onBack }) {
               >
                 <div>
                   <h4 className="font-bold text-white text-lg">{e.nome}</h4>
-                  <p className="text-sm text-slate-400">
-                    Vínculo: Unidade ID {e.loja}
-                  </p>
+                  <p className="text-sm text-slate-400">ID Loja: {e.loja}</p>
                 </div>
                 <button
                   type="button"
@@ -308,11 +339,6 @@ export default function GerenciarStatus({ onBack }) {
                 </button>
               </div>
             ))}
-            {equipes.length === 0 && (
-              <p className="text-center text-slate-400 py-4">
-                Nenhuma equipe registrada.
-              </p>
-            )}
           </div>
         )}
 
@@ -326,9 +352,7 @@ export default function GerenciarStatus({ onBack }) {
               >
                 <div>
                   <h4 className="font-bold text-white text-lg">{m.nome}</h4>
-                  <p className="text-sm text-slate-400">
-                    {m.descricao || "Sem descrição disponível."}
-                  </p>
+                  <p className="text-sm text-slate-400">{m.descricao}</p>
                 </div>
                 <button
                   type="button"
@@ -345,82 +369,278 @@ export default function GerenciarStatus({ onBack }) {
                 </button>
               </div>
             ))}
-            {metricas.length === 0 && (
-              <p className="text-center text-slate-400 py-4">
-                Nenhuma métrica registrada.
-              </p>
-            )}
           </div>
         )}
       </div>
 
-      {/* MODAL DE CONFIRMAÇÃO EXECUTIVA (ATIVAR / DESATIVAR) */}
+      {/* MODAL DE EDIÇÃO INTEGRAL DE USUÁRIO */}
+      {usuarioEditando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <form
+            onSubmit={handleSalvarEdicaoUsuario}
+            className="bg-[#003847] border border-white/10 rounded-[2rem] w-full max-w-2xl overflow-hidden shadow-2xl p-8 space-y-6 text-white max-h-[90vh] overflow-y-auto custom-scrollbar"
+          >
+            <div className="flex justify-between items-center border-b border-white/10 pb-4">
+              <h3 className="text-xl font-black flex items-center gap-2">
+                <Edit size={22} className="text-rose-400" /> Alterar Ficha
+                Cadastral
+              </h3>
+              <button
+                type="button"
+                onClick={() => setUsuarioEditando(null)}
+                className="text-slate-400 hover:text-white bg-transparent border-none cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Primeiro Nome */}
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  Primeiro Nome
+                </label>
+                <input
+                  type="text"
+                  value={usuarioEditando.first_name || ""}
+                  onChange={(e) =>
+                    setUsuarioEditando({
+                      ...usuarioEditando,
+                      first_name: e.target.value,
+                    })
+                  }
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-rose-500"
+                  required
+                />
+              </div>
+
+              {/* Último Nome */}
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  Último Nome
+                </label>
+                <input
+                  type="text"
+                  value={usuarioEditando.last_name || ""}
+                  onChange={(e) =>
+                    setUsuarioEditando({
+                      ...usuarioEditando,
+                      last_name: e.target.value,
+                    })
+                  }
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-rose-500"
+                  required
+                />
+              </div>
+
+              {/* E-mail Corporativo */}
+              <div className="md:col-span-2">
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  E-mail Corporativo
+                </label>
+                <input
+                  type="email"
+                  value={usuarioEditando.email || ""}
+                  onChange={(e) =>
+                    setUsuarioEditando({
+                      ...usuarioEditando,
+                      email: e.target.value,
+                    })
+                  }
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-rose-500"
+                  required
+                />
+              </div>
+
+              {/* Username */}
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  Username de Acesso
+                </label>
+                <input
+                  type="text"
+                  value={usuarioEditando.username || ""}
+                  onChange={(e) =>
+                    setUsuarioEditando({
+                      ...usuarioEditando,
+                      username: e.target.value,
+                    })
+                  }
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-rose-500"
+                  required
+                />
+              </div>
+
+              {/* Redefinição Opcional de Senha */}
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  Nova Senha
+                </label>
+                <input
+                  type="password"
+                  value={usuarioEditando.senha || ""}
+                  onChange={(e) =>
+                    setUsuarioEditando({
+                      ...usuarioEditando,
+                      senha: e.target.value,
+                    })
+                  }
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-rose-500"
+                  placeholder="Deixe vazio p/ não alterar"
+                />
+              </div>
+
+              {/* PIN do PDV */}
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1 flex items-center gap-1">
+                  <KeyRound size={12} /> PIN (6 Dígitos)
+                </label>
+                <input
+                  type="text"
+                  maxLength="6"
+                  value={usuarioEditando.pin || ""}
+                  onChange={(e) =>
+                    setUsuarioEditando({
+                      ...usuarioEditando,
+                      pin: e.target.value,
+                    })
+                  }
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white font-mono tracking-widest focus:outline-none focus:border-rose-500"
+                  required
+                />
+              </div>
+
+              {/* Cargo Nível */}
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  Cargo Corporativo
+                </label>
+                <select
+                  value={usuarioEditando.cargo || ""}
+                  onChange={(e) =>
+                    setUsuarioEditando({
+                      ...usuarioEditando,
+                      cargo: e.target.value,
+                    })
+                  }
+                  className="w-full bg-[#003847] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none"
+                >
+                  <option value="ADMIN">Administrador</option>
+                  <option value="SUPERVISOR">Supervisor</option>
+                  <option value="VENDEDOR">Vendedor</option>
+                </select>
+              </div>
+
+              {/* Loja Vinculada */}
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  Loja Alocada
+                </label>
+                <select
+                  value={usuarioEditando.loja || ""}
+                  onChange={(e) =>
+                    setUsuarioEditando({
+                      ...usuarioEditando,
+                      loja: e.target.value,
+                    })
+                  }
+                  className="w-full bg-[#003847] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none"
+                  required
+                >
+                  {lojas.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Equipe Comercial Opcional */}
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  Equipe Comercial (Opcional)
+                </label>
+                <select
+                  value={usuarioEditando.equipe || ""}
+                  onChange={(e) =>
+                    setUsuarioEditando({
+                      ...usuarioEditando,
+                      equipe: e.target.value,
+                    })
+                  }
+                  className="w-full bg-[#003847] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none"
+                >
+                  <option value="">Nenhuma equipe (Sem time alocado)</option>
+                  {equipes.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setUsuarioEditando(null)}
+                className="px-5 py-2.5 bg-white/5 text-slate-300 rounded-xl font-bold border-none cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={savingUser}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold border-none cursor-pointer flex items-center gap-2"
+              >
+                {savingUser ? (
+                  <Loader2 className="animate-spin" size={16} />
+                ) : (
+                  <Save size={16} />
+                )}{" "}
+                Salvar Alterações
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO DE STATUS (ATIVAR / DESATIVAR) */}
       {itemConfirmacao && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#003847] border border-white/10 rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl p-6 relative">
             <button
               onClick={() => setItemConfirmacao(null)}
-              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white transition-colors bg-white/5 rounded-xl border-none cursor-pointer"
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-white/5 rounded-xl border-none cursor-pointer"
             >
               <X size={18} />
             </button>
-
-            {/* Cabeçalho do modal adaptivo ao tipo de ação */}
             <div
               className={`flex items-center gap-3 mb-4 ${itemConfirmacao.statusAtual ? "text-rose-400" : "text-emerald-400"}`}
             >
-              <div
-                className={`p-3 rounded-xl ${itemConfirmacao.statusAtual ? "bg-rose-500/10" : "bg-emerald-500/10"}`}
-              >
-                {itemConfirmacao.statusAtual ? (
-                  <AlertTriangle size={24} />
-                ) : (
-                  <CheckCircle size={24} />
-                )}
-              </div>
               <h3 className="text-xl font-black text-white">
                 Confirmar Operação
               </h3>
             </div>
-
-            {/* Descrição dinâmica baseada no estado atual */}
             <p className="text-slate-300 text-sm leading-relaxed mb-6">
               Você tem certeza de que deseja{" "}
-              <strong
-                className={
-                  itemConfirmacao.statusAtual
-                    ? "text-rose-300"
-                    : "text-emerald-300"
-                }
-              >
-                {itemConfirmacao.statusAtual ? "desativar" : "ativar"}
-              </strong>{" "}
-              a entidade{" "}
-              <strong className="text-white">"{itemConfirmacao.nome}"</strong>?
-              {itemConfirmacao.statusAtual
-                ? " Isso impedirá imediatamente novos registros vinculados a ela no ecossistema."
-                : " Isso liberará o uso imediato e seleções dela no banco de dados e PDVs."}
+              {itemConfirmacao.statusAtual ? "desativar" : "ativar"} a entidade{" "}
+              <strong>"{itemConfirmacao.nome}"</strong>?
             </p>
-
             <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setItemConfirmacao(null)}
-                className="px-5 py-2.5 rounded-xl font-bold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 transition-all cursor-pointer border-none"
+                className="px-5 py-2.5 rounded-xl font-bold text-slate-300 bg-white/5 border-none cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={confirmarAlteracaoStatus}
-                className={`px-5 py-2.5 text-white rounded-xl font-bold shadow-lg transition-all cursor-pointer border-none ${
-                  itemConfirmacao.statusAtual
-                    ? "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"
-                    : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
-                }`}
+                className={`px-5 py-2.5 text-white rounded-xl font-bold border-none cursor-pointer ${itemConfirmacao.statusAtual ? "bg-rose-600" : "bg-emerald-600"}`}
               >
-                Confirmar{" "}
-                {itemConfirmacao.statusAtual ? "Desativação" : "Ativação"}
+                Confirmar
               </button>
             </div>
           </div>
