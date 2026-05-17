@@ -3,11 +3,12 @@ import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import { Home } from "./pages/dashboard/Home";
 import Login from "./pages/login/Login";
 import PrivateRoute from "./routes/PrivateRoute";
-import RoleRoute from "./routes/RoleRoute"; // <-- Adicionado
+import RoleRoute from "./routes/RoleRoute";
 import NewAttendance from "./pages/dashboard/NewAttendance";
 import Grafics from "./pages/dashboard/Grafics";
 import Team from "./pages/dashboard/Team";
-import AdminPainel from "./pages/admin/AdminPainel"; // <-- Adicionado
+import AdminPainel from "./pages/admin/AdminPainel";
+import Perfil from "./pages/dashboard/perfil"; // Import corrigido para Maiúsculo
 
 export const router = createBrowserRouter([
   {
@@ -37,6 +38,14 @@ export const router = createBrowserRouter([
       {
         path: "graficos",
         element: <Grafics />,
+      },
+      {
+        path: "meuperfil",
+        element: (
+          <RoleRoute allowedRoles={["VENDEDOR", "ADMIN", "SUPERVISOR"]}>
+            <Perfil />
+          </RoleRoute>
+        ),
       },
       {
         path: "adminpainel",

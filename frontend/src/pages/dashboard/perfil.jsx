@@ -1,0 +1,712 @@
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import api from "../../api/axios";
+import {
+  User,
+  Mail,
+  Lock,
+  Edit2,
+  Check,
+  X,
+  Eye,
+  EyeOff,
+  ClipboardCheck,
+  Loader2,
+  AlertCircle,
+  KeyRound,
+} from "lucide-react";
+import { clsx } from "clsx";
+
+export function Perfil() {
+  const { user, setUser } = useAuth();
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
+
+  const [formData, setFormData] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    pin: "",
+  });
+
+  const [passwordData, setPasswordData] = useState({
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
+
+  const [editMode, setEditMode] = useState({
+    first_name: false,
+    last_name: false,
+    email: false,
+    pin: false,
+    senha: false,
+  });
+
+  const [showPin, setShowPin] = useState(false);
+  const [showSenha, setShowSenha] = useState(false);
+
+  const currentRole = user?.cargo?.toUpperCase() || "";
+  const isVendedor = currentRole === "VENDEDOR";
+
+  // Temas Dinâmicos
+  const roleStyles = {
+    ADMIN: {
+      wrapper: "bg-rose-50 border-rose-100",
+      headerBg: "bg-rose-500 text-white",
+      title: "text-rose-900",
+      subtitle: "text-rose-600",
+      iconBox: "text-rose-500 border-rose-100 bg-white",
+      activeInput: "border-rose-500 text-rose-900",
+      editBtn: "bg-rose-100 text-rose-700 hover:bg-rose-200",
+      badge: "bg-rose-200 text-rose-800 border-rose-300",
+    },
+    SUPERVISOR: {
+      wrapper: "bg-amber-50 border-amber-100",
+      headerBg: "bg-amber-500 text-white",
+      title: "text-amber-900",
+      subtitle: "text-amber-600",
+      iconBox: "text-amber-600 border-amber-200 bg-white",
+      activeInput: "border-amber-500 text-amber-900",
+      editBtn: "bg-amber-100 text-amber-700 hover:bg-amber-200",
+      badge: "bg-amber-200 text-amber-800 border-amber-300",
+    },
+    VENDEDOR: {
+      wrapper: "bg-blue-50 border-blue-100",
+      headerBg: "bg-[#4D7BAB] text-white",
+      title: "text-blue-900",
+      subtitle: "text-blue-600",
+      iconBox: "text-[#4D7BAB] border-blue-100 bg-white",
+      activeInput: "border-[#4D7BAB] text-blue-900",
+      editBtn: "bg-blue-100 text-[#4D7BAB] hover:bg-blue-200",
+      badge: "bg-blue-200 text-blue-800 border-blue-300",
+    },
+  };
+  const theme = roleStyles[currentRole] || roleStyles.VENDEDOR;
+
+  // Busca os dados do endpoint
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get("/api/users/user/me/");
+        const data = response.data;
+        setFormData({
+          first_name: data.first_name || "",
+          last_name: data.last_name || "",
+          email: data.email || "",
+          pin: data.pin || "",
+        });
+      } catch (err) {
+        setError("Não foi possível carregar os dados do perfil.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUserData();
+  }, []);
+
+  const toggleEdit = (field) => {
+    setEditMode((prev) => ({ ...prev, [field]: !prev[field] }));
+    setError("");
+    setSuccess("");
+  };
+
+  const handleCancel = (field) => {
+    if (field === "senha") {
+      setPasswordData({
+        current_password: "",
+        new_password: "",
+        confirm_password: "",
+      });
+    }
+    toggleEdit(field);
+  };
+
+  // Salva dados pessoais via PUT/PATCH
+  const handleSaveField = async (field) => {
+    setError("");
+    setSuccess("");
+
+    if (!formData[field]) {
+      setError("Este campo não pode ficar vazio.");
+      return;
+    }
+
+    if (field === "pin" && formData.pin.length !== 4) {
+      setError("O PIN deve conter exatamente 4 dígitos.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const payload = { [field]: formData[field] };
+
+      await api.patch("/api/users/user/me/", payload);
+
+      // Atualiza o contexto caso o nome seja alterado
+      if (field === "first_name" || field === "last_name") {
+        if (typeof setUser === "function") {
+          setUser((prev) => ({ ...prev, ...payload }));
+        }
+      }
+
+      setSuccess("Perfil atualizado com sucesso!");
+      setEditMode((prev) => ({ ...prev, [field]: false }));
+    } catch (err) {
+      console.error("Erro capturado:", err);
+      setError(err.response?.data?.detail || "Erro ao atualizar os dados.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Salva alteração de senha
+  const handleSavePassword = async () => {
+    setError("");
+    setSuccess("");
+
+    if (
+      !passwordData.current_password ||
+      !passwordData.new_password ||
+      !passwordData.confirm_password
+    ) {
+      setError("Preencha todos os campos de senha.");
+      return;
+    }
+
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      setError("A nova senha e a confirmação não coincidem.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const payload = {
+        current_password: passwordData.current_password,
+        new_password: passwordData.new_password,
+      };
+
+      await api.patch("/api/users/user/me/", payload);
+
+      setSuccess("Senha atualizada com sucesso!");
+      setPasswordData({
+        current_password: "",
+        new_password: "",
+        confirm_password: "",
+      });
+      setEditMode((prev) => ({ ...prev, senha: false }));
+    } catch (err) {
+      setError(
+        err.response?.data?.current_password?.[0] ||
+          err.response?.data?.detail ||
+          "Senha atual incorreta ou erro ao atualizar.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+        <Loader2 className="animate-spin text-[#4D7BAB]" size={48} />
+        <p className="text-slate-500 font-medium">Carregando seus dados...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto py-8 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div
+        className={clsx(
+          "rounded-[2.5rem] shadow-2xl border overflow-hidden",
+          theme.wrapper,
+        )}
+      >
+        {/* Cabeçalho */}
+        <div className="px-10 py-8 border-b border-white/40 flex items-center gap-5">
+          <div className={clsx("p-4 rounded-2xl shadow-lg", theme.headerBg)}>
+            <User size={32} />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1
+                  className={clsx(
+                    "text-3xl font-extrabold tracking-tight",
+                    theme.title,
+                  )}
+                >
+                  Meu Perfil
+                </h1>
+                <p className={clsx("text-sm font-medium mt-1", theme.subtitle)}>
+                  Gerencie suas informações de acesso e segurança
+                </p>
+              </div>
+              <span
+                className={clsx(
+                  "px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border shadow-sm",
+                  theme.badge,
+                )}
+              >
+                {currentRole}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Alertas */}
+        {error && (
+          <div className="mx-10 mt-6 p-4 bg-white/60 border border-rose-200 text-rose-700 rounded-2xl font-bold flex items-center gap-3 backdrop-blur-sm">
+            <AlertCircle size={20} /> {error}
+          </div>
+        )}
+        {success && (
+          <div className="mx-10 mt-6 p-4 bg-white/60 border border-emerald-200 text-emerald-700 rounded-2xl font-bold flex items-center gap-3 backdrop-blur-sm">
+            <ClipboardCheck size={20} /> {success}
+          </div>
+        )}
+
+        {/* Formulário / Grid */}
+        <div className="p-10 space-y-5">
+          {/* NOME */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm">
+            <div className="flex items-center gap-4 flex-1">
+              <div
+                className={clsx(
+                  "p-3 rounded-xl border shadow-sm",
+                  theme.iconBox,
+                )}
+              >
+                <User size={20} />
+              </div>
+              <div className="flex-1">
+                <label
+                  className={clsx(
+                    "block text-xs font-bold uppercase tracking-wider mb-1",
+                    theme.subtitle,
+                  )}
+                >
+                  Nome
+                </label>
+                <input
+                  type="text"
+                  disabled={!editMode.first_name}
+                  value={formData.first_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, first_name: e.target.value })
+                  }
+                  className={clsx(
+                    "w-full bg-transparent font-bold outline-none transition-all text-lg text-slate-800",
+                    editMode.first_name &&
+                      `border-b-2 pb-0.5 ${theme.activeInput}`,
+                  )}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {editMode.first_name ? (
+                <>
+                  <button
+                    onClick={() => handleSaveField("first_name")}
+                    disabled={saving}
+                    className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-md"
+                  >
+                    <Check size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleCancel("first_name")}
+                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300"
+                  >
+                    <X size={18} />
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => toggleEdit("first_name")}
+                  className={clsx(
+                    "p-2.5 rounded-xl transition-all flex items-center gap-2 font-bold text-sm",
+                    theme.editBtn,
+                  )}
+                >
+                  <Edit2 size={16} /> Editar
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* SOBRENOME */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm">
+            <div className="flex items-center gap-4 flex-1">
+              <div
+                className={clsx(
+                  "p-3 rounded-xl border shadow-sm",
+                  theme.iconBox,
+                )}
+              >
+                <User size={20} />
+              </div>
+              <div className="flex-1">
+                <label
+                  className={clsx(
+                    "block text-xs font-bold uppercase tracking-wider mb-1",
+                    theme.subtitle,
+                  )}
+                >
+                  Sobrenome
+                </label>
+                <input
+                  type="text"
+                  disabled={!editMode.last_name}
+                  value={formData.last_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, last_name: e.target.value })
+                  }
+                  className={clsx(
+                    "w-full bg-transparent font-bold outline-none transition-all text-lg text-slate-800",
+                    editMode.last_name &&
+                      `border-b-2 pb-0.5 ${theme.activeInput}`,
+                  )}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {editMode.last_name ? (
+                <>
+                  <button
+                    onClick={() => handleSaveField("last_name")}
+                    disabled={saving}
+                    className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-md"
+                  >
+                    <Check size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleCancel("last_name")}
+                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300"
+                  >
+                    <X size={18} />
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => toggleEdit("last_name")}
+                  className={clsx(
+                    "p-2.5 rounded-xl transition-all flex items-center gap-2 font-bold text-sm",
+                    theme.editBtn,
+                  )}
+                >
+                  <Edit2 size={16} /> Editar
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* E-MAIL */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm">
+            <div className="flex items-center gap-4 flex-1">
+              <div
+                className={clsx(
+                  "p-3 rounded-xl border shadow-sm",
+                  theme.iconBox,
+                )}
+              >
+                <Mail size={20} />
+              </div>
+              <div className="flex-1">
+                <label
+                  className={clsx(
+                    "block text-xs font-bold uppercase tracking-wider mb-1",
+                    theme.subtitle,
+                  )}
+                >
+                  E-mail
+                </label>
+                <input
+                  type="email"
+                  disabled={!editMode.email}
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  className={clsx(
+                    "w-full bg-transparent font-bold outline-none transition-all text-lg text-slate-800",
+                    editMode.email && `border-b-2 pb-0.5 ${theme.activeInput}`,
+                  )}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {editMode.email ? (
+                <>
+                  <button
+                    onClick={() => handleSaveField("email")}
+                    disabled={saving}
+                    className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-md"
+                  >
+                    <Check size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleCancel("email")}
+                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300"
+                  >
+                    <X size={18} />
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => toggleEdit("email")}
+                  className={clsx(
+                    "p-2.5 rounded-xl transition-all flex items-center gap-2 font-bold text-sm",
+                    theme.editBtn,
+                  )}
+                >
+                  <Edit2 size={16} /> Editar
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* PIN (EXCLUSIVO PARA VENDEDOR) */}
+          {isVendedor && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm">
+              <div className="flex items-center gap-4 flex-1">
+                <div
+                  className={clsx(
+                    "p-3 rounded-xl border shadow-sm",
+                    theme.iconBox,
+                  )}
+                >
+                  <Lock size={20} />
+                </div>
+                <div className="flex-1 relative pr-10">
+                  <label
+                    className={clsx(
+                      "block text-xs font-bold uppercase tracking-wider mb-1",
+                      theme.subtitle,
+                    )}
+                  >
+                    PIN Operacional
+                  </label>
+                  <input
+                    type={showPin ? "text" : "password"}
+                    maxLength={4}
+                    disabled={!editMode.pin}
+                    value={formData.pin}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        pin: e.target.value.replace(/\D/g, ""),
+                      })
+                    }
+                    className={clsx(
+                      "w-full bg-transparent font-mono font-bold outline-none transition-all text-lg tracking-widest text-slate-800",
+                      editMode.pin && `border-b-2 pb-0.5 ${theme.activeInput}`,
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPin(!showPin)}
+                    className="absolute right-2 top-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPin ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {editMode.pin ? (
+                  <>
+                    <button
+                      onClick={() => handleSaveField("pin")}
+                      disabled={saving}
+                      className="p-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-md"
+                    >
+                      <Check size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleCancel("pin")}
+                      className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300"
+                    >
+                      <X size={18} />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => toggleEdit("pin")}
+                    className={clsx(
+                      "p-2.5 rounded-xl transition-all flex items-center gap-2 font-bold text-sm",
+                      theme.editBtn,
+                    )}
+                  >
+                    <Edit2 size={16} /> Editar
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ALTERAÇÃO DE SENHA (MODAL INLINE) */}
+          <div className="p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div
+                  className={clsx(
+                    "p-3 rounded-xl border shadow-sm",
+                    theme.iconBox,
+                  )}
+                >
+                  <KeyRound size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-lg">
+                    Alterar Senha
+                  </h3>
+                  <p
+                    className={clsx(
+                      "text-xs font-bold uppercase tracking-wider",
+                      theme.subtitle,
+                    )}
+                  >
+                    Proteja sua conta
+                  </p>
+                </div>
+              </div>
+              {!editMode.senha && (
+                <button
+                  onClick={() => toggleEdit("senha")}
+                  className={clsx(
+                    "px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 font-bold text-sm",
+                    theme.editBtn,
+                  )}
+                >
+                  <Edit2 size={16} /> Alterar
+                </button>
+              )}
+            </div>
+
+            {/* Sub-formulário de Senha */}
+            {editMode.senha && (
+              <div className="mt-6 space-y-4 pt-6 border-t border-slate-200/50 animate-in fade-in slide-in-from-top-4">
+                <div className="relative">
+                  <label
+                    htmlFor="current_password"
+                    className="block text-xs font-bold text-slate-500 mb-1"
+                  >
+                    Senha Atual
+                  </label>
+                  <input
+                    id="current_password"
+                    type={showSenha ? "text" : "password"}
+                    value={passwordData.current_password}
+                    onChange={(e) =>
+                      setPasswordData({
+                        ...passwordData,
+                        current_password: e.target.value,
+                      })
+                    }
+                    className={clsx(
+                      "w-full p-3 rounded-xl bg-white border outline-none font-bold text-slate-700",
+                      theme.activeInput,
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="relative">
+                    <label
+                      htmlFor="new_password"
+                      className="block text-xs font-bold text-slate-500 mb-1"
+                    >
+                      Nova Senha
+                    </label>
+                    <input
+                      id="new_password"
+                      type={showSenha ? "text" : "password"}
+                      value={passwordData.new_password}
+                      onChange={(e) =>
+                        setPasswordData({
+                          ...passwordData,
+                          new_password: e.target.value,
+                        })
+                      }
+                      className={clsx(
+                        "w-full p-3 rounded-xl bg-white border outline-none font-bold text-slate-700",
+                        theme.activeInput,
+                      )}
+                    />
+                  </div>
+                  <div className="relative">
+                    <label
+                      htmlFor="confirm_password"
+                      className="block text-xs font-bold text-slate-500 mb-1"
+                    >
+                      Confirmar Nova Senha
+                    </label>
+                    <input
+                      id="confirm_password"
+                      type={showSenha ? "text" : "password"}
+                      value={passwordData.confirm_password}
+                      onChange={(e) =>
+                        setPasswordData({
+                          ...passwordData,
+                          confirm_password: e.target.value,
+                        })
+                      }
+                      className={clsx(
+                        "w-full p-3 rounded-xl bg-white border outline-none font-bold text-slate-700",
+                        theme.activeInput,
+                      )}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowSenha(!showSenha)}
+                    className="text-sm font-bold text-slate-500 flex items-center gap-2 hover:text-slate-700"
+                  >
+                    {showSenha ? (
+                      <>
+                        <EyeOff size={16} /> Ocultar Senhas
+                      </>
+                    ) : (
+                      <>
+                        <Eye size={16} /> Mostrar Senhas
+                      </>
+                    )}
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleCancel("senha")}
+                      className="px-4 py-2 bg-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-300"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSavePassword}
+                      disabled={saving}
+                      className="px-6 py-2 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 shadow-md"
+                    >
+                      Salvar Senha
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {saving && (
+          <div className="px-10 py-4 bg-white/40 border-t border-white/40 flex items-center justify-center gap-2 text-slate-600 font-bold text-sm">
+            <Loader2 className="animate-spin" size={16} /> Salvando
+            alterações...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default Perfil;

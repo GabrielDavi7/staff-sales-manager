@@ -51,7 +51,7 @@ export function Team() {
     return <Navigate to="/registrarvenda" replace />;
   }
 
-  // 1. CARREGA OS DADOS DO BANCO COM COBERTURA ANTIBLOQUEIO 403 (RBAC)
+  // CARREGA OS DADOS DO BANCO COM COBERTURA ANTIBLOQUEIO 403 (RBAC)
   useEffect(() => {
     const carregarDadosSuporte = async () => {
       try {
