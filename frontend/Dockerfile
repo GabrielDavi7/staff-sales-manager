@@ -1,20 +1,11 @@
-# 1. Usar uma imagem leve do Node
-FROM node:20-alpine
-
-# 2. Definir diretório de trabalho
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-# 3. Copiar arquivos de dependências primeiro (otimiza cache)
-COPY package.json package-lock.json* ./
-
-# 4. Instalar dependências
-RUN npm install
-
-# 5. Copiar o restante do código
+COPY package*.json ./
+RUN npm ci
 COPY . .
+RUN npm run build
 
-# 6. Expor a porta que o Vite usa por padrão
-EXPOSE 5173
-
-# 7. Comando para rodar o Vite no modo desenvolvimento
-CMD ["npm", "run", "dev"]
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
