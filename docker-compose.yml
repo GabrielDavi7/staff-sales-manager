@@ -22,7 +22,9 @@ services:
       - db
 
   frontend:
-    build: ./frontend
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile.dev
     container_name: joias_frontend
     volumes:
       - ./frontend:/app
