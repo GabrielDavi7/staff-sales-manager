@@ -23,9 +23,9 @@ const DashboardLayout = () => {
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     closeMenu();
-    logout();
+    await logout();
     navigate("/login");
   };
 

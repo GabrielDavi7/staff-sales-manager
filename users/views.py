@@ -6,6 +6,8 @@ from rest_framework.views import APIView
 from rest_framework import generics
 from .models import CustomUser
 from .serializers import UserSerializer, UserUpdateSerializer, VendedorSerializer
+from rest_framework.authentication import TokenAuthentication
+from rest_framework import status
 
 class CustomLoginView(ObtainAuthToken):
     def post(self, request, *args, **kwargs):
@@ -89,3 +91,15 @@ class VendedorListView(generics.ListAPIView):
 
         # Se não for ADMIN e não tiver loja vinculada, não retorna nada por segurança
         return CustomUser.objects.none()
+
+class LogoutView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # request.user é o usuário autenticado; request.auth é o objeto Token
+        token = request.auth
+        if token:
+            token.delete()
+            return Response({"detail": "Logout realizado com sucesso."}, status=status.HTTP_200_OK)
+        return Response({"detail": "Token inválido."}, status=status.HTTP_400_BAD_REQUEST)

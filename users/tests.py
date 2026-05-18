@@ -8,7 +8,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .permissions import IsAdmin, IsSupervisorOrAdmin, IsVendedor, IsDispositivo
-from core.models import Loja
+
+import pytest
+from users.models import CustomUser
+from core.models import Loja, Equipe  # se necessário para criar usuário completo
 
 User = get_user_model()
 
@@ -317,3 +320,131 @@ class VendedorListViewTests(APITestCase):
         
         results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
         self.assertEqual(len(results), 0)
+
+
+@pytest.fixture
+def api_client():
+    return APIClient()
+
+@pytest.fixture
+def user(db):
+    # Cria um usuário genérico (pode ser vendedor, admin, etc.)
+    return CustomUser.objects.create_user(
+        email='teste@example.com',
+        username='testeuser',
+        first_name='Teste',
+        last_name='Silva',
+        password='senha123',
+        cargo='VENDEDOR'
+    )
+
+@pytest.fixture
+def auth_token(user):
+    token, _ = Token.objects.get_or_create(user=user)
+    return token.key
+
+@pytest.fixture
+def authenticated_client(api_client, auth_token):
+    api_client.credentials(HTTP_AUTHORIZATION=f'Token {auth_token}')
+    return api_client
+
+
+# -------------------------------------------------------------
+# Teste 1: Logout com token válido
+# -------------------------------------------------------------
+@pytest.mark.django_db
+def test_logout_com_token_valido(authenticated_client, user, auth_token):
+    url = reverse('logout')  # nome definido em users/urls.py como name='logout'
+    response = authenticated_client.post(url)
+
+    assert response.status_code == 200
+    assert response.json() == {"detail": "Logout realizado com sucesso."}
+    
+    # Verifica que o token foi deletado do banco
+    with pytest.raises(Token.DoesNotExist):
+        Token.objects.get(key=auth_token)
+
+
+# -------------------------------------------------------------
+# Teste 2: Acessar endpoint protegido após logout (token deletado)
+# -------------------------------------------------------------
+@pytest.mark.django_db
+def test_token_inutilizado_apos_logout(authenticated_client, user, auth_token):
+    # Primeiro faz logout
+    logout_url = reverse('logout')
+    authenticated_client.post(logout_url)
+
+    # Tenta acessar um endpoint protegido qualquer (ex: /api/user/me/)
+    # Assumindo que o endpoint /api/user/me/ já existe (Issue #1)
+    # Se não existir, pode testar com qualquer endpoint que use IsAuthenticated.
+    # Vou usar o próprio logout (que exige autenticação) como referência.
+    response = authenticated_client.post(logout_url)  # token já foi deletado
+    
+    # O client ainda tem a credencial antiga, mas o token não existe mais
+    assert response.status_code == 401
+    # Ou, dependendo da implementação do DRF, pode ser 401 Unauthorized
+    # O JSON pode ser {"detail": "Invalid token."}
+
+
+# -------------------------------------------------------------
+# Teste 3: Requisição sem token
+# -------------------------------------------------------------
+@pytest.mark.django_db
+def test_logout_sem_token(api_client):
+    url = reverse('logout')
+    response = api_client.post(url)
+    assert response.status_code == 401
+    # O DRF retorna {"detail": "Authentication credentials were not provided."}
+    assert 'detail' in response.json()
+
+
+# -------------------------------------------------------------
+# Teste 4: Token inválido ou já deletado
+# -------------------------------------------------------------
+@pytest.mark.django_db
+def test_logout_com_token_invalido(api_client):
+    # Simula um token que não existe no banco
+    api_client.credentials(HTTP_AUTHORIZATION='Token token_inexistente123')
+    url = reverse('logout')
+    response = api_client.post(url)
+    assert response.status_code == 401
+    # O DRF retorna o erro traduzido {"detail": "Token inválido."}
+    assert response.json()['detail'] == 'Token inválido.'
+
+
+# -------------------------------------------------------------
+# Teste extra: Logout deve aceitar apenas método POST
+# -------------------------------------------------------------
+@pytest.mark.django_db
+def test_logout_apenas_post(authenticated_client):
+    url = reverse('logout')
+    # GET não deve funcionar
+    response_get = authenticated_client.get(url)
+    assert response_get.status_code == 405  # Method Not Allowed
+    
+    # POST funciona (já testado acima)
+
+
+# -------------------------------------------------------------
+# Teste extra: Logout com usuário de cargo DISPOSITIVO também funciona
+# -------------------------------------------------------------
+@pytest.mark.django_db
+def test_logout_com_dispositivo(db):
+    dispositivo = CustomUser.objects.create_user(
+        email='tablet@loja.com',
+        username='tablet01',
+        first_name='Tablet',
+        last_name='Loja',
+        password='123456',
+        cargo='DISPOSITIVO'
+    )
+    token = Token.objects.create(user=dispositivo)
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+    
+    url = reverse('logout')
+    response = client.post(url)
+    assert response.status_code == 200
+    
+    # Token deletado
+    assert not Token.objects.filter(key=token.key).exists()

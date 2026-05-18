@@ -45,10 +45,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("user");
-    setUser(null);
+  const logout = async () => {
+    try {
+      await api.post("/api/users/logout/");
+    } catch (error) {
+      console.error("Erro ao invalidar o token no backend:", error);
+    } finally {
+      // O bloco finally garante que, mesmo se a API der erro (ex: sem internet), 
+      // o usuário será deslogado localmente no frontend.
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("user");
+      setUser(null);
+    }
   };
 
   return (
