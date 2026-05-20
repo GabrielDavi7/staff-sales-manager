@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, FileText, Filter, Edit, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  FileText,
+  Filter,
+  Edit,
+  Loader2,
+} from "lucide-react";
 import EditarAtendimento from "./EditarAtendimento";
 
-// Instância personalizada do Axios do seu projeto
 import api from "../../api/axios";
 
 export default function RelatorioAtendimento({ onBack }) {
@@ -12,10 +18,13 @@ export default function RelatorioAtendimento({ onBack }) {
   const [lojas, setLojas] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [metricas, setMetricas] = useState([]);
-  const [atendimentos, setAtendimentos] = useState([]);
+
+  // ESTADO ATUALIZADO PARA PAGINAÇÃO
+  const estadoInicialPaginacao = { results: [], next: null, previous: null };
+  const [atendimentos, setAtendimentos] = useState(estadoInicialPaginacao);
   const [loading, setLoading] = useState(true);
 
-  // 1. CARREGA OS DADOS MESTRE DO BANCO PARA CRUZAMENTO DE IDENTIFICADORES
+  // CARREGA OS DADOS MESTRE DO BANCO PARA CRUZAMENTO DE IDENTIFICADORES
   useEffect(() => {
     const carregarDadosSuporte = async () => {
       try {
@@ -27,7 +36,6 @@ export default function RelatorioAtendimento({ onBack }) {
 
         const dadosLojas = resLojas.data?.results || resLojas.data || [];
 
-        // REQUISITO ATUALIZADO: Mostra apenas as lojas ATIVAS no dropdown de filtro superior
         setLojas(dadosLojas.filter((l) => l.ativo === true));
 
         setUsuarios(resUsuarios.data?.results || resUsuarios.data || []);
@@ -39,12 +47,18 @@ export default function RelatorioAtendimento({ onBack }) {
     carregarDadosSuporte();
   }, []);
 
-  // 2. CARREGA O HISTÓRICO COMPLETO DE ATENDIMENTOS (UMA ÚNICA VEZ)
+  //CARREGA O HISTÓRICO COMPLETO DE ATENDIMENTOS (PÁGINA 1)
+  const formatarPaginacao = (res) => ({
+    results: res.data?.results || res.data || [],
+    next: res.data?.next || null,
+    previous: res.data?.previous || null,
+  });
+
   const fetchAtendimentos = async () => {
     try {
       setLoading(true);
       const response = await api.get("/api/core/atendimentos/");
-      setAtendimentos(response.data?.results || response.data || []);
+      setAtendimentos(formatarPaginacao(response));
     } catch (err) {
       console.error("Erro ao carregar histórico de atendimentos:", err);
     } finally {
@@ -56,8 +70,23 @@ export default function RelatorioAtendimento({ onBack }) {
     fetchAtendimentos();
   }, []);
 
+  // FUNÇÃO PARA NAVEGAR ENTRE AS PÁGINAS DA API
+  const carregarPagina = async (urlOriginal) => {
+    if (!urlOriginal) return;
+    try {
+      setLoading(true);
+      const urlRelativa = urlOriginal.substring(urlOriginal.indexOf("/api/"));
+      const response = await api.get(urlRelativa);
+      setAtendimentos(formatarPaginacao(response));
+    } catch (err) {
+      console.error("Erro ao carregar nova página:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 3. CAMADA DE FILTRAGEM DEFENSIVA E MULTI-NÍVEL (MUDANÇA DE LOJA EM TEMPO REAL)
-  const atendimentosFiltrados = atendimentos.filter((item) => {
+  const atendimentosFiltrados = atendimentos.results.filter((item) => {
     if (!filtroLoja) return true; // Se estiver em "Todas as Lojas", mostra tudo
 
     // Caminho 1: Tenta ler o ID da loja direto do objeto de atendimento
@@ -87,7 +116,7 @@ export default function RelatorioAtendimento({ onBack }) {
     fetchAtendimentos(); // Recarrega a listagem atualizada do banco
   };
 
-  if (loading && atendimentos.length === 0) {
+  if (loading && atendimentos.results.length === 0) {
     return (
       <div className="h-[50vh] flex flex-col items-center justify-center gap-4 text-white">
         <Loader2 className="animate-spin text-[#3E5641]" size={48} />
@@ -144,7 +173,14 @@ export default function RelatorioAtendimento({ onBack }) {
             </div>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-[2rem] overflow-hidden shadow-xl backdrop-blur-md">
+          <div className="bg-white/5 border border-white/10 rounded-[2rem] overflow-hidden shadow-xl backdrop-blur-md relative">
+            {/* Overlay de carregamento ao mudar de página */}
+            {loading && atendimentos.results.length > 0 && (
+              <div className="absolute inset-0 bg-[#003847]/50 backdrop-blur-sm z-20 flex items-center justify-center">
+                <Loader2 className="animate-spin text-[#3E5641]" size={40} />
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -262,6 +298,26 @@ export default function RelatorioAtendimento({ onBack }) {
                   Nenhum registro de atendimento localizado para a loja
                   selecionada.
                 </p>
+              )}
+
+              {/* Controles de Paginação */}
+              {(atendimentos.next || atendimentos.previous) && (
+                <div className="flex justify-between items-center p-6 border-t border-white/5 bg-white/5">
+                  <button
+                    onClick={() => carregarPagina(atendimentos.previous)}
+                    disabled={!atendimentos.previous}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed rounded-xl text-slate-300 font-bold cursor-pointer transition-all hover:bg-white/20"
+                  >
+                    <ArrowLeft size={18} /> Anterior
+                  </button>
+                  <button
+                    onClick={() => carregarPagina(atendimentos.next)}
+                    disabled={!atendimentos.next}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed rounded-xl text-slate-300 font-bold cursor-pointer transition-all hover:bg-white/20"
+                  >
+                    Próxima <ArrowRight size={18} />
+                  </button>
+                </div>
               )}
             </div>
           </div>
