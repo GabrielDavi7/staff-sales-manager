@@ -9,7 +9,7 @@ import {
   ChevronLeft,
   ClipboardCheck,
   Lock,
-  Calendar, // Importando ícone de calendário
+  Calendar,
 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -23,7 +23,6 @@ const NewAttendance = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Adicionado o dataHora no estado inicial
   const [formData, setFormData] = useState({
     vendedorId: null,
     vendedorNome: "",
@@ -97,10 +96,14 @@ const NewAttendance = () => {
   const handleFinish = async () => {
     setError("");
 
-    if (formData.vendaFechada && !formData.valor) {
-      setError("Informe o valor da venda.");
-      return;
+    // NOVA VALIDAÇÃO DE VALOR POSITIVO
+    if (formData.vendaFechada) {
+      if (!formData.valor || Number(formData.valor) <= 0) {
+        setError("O valor da venda deve ser maior que zero.");
+        return;
+      }
     }
+
     if (formData.vendaFechada === false && !formData.motivoId) {
       setError("Selecione o motivo da perda.");
       return;
@@ -131,7 +134,7 @@ const NewAttendance = () => {
         metrica: !formData.vendaFechada ? Number(formData.motivoId) : null,
         cliente_nome: formData.clienteNome || "Não informado",
         observacoes: formData.observacoes || "",
-        data_hora: dataHoraFinal, // Adicionado o envio da data para o Django
+        data_hora: dataHoraFinal,
         ...(isDispositivo && { pin: formData.pin }),
       };
 
@@ -148,7 +151,7 @@ const NewAttendance = () => {
           clienteNome: "",
           observacoes: "",
           pin: "",
-          dataHora: "", // Reseta a data no dispositivo
+          dataHora: "",
         });
         setStep(1);
         navigate("/registrarvenda", { replace: true });
@@ -262,12 +265,25 @@ const NewAttendance = () => {
                   </label>
                   <input
                     type="number"
+                    min="0.01"
+                    step="0.01"
                     autoFocus
+                    placeholder="Ex: 150.00"
                     className="w-full text-4xl p-6 border-2 rounded-2xl outline-none focus:border-[#4D7BAB]"
                     value={formData.valor}
-                    onChange={(e) =>
-                      setFormData({ ...formData, valor: e.target.value })
-                    }
+                    onKeyDown={(e) => {
+                      // Impede a digitação do sinal de menos (-) e da letra 'e' (exponencial)
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    onChange={(e) => {
+                      // Impede que o valor fique negativo caso seja colado (Ctrl+V)
+                      const val = e.target.value;
+                      if (val === "" || Number(val) >= 0) {
+                        setFormData({ ...formData, valor: val });
+                      }
+                    }}
                   />
                 </div>
               ) : (
