@@ -1,17 +1,26 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { LogIn, User, Lock, Eye, EyeOff, Diamond } from "lucide-react";
+import {
+  LogIn,
+  User,
+  Lock,
+  Eye,
+  EyeOff,
+  Diamond,
+  ShieldCheck,
+} from "lucide-react";
+import { clsx } from "clsx";
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false); // Novo estado para o checkbox
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login, user: authUser } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -36,127 +45,232 @@ const Login = () => {
   };
 
   return (
-    // Fundo com o gradiente solicitado e overflow escondido para as formas não passarem da tela
-    <div className="min-h-screen bg-gradient-to-br from-[#010528] to-[#004BBE] flex items-center justify-center p-4 sm:p-8 relative overflow-hidden">
-      {/* Elementos decorativos de fundo para simular as formas abstratas da imagem */}
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-[#004BBE] rounded-full mix-blend-screen filter blur-[100px] opacity-70 animate-pulse"></div>
-      <div className="absolute bottom-[-10%] right-[-5%] w-[30rem] h-[30rem] bg-[#010528] rounded-full mix-blend-multiply filter blur-[100px] opacity-80"></div>
-      <div className="absolute top-[20%] right-[10%] w-64 h-64 bg-[#4D7BAB] rounded-full mix-blend-overlay filter blur-[80px] opacity-50"></div>
+    // Fundo principal com gradiente profundo e formas abstratas sutis
+    <div className="min-h-screen bg-[#010528] bg-gradient-to-br from-[#010528] via-[#001A4F] to-[#010528] flex items-center justify-center p-4 md:p-8 relative overflow-hidden font-sans">
+      {/* Elementos decorativos de fundo sutilmente animados */}
+      <div className="absolute top-[-15%] left-[-10%] w-[35rem] h-[35rem] bg-[#004BBE]/20 rounded-full blur-[120px] animate-pulse duration-[10s]"></div>
+      <div className="absolute bottom-[-15%] right-[-5%] w-[40rem] h-[40rem] bg-[#002A7A]/30 rounded-full blur-[150px]"></div>
 
-      {/* Card Glassmorphism (Efeito de Vidro) */}
-      <div className="max-w-md w-full bg-white/10 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/20 p-8 sm:p-12 relative z-10 animate-in fade-in zoom-in-95 duration-500">
-        {/* Logo Centralizada */}
-        <div className="flex flex-col items-center mb-10">
-          <Diamond
-            size={48}
-            strokeWidth={1.5}
-            className="text-white mb-3 drop-shadow-md"
-          />
-          <h1 className="text-2xl font-bold text-white tracking-wider drop-shadow-md">
-            Joias Manager
-          </h1>
+      {/* Card Principal Split-Screen com Glassmorphism */}
+      <div className="max-w-5xl w-full bg-white/5 backdrop-blur-xl rounded-[2.5rem] shadow-3xl border border-white/10 overflow-hidden flex flex-col md:flex-row relative z-10 animate-in fade-in zoom-in-95 duration-700 ease-out">
+        {/* ======================================================= */}
+        {/* LADO ESQUERDO: Branding & Estética de Luxo (md+ apenas) */}
+        {/* ======================================================= */}
+        <div className="md:w-1/2 p-12 lg:p-16 flex flex-col justify-between items-center text-center relative overflow-hidden bg-[#010528]/60 border-r border-white/5">
+          {/* Padrão geométrico sutil no fundo */}
+          <div className="absolute inset-0 opacity-[0.03] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48ZyBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTAgMGg0MHY0MEgwVjB6bTIwIDIwaDIwdjIwSDIWMjB6TTAgMjBoMjB2MjBIMFYyMHoyMCAwaDIwdjIwSDIwVjB6Ii8+PC9nPjwvZz48L3N2Zz4=')]"></div>
+
+          <div className="relative z-10 flex flex-col items-center flex-1 justify-center space-y-8">
+            <div className="p-6 bg-[#D4AF37]/10 backdrop-blur-sm rounded-full border border-[#D4AF37]/20 shadow-inner-gold">
+              <Diamond
+                size={72}
+                strokeWidth={1}
+                className="text-[#D4AF37] drop-shadow-gold"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <h1 className="text-4xl lg:text-5xl font-extrabold text-white tracking-tighter">
+                Staff <span className="text-[#D4AF37]">SalesManager</span>
+              </h1>
+              <p className="text-blue-100/80 text-lg max-w-sm mx-auto font-light leading-relaxed">
+                Painel de administração de vendas para lojas.
+              </p>
+            </div>
+          </div>
+
+          <div className="relative z-10 pt-10 text-xs text-blue-200/50 flex items-center gap-2 border-t border-white/5 w-full justify-center">
+            <ShieldCheck size={14} className="text-[#D4AF37]/70" /> Plataforma
+            versão 1.0.0 - 20/05/2026
+          </div>
         </div>
 
-        <h2 className="text-3xl font-bold text-white tracking-tight mb-8">
-          Login
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="p-4 bg-rose-500/20 border border-rose-500/50 text-white text-sm rounded-2xl animate-in slide-in-from-top-2 backdrop-blur-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Input: Usuário / E-mail */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-blue-100 ml-1">
-              Email ou Usuário
-            </label>
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[#004BBE]">
-                <User size={20} />
-              </div>
-              <input
-                type="text"
-                required
-                autoFocus
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="username@gmail.com"
-                className="w-full pl-12 pr-4 py-4 bg-white border-2 border-transparent rounded-2xl focus:border-[#004BBE] focus:ring-4 focus:ring-[#004BBE]/20 outline-none transition-all text-slate-800 font-medium shadow-inner"
-              />
-            </div>
+        {/* ======================================================= */}
+        {/* LADO DIREITO: Formulário de Login                        */}
+        {/* ======================================================= */}
+        <div className="md:w-1/2 p-10 lg:p-16 flex flex-col justify-center bg-white/5">
+          {/* Header Mobile (Visível apenas em telas pequenas) */}
+          <div className="flex md:hidden flex-col items-center mb-12 text-center">
+            <Diamond
+              size={40}
+              strokeWidth={1.5}
+              className="text-[#D4AF37] mb-3"
+            />
+            <h1 className="text-2xl font-bold text-white tracking-wider">
+              Joias Manager
+            </h1>
           </div>
 
-          {/* Input: Senha */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-blue-100 ml-1">
-              Password
-            </label>
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[#004BBE]">
-                <Lock size={20} />
+          <div className="mb-12 text-center md:text-left">
+            <h2 className="text-4xl font-extrabold text-white tracking-tight">
+              Acessar Conta
+            </h2>
+            <p className="text-blue-100/70 mt-3 text-base">
+              Identifique-se para gerenciar suas operações.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-7">
+            {error && (
+              <div className="p-4 bg-rose-500/10 border border-rose-500/30 text-rose-200 text-sm rounded-xl animate-in slide-in-from-top-2 backdrop-blur-sm flex items-center gap-3 font-medium">
+                <XCircle size={18} className="shrink-0" /> {error}
               </div>
-              <input
-                type={showPassword ? "text" : "password"}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full pl-12 pr-12 py-4 bg-white border-2 border-transparent rounded-2xl focus:border-[#004BBE] focus:ring-4 focus:ring-[#004BBE]/20 outline-none transition-all text-slate-800 font-medium shadow-inner"
-              />
+            )}
+
+            {/* Input: Usuário / E-mail */}
+            <div className="space-y-2.5">
+              <label
+                htmlFor="username"
+                className="text-sm font-semibold text-blue-100/90 ml-1 tracking-wide"
+              >
+                E-mail ou Usuário
+              </label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-blue-300/60 group-focus-within:text-[#D4AF37] transition-colors">
+                  <User size={20} strokeWidth={2} />
+                </div>
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  required
+                  autoFocus
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Seu e-mail ou nome de usuário"
+                  className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-xl focus:bg-white/10 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 outline-none transition-all duration-200 text-white placeholder:text-blue-200/40 text-base"
+                />
+              </div>
+            </div>
+
+            {/* Input: Senha */}
+            <div className="space-y-2.5">
+              <label
+                htmlFor="password"
+                className="text-sm font-semibold text-blue-100/90 ml-1 tracking-wide"
+              >
+                Senha de Acesso
+              </label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-blue-300/60 group-focus-within:text-[#D4AF37] transition-colors">
+                  <Lock size={20} strokeWidth={2} />
+                </div>
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Sua senha secreta"
+                  className="w-full pl-12 pr-12 py-4 bg-white/5 border border-white/10 rounded-xl focus:bg-white/10 focus:border-[#D4AF37]/50 focus:ring-2 focus:ring-[#D4AF37]/20 outline-none transition-all duration-200 text-white placeholder:text-blue-200/40 text-base"
+                />
+                <button
+                  type="button"
+                  tabIndex="-1"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-blue-300/60 hover:text-white transition-colors cursor-pointer"
+                  aria-label={showPassword ? "Esconder senha" : "Mostrar senha"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Funcionalidades Extras: Manter Conectado & Esqueci Senha */}
+            <div className="flex items-center justify-between text-sm pt-1">
+              <label className="flex items-center gap-2.5 cursor-pointer text-blue-100/80 hover:text-white transition-colors group">
+                <div className="relative flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="peer appearance-none w-5 h-5 rounded border border-white/20 bg-white/5 checked:bg-[#D4AF37] checked:border-[#D4AF37] transition-all cursor-pointer focus:ring-2 focus:ring-[#D4AF37]/30 focus:outline-none"
+                  />
+                  <Check
+                    size={14}
+                    strokeWidth={3}
+                    className="absolute text-[#010528] opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none"
+                  />
+                </div>
+                <span className="font-medium">Manter conectado</span>
+              </label>
+
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-[#004BBE] transition-colors"
+                onClick={() =>
+                  alert("Função de recuperação de senha em desenvolvimento!")
+                }
+                className="text-[#D4AF37] hover:text-[#f3cd5d] hover:underline underline-offset-4 transition-colors font-semibold bg-transparent border-none p-0 cursor-pointer"
               >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                Esqueceu a senha?
               </button>
             </div>
-          </div>
 
-          {/* Funcionalidades Extras: Manter Conectado & Esqueci Senha */}
-          <div className="flex items-center justify-between text-sm mt-2">
-            <label className="flex items-center gap-2 cursor-pointer text-blue-100 hover:text-white transition-colors">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-white/30 bg-white/10 accent-[#004BBE] cursor-pointer"
-              />
-              <span>Manter conectado</span>
-            </label>
-
+            {/* Botão de Submit Premium */}
             <button
-              type="button"
-              onClick={() =>
-                alert("Função de recuperação de senha em desenvolvimento!")
-              }
-              className="text-blue-200 hover:text-white hover:underline underline-offset-2 transition-colors font-medium bg-transparent border-none p-0 cursor-pointer"
+              type="submit"
+              disabled={isLoading}
+              className="w-full mt-6 py-4 bg-[#D4AF37] text-[#010528] rounded-xl font-extrabold text-lg shadow-lg hover:bg-[#f3cd5d] active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-3 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed group border border-[#D4AF37]/50"
             >
-              Forgot Password?
+              {isLoading ? (
+                <div className="w-6 h-6 border-4 border-[#010528]/20 border-t-[#010528] rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <LogIn
+                    size={22}
+                    className="group-hover:translate-x-1 transition-transform"
+                  />{" "}
+                  Acessar Sistema
+                </>
+              )}
             </button>
-          </div>
+          </form>
 
-          {/* Botão de Submit */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full mt-8 py-4 bg-[#010528] text-white rounded-2xl font-bold text-lg shadow-xl hover:bg-slate-900 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed border border-white/10"
-          >
-            {isLoading ? (
-              <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
-            ) : (
-              <>
-                <LogIn size={20} /> Entrar
-              </>
-            )}
-          </button>
-        </form>
+          <p className="mt-16 text-center text-blue-200/30 text-xs font-light tracking-wide">
+            © {new Date().getFullYear()} Staff Sales Manager.
+          </p>
+        </div>
       </div>
     </div>
   );
 };
+
+// Ícones adicionais necessários para o novo design
+const Check = ({ size = 16, ...props }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+);
+
+const XCircle = ({ size = 16, ...props }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="m15 9-6 6" />
+    <path d="m9 9 6 6" />
+  </svg>
+);
 
 export default Login;
