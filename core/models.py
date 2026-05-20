@@ -44,10 +44,15 @@ class Relatorio(models.Model):
 
     def clean(self):
         # Regra: Se a venda foi fechada, o valor é obrigatório
-        if self.venda_fechada and not self.valor_venda:
-            raise ValidationError({
-                'valor_venda': 'O valor da venda é obrigatório quando a venda é marcada como fechada.'
-            })
+        if self.venda_fechada:
+            if not self.valor_venda:
+                raise ValidationError({
+                    'valor_venda': 'O valor da venda é obrigatório quando a venda é marcada como fechada.'
+                })
+            elif self.valor_venda < 0:
+                raise ValidationError({
+                    'valor_venda': 'O valor da venda não pode ser negativo.'
+                })
         
         # Regra: Se a venda NÃO foi fechada, a métrica (motivo) é obrigatória
         if not self.venda_fechada and not self.metrica:
