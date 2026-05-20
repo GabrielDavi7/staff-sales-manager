@@ -34,6 +34,7 @@ export default function CriarUsuario({ onBack }) {
     { id: "ADMIN", nome: "Administrador" },
     { id: "SUPERVISOR", nome: "Supervisor" },
     { id: "VENDEDOR", nome: "Vendedor" },
+    { id: "DISPOSITIVO", nome: "Dispositivo" },
   ]);
 
   const [lojasDisponiveis, setLojasDisponiveis] = useState([]);

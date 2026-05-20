@@ -528,6 +528,7 @@ export default function GerenciarStatus({ onBack }) {
                   <option value="ADMIN">Administrador</option>
                   <option value="SUPERVISOR">Supervisor</option>
                   <option value="VENDEDOR">Vendedor</option>
+                  <option value="DISPOSITIVO">Dispositivo</option>
                 </select>
               </div>
 
