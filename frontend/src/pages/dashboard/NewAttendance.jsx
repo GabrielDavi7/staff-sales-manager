@@ -317,23 +317,43 @@ const NewAttendance = () => {
                 </div>
               )}
 
-              {/* DATA E HORA RETROATIVA */}
+              {/* DATA E HORA RETROATIVA (SOMENTE HORA) */}
               <div className="space-y-2">
                 <label className="text-lg font-bold text-slate-700 flex items-center gap-2">
-                  <Calendar size={20} className="text-[#4D7BAB]" /> Data e Hora
-                  (Opcional):
+                  <Calendar size={20} className="text-[#4D7BAB]" /> Hora do
+                  Atendimento (Opcional):
                 </label>
                 <input
-                  type="datetime-local"
+                  type="time"
                   className="w-full p-4 border-2 rounded-2xl outline-none focus:border-[#4D7BAB]"
-                  value={formData.dataHora}
-                  onChange={(e) =>
-                    setFormData({ ...formData, dataHora: e.target.value })
+                  // Extrai apenas a parte da hora "HH:mm" do estado para mostrar no input
+                  value={
+                    formData.dataHora ? formData.dataHora.substring(11, 16) : ""
                   }
+                  onChange={(e) => {
+                    const horaDigitada = e.target.value; // Vem no formato "HH:mm"
+
+                    if (!horaDigitada) {
+                      setFormData({ ...formData, dataHora: "" });
+                    } else {
+                      // Pega a data exata de hoje no fuso local (YYYY-MM-DD)
+                      const hoje = new Date();
+                      const offset = hoje.getTimezoneOffset() * 60000;
+                      const dataLocal = new Date(hoje.getTime() - offset)
+                        .toISOString()
+                        .split("T")[0];
+
+                      // Junta a data de hoje com a hora que o usuário escolheu
+                      setFormData({
+                        ...formData,
+                        dataHora: `${dataLocal}T${horaDigitada}`,
+                      });
+                    }
+                  }}
                 />
                 <p className="text-[12px] text-slate-400 italic pl-1 font-medium">
-                  Deixe em branco para registrar com a data e hora exatas de
-                  agora.
+                  A data será registrada como hoje. Deixe em branco para usar a
+                  hora exata de agora.
                 </p>
               </div>
 
