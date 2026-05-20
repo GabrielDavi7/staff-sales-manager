@@ -30,7 +30,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile              # ← usa o Dockerfile de produção (nginx)
       args:
-        - VITE_API_URL=http://213.199.43.61:8000
+        - VITE_API_URL=${VITE_API_URL:-http://213.199.43.61:8000}
     container_name: joias_frontend_prod
     ports:
       - "80:80"
