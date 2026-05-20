@@ -9,6 +9,7 @@ from users.models import CustomUser
 from core.models import Loja, Equipe, Metrica, Relatorio
 from decimal import Decimal
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 
 class RelatorioViewSetTests(APITestCase):
     
@@ -180,6 +181,28 @@ class RelatorioViewSetTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('valor_venda', response.data)
     
+    def test_venda_fechada_com_valor_negativo_error(self):
+        """API: Impede a criação de atendimento com valor de venda negativo via Endpoint"""
+        self.client.force_authenticate(user=self.vendedor1)
+        data = {
+            'venda_fechada': True, 
+            'valor_venda': '-150.00'
+        }
+        response = self.client.post(self.list_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('valor_venda', response.data)
+        self.assertIn('não pode ser negativo', response.data['valor_venda'][0])
+
+    def test_modelo_venda_fechada_valor_negativo_error(self):
+        """MODELO: Impede salvar no banco com valor negativo através do clean()"""
+        rel = Relatorio(
+            vendedor=self.vendedor1,
+            venda_fechada=True,
+            valor_venda=Decimal('-50.00')
+        )
+        with self.assertRaises(ValidationError):
+            rel.clean()
+
     def test_venda_nao_fechada_sem_metrica_error(self):
         self.client.force_authenticate(user=self.vendedor1)
         data = {'venda_fechada': False, 'metrica': None}

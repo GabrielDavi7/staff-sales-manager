@@ -70,6 +70,10 @@ class RelatorioSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'valor_venda': 'O valor da venda é obrigatório quando a venda é fechada.'
                 })
+            elif valor_venda < 0:
+                raise serializers.ValidationError({
+                    'valor_venda': 'O valor da venda não pode ser negativo.'
+                })
             if metrica:
                 data['metrica'] = None
         else:
