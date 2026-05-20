@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   ToggleLeft,
   ToggleRight,
   Users,
@@ -27,13 +28,21 @@ export default function GerenciarStatus({ onBack }) {
   const [itemConfirmacao, setItemConfirmacao] = useState(null);
   const [usuarioEditando, setUsuarioEditando] = useState(null);
 
-  // Estados das entidades vindas da API
-  const [usuarios, setUsuarios] = useState([]);
-  const [lojas, setLojas] = useState([]);
-  const [equipes, setEquipes] = useState([]);
-  const [metricas, setMetricas] = useState([]);
+  // Estados das entidades (Agora guardam os resultados e as URLs de paginação)
+  const estadoInicial = { results: [], next: null, previous: null };
+  const [usuarios, setUsuarios] = useState(estadoInicial);
+  const [lojas, setLojas] = useState(estadoInicial);
+  const [equipes, setEquipes] = useState(estadoInicial);
+  const [metricas, setMetricas] = useState(estadoInicial);
 
-  // Carregamento inicial do banco de dados
+  // Formata a resposta da API para garantir a estrutura de paginação
+  const formatarPaginacao = (res) => ({
+    results: res.data.results || res.data || [],
+    next: res.data.next || null,
+    previous: res.data.previous || null,
+  });
+
+  // Carregamento inicial do banco de dados (Página 1 de tudo)
   const carregarDadosGerenciamento = async () => {
     try {
       setLoading(true);
@@ -45,10 +54,10 @@ export default function GerenciarStatus({ onBack }) {
           api.get("/api/admin/equipes/"),
         ]);
 
-      setLojas(resLojas.data.results || resLojas.data || []);
-      setMetricas(resMetricas.data.results || resMetricas.data || []);
-      setUsuarios(resUsuarios.data.results || resUsuarios.data || []);
-      setEquipes(resEquipes.data.results || resEquipes.data || []);
+      setLojas(formatarPaginacao(resLojas));
+      setMetricas(formatarPaginacao(resMetricas));
+      setUsuarios(formatarPaginacao(resUsuarios));
+      setEquipes(formatarPaginacao(resEquipes));
     } catch (error) {
       console.error("Erro ao buscar dados das entidades:", error);
     } finally {
@@ -59,6 +68,29 @@ export default function GerenciarStatus({ onBack }) {
   useEffect(() => {
     carregarDadosGerenciamento();
   }, []);
+
+  // Função para navegar entre as páginas de uma aba específica
+  const carregarPagina = async (tipo, urlOriginal) => {
+    if (!urlOriginal) return;
+    try {
+      setLoading(true);
+      // Extrai apenas o caminho da API (ex: /api/admin/usuarios/?page=2)
+      // Isso evita bugs caso a baseURL do Axios seja diferente do IP retornado pelo Django
+      const urlRelativa = urlOriginal.substring(urlOriginal.indexOf("/api/"));
+
+      const res = await api.get(urlRelativa);
+      const dadosFormatados = formatarPaginacao(res);
+
+      if (tipo === "usuarios") setUsuarios(dadosFormatados);
+      if (tipo === "lojas") setLojas(dadosFormatados);
+      if (tipo === "equipes") setEquipes(dadosFormatados);
+      if (tipo === "metricas") setMetricas(dadosFormatados);
+    } catch (error) {
+      console.error(`Erro ao carregar página de ${tipo}:`, error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Dispara o PATCH de Status (Soft Delete)
   const toggleStatusAPI = async (tipo, idField, idValue, statusAtual) => {
@@ -87,10 +119,11 @@ export default function GerenciarStatus({ onBack }) {
     e.preventDefault();
     setSavingUser(true);
 
-    // Localiza o registro original vindo do banco antes da edição do formulário
-    const usuarioOriginal = usuarios.find((u) => u.id === usuarioEditando.id);
+    // Localiza o registro original nos resultados atuais
+    const usuarioOriginal = usuarios.results.find(
+      (u) => u.id === usuarioEditando.id,
+    );
 
-    // Monta o payload base com os dados comuns
     const payload = {
       first_name: usuarioEditando.first_name,
       last_name: usuarioEditando.last_name,
@@ -100,7 +133,6 @@ export default function GerenciarStatus({ onBack }) {
       equipe: usuarioEditando.equipe ? Number(usuarioEditando.equipe) : null,
     };
 
-    // ESTRATÉGIA DEFENSIVA: Só envia username/email se o admin realmente digitou algo diferente do original
     if (
       usuarioOriginal &&
       usuarioEditando.username !== usuarioOriginal.username
@@ -111,7 +143,6 @@ export default function GerenciarStatus({ onBack }) {
       payload.email = usuarioEditando.email;
     }
 
-    // Só insere password no payload se o admin digitou uma nova senha
     if (usuarioEditando.senha && usuarioEditando.senha.trim() !== "") {
       payload.password = usuarioEditando.senha;
     }
@@ -127,7 +158,6 @@ export default function GerenciarStatus({ onBack }) {
         err.response?.data || err.message,
       );
 
-      // Dinamiza o alerta para exibir o erro exato do Django na tela, facilitando seu debug
       const detalheErro = err.response?.data
         ? JSON.stringify(err.response.data)
         : "Verifique os campos preenchidos ou a sua conexão.";
@@ -153,11 +183,35 @@ export default function GerenciarStatus({ onBack }) {
     }
   };
 
-  const usuariosFiltrados = usuarios.filter(
+  const usuariosFiltrados = usuarios.results.filter(
     (u) => u.cargo?.toUpperCase() !== "ADMIN",
   );
 
-  if (loading && usuarios.length === 0) {
+  // Componente interno para renderizar os botões de paginação repetitivos
+  const ControlesPaginacao = ({ dados, tipo }) => {
+    if (!dados.next && !dados.previous) return null;
+
+    return (
+      <div className="flex justify-between items-center mt-6 pt-6 border-t border-white/10">
+        <button
+          onClick={() => carregarPagina(tipo, dados.previous)}
+          disabled={!dados.previous}
+          className="flex items-center gap-2 px-5 py-2.5 bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed rounded-xl text-slate-300 font-bold cursor-pointer transition-all hover:bg-white/10"
+        >
+          <ArrowLeft size={18} /> Anterior
+        </button>
+        <button
+          onClick={() => carregarPagina(tipo, dados.next)}
+          disabled={!dados.next}
+          className="flex items-center gap-2 px-5 py-2.5 bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed rounded-xl text-slate-300 font-bold cursor-pointer transition-all hover:bg-white/10"
+        >
+          Próxima <ArrowRight size={18} />
+        </button>
+      </div>
+    );
+  };
+
+  if (loading && usuarios.results.length === 0) {
     return (
       <div className="h-[50vh] flex flex-col items-center justify-center gap-4 text-white">
         <Loader2 className="animate-spin text-[#822659]" size={48} />
@@ -220,7 +274,14 @@ export default function GerenciarStatus({ onBack }) {
         </button>
       </div>
 
-      <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 shadow-xl backdrop-blur-md">
+      <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 shadow-xl backdrop-blur-md relative">
+        {/* Overlay de carregamento ao mudar de página */}
+        {loading && usuarios.results.length > 0 && (
+          <div className="absolute inset-0 bg-[#003847]/50 backdrop-blur-sm z-20 rounded-[2rem] flex items-center justify-center">
+            <Loader2 className="animate-spin text-[#822659]" size={40} />
+          </div>
+        )}
+
         {/* Tabela Usuários */}
         {subAba === "usuarios" && (
           <div className="space-y-4">
@@ -243,7 +304,6 @@ export default function GerenciarStatus({ onBack }) {
                 <div className="flex items-center gap-4">
                   <button
                     type="button"
-                    // CORREÇÃO E EXTRAÇÃO EXPLICÍTICA DE IDS CASO SEJAM RETORNADOS COMO OBJETOS ANINHADOS
                     onClick={() =>
                       setUsuarioEditando({
                         ...u,
@@ -279,13 +339,14 @@ export default function GerenciarStatus({ onBack }) {
                 </div>
               </div>
             ))}
+            <ControlesPaginacao dados={usuarios} tipo="usuarios" />
           </div>
         )}
 
         {/* Tabela Lojas */}
         {subAba === "lojas" && (
           <div className="space-y-4">
-            {lojas.map((l) => (
+            {lojas.results.map((l) => (
               <div
                 key={l.id}
                 className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5"
@@ -309,13 +370,14 @@ export default function GerenciarStatus({ onBack }) {
                 </button>
               </div>
             ))}
+            <ControlesPaginacao dados={lojas} tipo="lojas" />
           </div>
         )}
 
         {/* Tabela Equipes */}
         {subAba === "equipes" && (
           <div className="space-y-4">
-            {equipes.map((e) => (
+            {equipes.results.map((e) => (
               <div
                 key={e.id}
                 className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5"
@@ -339,13 +401,14 @@ export default function GerenciarStatus({ onBack }) {
                 </button>
               </div>
             ))}
+            <ControlesPaginacao dados={equipes} tipo="equipes" />
           </div>
         )}
 
         {/* Tabela Métricas */}
         {subAba === "metricas" && (
           <div className="space-y-4">
-            {metricas.map((m) => (
+            {metricas.results.map((m) => (
               <div
                 key={m.id}
                 className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5"
@@ -369,6 +432,7 @@ export default function GerenciarStatus({ onBack }) {
                 </button>
               </div>
             ))}
+            <ControlesPaginacao dados={metricas} tipo="metricas" />
           </div>
         )}
       </div>
@@ -528,6 +592,7 @@ export default function GerenciarStatus({ onBack }) {
                   <option value="ADMIN">Administrador</option>
                   <option value="SUPERVISOR">Supervisor</option>
                   <option value="VENDEDOR">Vendedor</option>
+                  <option value="DISPOSITIVO">Dispositivo</option>
                 </select>
               </div>
 
@@ -547,7 +612,7 @@ export default function GerenciarStatus({ onBack }) {
                   className="w-full bg-[#003847] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none"
                   required
                 >
-                  {lojas.map((l) => (
+                  {lojas.results.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.nome}
                     </option>
@@ -571,7 +636,7 @@ export default function GerenciarStatus({ onBack }) {
                   className="w-full bg-[#003847] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none"
                 >
                   <option value="">Nenhuma equipe (Sem time alocado)</option>
-                  {equipes.map((e) => (
+                  {equipes.results.map((e) => (
                     <option key={e.id} value={e.id}>
                       {e.nome}
                     </option>

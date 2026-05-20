@@ -13,6 +13,8 @@ import {
   Eye,
   X,
   ClipboardCheck,
+  ArrowLeft,
+  ArrowRight,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -63,10 +65,19 @@ export function Home() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Estados para pesquisa e paginação
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // Quantidade de registros por página
 
   const [selectedAtendimento, setSelectedAtendimento] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Se o usuário digitar na pesquisa, volta para a primeira página automaticamente
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   // 1. PRIMEIRA TRAVA: Redirecionamento de Dispositivo
   useEffect(() => {
@@ -83,7 +94,7 @@ export function Home() {
     return null;
   }
 
-  // 3. BUSCA DE DADOS CORRIGIDA PARA O SUPERVISOR
+  // 3. BUSCA DE DADOS
   useEffect(() => {
     if (!user || user?.cargo === "DISPOSITIVO") return;
 
@@ -97,7 +108,6 @@ export function Home() {
         if (user?.cargo === "VENDEDOR") {
           endpoint = "/api/analytics/meu-desempenho/";
         } else if (user?.cargo === "SUPERVISOR") {
-          // CORREÇÃO: Envia o ID da loja vinculada ao supervisor para alimentar os KPIs reais da filial
           const idLojaSupervisor = user.loja?.id || user.loja;
           endpoint = idLojaSupervisor
             ? `/api/analytics/loja/?loja_id=${idLojaSupervisor}`
@@ -118,7 +128,7 @@ export function Home() {
     fetchAnalytics();
   }, [user, user?.cargo]);
 
-  // --- LÓGICA DE DADOS (Baseado no JSON real do Django) ---
+  // --- LÓGICA DE DADOS ---
   const kpis = data?.kpis || {};
   const totalValor = kpis.total_vendas_valor || 0;
   const vendasConcluidas = kpis.vendas_concluidas_count || 0;
@@ -136,15 +146,26 @@ export function Home() {
 
   const dataHorario = data?.grafico_vendas || [];
 
+  // FILTRAGEM (Pesquisa aprimorada para buscar por cliente também)
   const tabelaFiltrada = (data?.tabela || []).filter((item) => {
     const nomeVendedor =
       `${item.vendedor__first_name || ""} ${item.vendedor__last_name || ""}`.toLowerCase();
+    const nomeCliente = (item.cliente_nome || "").toLowerCase();
+    const metrica = (item.metrica__nome || "").toLowerCase();
     const busca = search.toLowerCase();
+
     return (
       nomeVendedor.includes(busca) ||
-      (item.metrica__nome || "").toLowerCase().includes(busca)
+      metrica.includes(busca) ||
+      nomeCliente.includes(busca)
     );
   });
+
+  // PAGINAÇÃO CLIENT-SIDE
+  const totalPages = Math.ceil(tabelaFiltrada.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = tabelaFiltrada.slice(indexOfFirstItem, indexOfLastItem);
 
   if (loading) {
     return (
@@ -310,7 +331,7 @@ export function Home() {
             />
             <input
               type="text"
-              placeholder="Pesquisar vendedor ou motivo..."
+              placeholder="Pesquisar cliente, vendedor ou motivo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#4D7BAB] outline-none transition-all"
@@ -324,23 +345,25 @@ export function Home() {
               <tr>
                 <th className="px-6 py-4">Horário</th>
                 <th className="px-6 py-4">Colaborador</th>
+                <th className="px-6 py-4">Cliente</th>
                 <th className="px-6 py-4">Venda</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {tabelaFiltrada.length === 0 ? (
+              {currentItems.length === 0 ? (
                 <tr>
+                  {/* Atualizado colSpan para 6 por causa da nova coluna */}
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="py-12 text-center text-slate-400 font-medium"
                   >
                     Nenhum registro encontrado.
                   </td>
                 </tr>
               ) : (
-                tabelaFiltrada.map((row) => (
+                currentItems.map((row) => (
                   <tr
                     key={row.id}
                     className="hover:bg-blue-50/30 transition-colors group"
@@ -353,15 +376,26 @@ export function Home() {
                         minute: "2-digit",
                       })}
                     </td>
+
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#4D7BAB]/10 text-[#4D7BAB] flex items-center justify-center text-xs font-bold">
+                        <div className="w-8 h-8 rounded-full bg-[#4D7BAB]/10 text-[#4D7BAB] flex items-center justify-center text-xs font-bold shrink-0">
                           {row.vendedor__first_name?.[0]}
                         </div>
                         <span className="text-sm font-semibold text-slate-700">
                           {row.vendedor__first_name} {row.vendedor__last_name}
                         </span>
                       </div>
+                    </td>
+                    {/* NOVA COLUNA: Cliente */}
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-700">
+                      {row.cliente_nome ? (
+                        row.cliente_nome
+                      ) : (
+                        <span className="text-slate-400 italic font-normal">
+                          Não informado
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 font-bold text-slate-700 text-sm">
                       {row.venda_fechada ? (
@@ -373,7 +407,7 @@ export function Home() {
                     <td className="px-6 py-4">
                       <span
                         className={clsx(
-                          "px-3 py-1 rounded-full text-[10px] font-bold border uppercase",
+                          "px-3 py-1 rounded-full text-[10px] font-bold border uppercase whitespace-nowrap",
                           getStatusColors(
                             row.venda_fechada
                               ? "Venda concretizada"
@@ -404,6 +438,33 @@ export function Home() {
             </tbody>
           </table>
         </div>
+
+        {/* CONTROLES DE PAGINAÇÃO */}
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center p-6 border-t border-slate-100 bg-slate-50/50">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-slate-500 font-bold cursor-pointer transition-all hover:bg-slate-100 border border-slate-200 shadow-sm"
+            >
+              <ArrowLeft size={18} /> Anterior
+            </button>
+
+            <span className="text-sm font-semibold text-slate-500">
+              Página {currentPage} de {totalPages}
+            </span>
+
+            <button
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
+              disabled={currentPage === totalPages}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-slate-500 font-bold cursor-pointer transition-all hover:bg-slate-100 border border-slate-200 shadow-sm"
+            >
+              Próxima <ArrowRight size={18} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Modal de Detalhes */}
@@ -421,7 +482,7 @@ export function Home() {
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-3 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"
+                className="p-3 hover:bg-slate-200 rounded-full text-slate-500 transition-colors cursor-pointer border-none outline-none"
               >
                 <X size={28} />
               </button>
@@ -511,7 +572,7 @@ export function Home() {
             <div className="px-10 py-8 bg-slate-50 border-t flex justify-end">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-12 py-4 bg-[#4D7BAB] text-white text-lg font-bold rounded-2xl hover:bg-[#3a5d82] transition-all shadow-lg active:scale-95"
+                className="px-12 py-4 bg-[#4D7BAB] text-white text-lg font-bold rounded-2xl hover:bg-[#3a5d82] transition-all shadow-lg active:scale-95 cursor-pointer border-none outline-none"
               >
                 Entendido
               </button>
