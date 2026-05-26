@@ -18,6 +18,9 @@ from django.core import mail
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 
+from datetime import timedelta
+from django.utils import timezone
+
 User = get_user_model()
 
 
@@ -571,3 +574,74 @@ class PasswordResetTests(APITestCase):
         response = self.client.post(self.url_confirm, data)
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class ExpiringTokenTests(APITestCase):
+
+    def setUp(self):
+        # 1. Cria o usuário de teste
+        self.user = User.objects.create_user(
+            username="vendedor_teste",
+            email="vendedor_teste@joias.com",
+            password="SenhaForte123!",
+            cargo="VENDEDOR"
+        )
+        
+        # 2. Cria um token inicial para o usuário
+        self.token = Token.objects.create(user=self.user)
+        
+        # 3. Vamos utilizar o endpoint '/api/user/me/' para testar se a autenticação passa ou falha
+        # Como esse endpoint exige autenticação (pelo mapeamento do escopo), ele é perfeito para isso.
+        self.url_me = reverse('user-me')
+        self.url_login = reverse('api_login')
+
+    def test_token_recente_autentica_com_sucesso(self):
+        """Um token gerado agora deve autenticar normalmente (retornar 200 OK)."""
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = self.client.get(self.url_me)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_token_limite_dentro_do_prazo_autentica(self):
+        """Um token com 6 dias e 23 horas ainda deve ser aceito pelo sistema."""
+        # Força a alteração da data de criação de forma retroativa usando .update()
+        data_retroativa = timezone.now() - timedelta(days=6, hours=23)
+        Token.objects.filter(pk=self.token.pk).update(created=data_retroativa)
+
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = self.client.get(self.url_me)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_token_com_mais_de_sete_dias_retorna_401(self):
+        """Um token com exatamente 7 dias ou mais deve ser rejeitado com 401 Unauthorized."""
+        data_expirada = timezone.now() - timedelta(days=7, minutes=1)
+        Token.objects.filter(pk=self.token.pk).update(created=data_expirada)
+
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = self.client.get(self.url_me)
+        
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn("Este token expirou", response.data["detail"])
+
+    def test_login_renova_token_existente(self):
+        """Fazer login novamente deve deletar o token antigo e gerar um novo ciclo de 7 dias."""
+        # 1. Envelhece o token atual para simular que ele estava quase expirando
+        data_antiga = timezone.now() - timedelta(days=6)
+        Token.objects.filter(pk=self.token.pk).update(created=data_antiga)
+        
+        # 2. Realiza a requisição de login
+        dados_login = {
+            "username": "vendedor_teste@joias.com",
+            "password": "SenhaForte123!"
+        }
+        response = self.client.post(self.url_login, dados_login)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # 3. Verifica se o token mudou e se a nova data de criação é recente
+        novo_token_key = response.data['token']
+        self.assertNotEqual(novo_token_key, self.token.key)
+        
+        token_do_banco = Token.objects.get(key=novo_token_key)
+        # A margem de tolerância garante que o teste passe mesmo com milessegundos de diferença
+        self.assertAlmostEqual(token_do_banco.created, timezone.now(), delta=timedelta(seconds=5))

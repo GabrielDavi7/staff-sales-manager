@@ -190,3 +190,38 @@ class PasswordResetConfirmView(APIView):
             {"detail": "Senha redefinida com sucesso. Agora você já pode fazer login com as novas credenciais."},
             status=status.HTTP_200_OK
         )
+
+
+class CustomObtainAuthToken(ObtainAuthToken):
+    """
+    View de login customizada.
+    Garante que se o usuário já tiver um token antigo (expirado ou perto de expirar), 
+    ele seja deletado e um novo com a data de criação atualizada seja gerado.
+    """
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data,
+                                           context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        
+        # 🚨 ESTRATÉGIA DE RENOVAÇÃO DE TOKEN:
+        # Busca se o usuário já possui um token gerado anteriormente e o deleta
+        Token.objects.filter(user=user).delete()
+        
+        # Cria um token novinho em folha (com created = timezone.now() automático)
+        token = Token.objects.create(user=user)
+        
+        # Retorna o token + dados do usuário conforme o escopo do projeto
+        return Response({
+            'token': token.key,
+            'user': {
+                'id': user.pk,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'cargo': user.cargo,
+                'loja': user.loja.id if user.loja else None,
+                'equipe': user.equipe.id if user.equipe else None,
+            }
+        }, status=status.HTTP_200_OK)
