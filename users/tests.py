@@ -13,6 +13,11 @@ import pytest
 from users.models import CustomUser
 from core.models import Loja, Equipe  # se necessário para criar usuário completo
 
+from django.contrib.auth.tokens import default_token_generator
+from django.core import mail
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+
 User = get_user_model()
 
 
@@ -448,3 +453,121 @@ def test_logout_com_dispositivo(db):
     
     # Token deletado
     assert not Token.objects.filter(key=token.key).exists()
+
+
+class PasswordResetTests(APITestCase):
+
+    def setUp(self):
+        # Criação de um usuário ativo para testes
+        self.user_ativo = User.objects.create_user(
+            username="vendedor1",
+            email="vendedor1@joiascentro.com.br",
+            password="SenhaSegura123!",
+            first_name="Lucas",
+            cargo="VENDEDOR",
+            is_active=True
+        )
+        
+        # Criação de um usuário inativo para testes de segurança
+        self.user_inativo = User.objects.create_user(
+            username="ex_funcionario",
+            email="inativo@joiascentro.com.br",
+            password="SenhaAntiga123!",
+            cargo="VENDEDOR",
+            is_active=False
+        )
+
+        # URLs dos endpoints usando reverse (garante que as rotas estão mapeadas com name)
+        self.url_request = reverse('password_reset')
+        self.url_confirm = reverse('password_reset_confirm')
+
+    # ==========================================================================
+    # TESTES DE SOLICITAÇÃO (POST /api/password-reset/)
+    # ==========================================================================
+
+    def test_solicitacao_com_email_valido_e_ativo(self):
+        """Usuário ativo solicita reset: retorna 200 e envia 1 e-mail com o link."""
+        data = {"email": "vendedor1@joiascentro.com.br"}
+        response = self.client.post(self.url_request, data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("Se o e-mail informado estiver cadastrado", response.data["detail"])
+        
+        # Verifica se o e-mail foi para a caixa de saída simulada
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["vendedor1@joiascentro.com.br"])
+        
+        # Garante que o link gerado contém o UID e o Token esperados
+        uid = urlsafe_base64_encode(force_bytes(self.user_ativo.pk))
+        self.assertIn(uid, mail.outbox[0].body)
+
+    def test_solicitacao_com_email_inexistente(self):
+        """E-mail não cadastrado: retorna 200 (mensagem genérica) e NÃO envia e-mail."""
+        data = {"email": "fantasma@joiascentro.com.br"}
+        response = self.client.post(self.url_request, data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("Se o e-mail informado estiver cadastrado", response.data["detail"])
+        
+        # Segurança: Ninguém recebe e-mail e a resposta não entrega que o e-mail não existe
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_solicitacao_com_usuario_inativo(self):
+        """Usuário is_active=False solicita reset: retorna 200 mas NÃO envia e-mail."""
+        data = {"email": "inativo@joiascentro.com.br"}
+        response = self.client.post(self.url_request, data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 0)
+
+    # ==========================================================================
+    # TESTES DE CONFIRMAÇÃO (POST /api/password-reset/confirm/)
+    # ==========================================================================
+
+    def test_confirmacao_com_token_e_uid_validos(self):
+        """Token e UID corretos alteram a senha e permitem login subsequente."""
+        uid = urlsafe_base64_encode(force_bytes(self.user_ativo.pk))
+        token = default_token_generator.make_token(self.user_ativo)
+        
+        data = {
+            "uid": uid,
+            "token": token,
+            "new_password": "NovaSenhaSuperForte2026!"
+        }
+        response = self.client.post(self.url_confirm, data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("Senha redefinida com sucesso", response.data["detail"])
+
+        # Verifica se a senha realmente mudou tentando autenticar o usuário
+        self.user_ativo.refresh_from_db()
+        self.assertTrue(self.user_ativo.check_password("NovaSenhaSuperForte2026!"))
+
+    def test_confirmacao_com_token_invalido(self):
+        """Token corrompido ou adulterado retorna erro 400 Bad Request."""
+        uid = urlsafe_base64_encode(force_bytes(self.user_ativo.pk))
+        
+        data = {
+            "uid": uid,
+            "token": "token-totalmente-invalido-123",
+            "new_password": "NovaSenhaSuperForte2026!"
+        }
+        response = self.client.post(self.url_confirm, data)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # O DRF encapsula erros de validação gerais em dicionários/listas
+        self.assertIn("Link de recuperação inválido ou expirado.", str(response.data))
+
+    def test_confirmacao_com_senha_fraca(self):
+        """Senha que viola regras de validação do Django retorna 400."""
+        uid = urlsafe_base64_encode(force_bytes(self.user_ativo.pk))
+        token = default_token_generator.make_token(self.user_ativo)
+        
+        data = {
+            "uid": uid,
+            "token": token,
+            "new_password": "123" # Curta demais, fácil demais
+        }
+        response = self.client.post(self.url_confirm, data)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

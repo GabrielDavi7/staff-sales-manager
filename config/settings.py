@@ -93,6 +93,21 @@ CORS_ALLOW_CREDENTIALS = True   # se o frontend usa credenciais (cookies, author
 
 AUTH_USER_MODEL = 'users.CustomUser'
 
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
+
 LANGUAGE_CODE = 'pt-br'
 TIME_ZONE = 'America/Sao_Paulo'
 USE_I18N = True
@@ -110,3 +125,23 @@ if not DEBUG:
     SECURE_SSL_REDIRECT = False  # mude para True se usar HTTPS
     SESSION_COOKIE_SECURE = False # True se HTTPS
     CSRF_COOKIE_SECURE = False    # True se HTTPS
+
+# ==============================================================================
+# CONFIGURAÇÃO DE E-MAIL
+# ==============================================================================
+if DEBUG:
+    # Em desenvolvimento, os e-mails serão exibidos diretamente no console do Docker/Terminal
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    # Em produção, utiliza o backend SMTP definido no .env
+    EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+
+# Garante o uso de TLS (segurança) para servidores como o Gmail
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Staff Sales Manager <no-reply@localhost>')
