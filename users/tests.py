@@ -13,6 +13,14 @@ import pytest
 from users.models import CustomUser
 from core.models import Loja, Equipe  # se necessário para criar usuário completo
 
+from django.contrib.auth.tokens import default_token_generator
+from django.core import mail
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+
+from datetime import timedelta
+from django.utils import timezone
+
 User = get_user_model()
 
 
@@ -448,3 +456,192 @@ def test_logout_com_dispositivo(db):
     
     # Token deletado
     assert not Token.objects.filter(key=token.key).exists()
+
+
+class PasswordResetTests(APITestCase):
+
+    def setUp(self):
+        # Criação de um usuário ativo para testes
+        self.user_ativo = User.objects.create_user(
+            username="vendedor1",
+            email="vendedor1@joiascentro.com.br",
+            password="SenhaSegura123!",
+            first_name="Lucas",
+            cargo="VENDEDOR",
+            is_active=True
+        )
+        
+        # Criação de um usuário inativo para testes de segurança
+        self.user_inativo = User.objects.create_user(
+            username="ex_funcionario",
+            email="inativo@joiascentro.com.br",
+            password="SenhaAntiga123!",
+            cargo="VENDEDOR",
+            is_active=False
+        )
+
+        # URLs dos endpoints usando reverse (garante que as rotas estão mapeadas com name)
+        self.url_request = reverse('password_reset')
+        self.url_confirm = reverse('password_reset_confirm')
+
+    # ==========================================================================
+    # TESTES DE SOLICITAÇÃO (POST /api/password-reset/)
+    # ==========================================================================
+
+    def test_solicitacao_com_email_valido_e_ativo(self):
+        """Usuário ativo solicita reset: retorna 200 e envia 1 e-mail com o link."""
+        data = {"email": "vendedor1@joiascentro.com.br"}
+        response = self.client.post(self.url_request, data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("Se o e-mail informado estiver cadastrado", response.data["detail"])
+        
+        # Verifica se o e-mail foi para a caixa de saída simulada
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["vendedor1@joiascentro.com.br"])
+        
+        # Garante que o link gerado contém o UID e o Token esperados
+        uid = urlsafe_base64_encode(force_bytes(self.user_ativo.pk))
+        self.assertIn(uid, mail.outbox[0].body)
+
+    def test_solicitacao_com_email_inexistente(self):
+        """E-mail não cadastrado: retorna 200 (mensagem genérica) e NÃO envia e-mail."""
+        data = {"email": "fantasma@joiascentro.com.br"}
+        response = self.client.post(self.url_request, data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("Se o e-mail informado estiver cadastrado", response.data["detail"])
+        
+        # Segurança: Ninguém recebe e-mail e a resposta não entrega que o e-mail não existe
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_solicitacao_com_usuario_inativo(self):
+        """Usuário is_active=False solicita reset: retorna 200 mas NÃO envia e-mail."""
+        data = {"email": "inativo@joiascentro.com.br"}
+        response = self.client.post(self.url_request, data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 0)
+
+    # ==========================================================================
+    # TESTES DE CONFIRMAÇÃO (POST /api/password-reset/confirm/)
+    # ==========================================================================
+
+    def test_confirmacao_com_token_e_uid_validos(self):
+        """Token e UID corretos alteram a senha e permitem login subsequente."""
+        uid = urlsafe_base64_encode(force_bytes(self.user_ativo.pk))
+        token = default_token_generator.make_token(self.user_ativo)
+        
+        data = {
+            "uid": uid,
+            "token": token,
+            "new_password": "NovaSenhaSuperForte2026!"
+        }
+        response = self.client.post(self.url_confirm, data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("Senha redefinida com sucesso", response.data["detail"])
+
+        # Verifica se a senha realmente mudou tentando autenticar o usuário
+        self.user_ativo.refresh_from_db()
+        self.assertTrue(self.user_ativo.check_password("NovaSenhaSuperForte2026!"))
+
+    def test_confirmacao_com_token_invalido(self):
+        """Token corrompido ou adulterado retorna erro 400 Bad Request."""
+        uid = urlsafe_base64_encode(force_bytes(self.user_ativo.pk))
+        
+        data = {
+            "uid": uid,
+            "token": "token-totalmente-invalido-123",
+            "new_password": "NovaSenhaSuperForte2026!"
+        }
+        response = self.client.post(self.url_confirm, data)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # O DRF encapsula erros de validação gerais em dicionários/listas
+        self.assertIn("Link de recuperação inválido ou expirado.", str(response.data))
+
+    def test_confirmacao_com_senha_fraca(self):
+        """Senha que viola regras de validação do Django retorna 400."""
+        uid = urlsafe_base64_encode(force_bytes(self.user_ativo.pk))
+        token = default_token_generator.make_token(self.user_ativo)
+        
+        data = {
+            "uid": uid,
+            "token": token,
+            "new_password": "123" # Curta demais, fácil demais
+        }
+        response = self.client.post(self.url_confirm, data)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class ExpiringTokenTests(APITestCase):
+
+    def setUp(self):
+        # 1. Cria o usuário de teste
+        self.user = User.objects.create_user(
+            username="vendedor_teste",
+            email="vendedor_teste@joias.com",
+            password="SenhaForte123!",
+            cargo="VENDEDOR"
+        )
+        
+        # 2. Cria um token inicial para o usuário
+        self.token = Token.objects.create(user=self.user)
+        
+        # 3. Vamos utilizar o endpoint '/api/user/me/' para testar se a autenticação passa ou falha
+        # Como esse endpoint exige autenticação (pelo mapeamento do escopo), ele é perfeito para isso.
+        self.url_me = reverse('user-me')
+        self.url_login = reverse('api_login')
+
+    def test_token_recente_autentica_com_sucesso(self):
+        """Um token gerado agora deve autenticar normalmente (retornar 200 OK)."""
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = self.client.get(self.url_me)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_token_limite_dentro_do_prazo_autentica(self):
+        """Um token com 6 dias e 23 horas ainda deve ser aceito pelo sistema."""
+        # Força a alteração da data de criação de forma retroativa usando .update()
+        data_retroativa = timezone.now() - timedelta(days=6, hours=23)
+        Token.objects.filter(pk=self.token.pk).update(created=data_retroativa)
+
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = self.client.get(self.url_me)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_token_com_mais_de_sete_dias_retorna_401(self):
+        """Um token com exatamente 7 dias ou mais deve ser rejeitado com 401 Unauthorized."""
+        data_expirada = timezone.now() - timedelta(days=7, minutes=1)
+        Token.objects.filter(pk=self.token.pk).update(created=data_expirada)
+
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = self.client.get(self.url_me)
+        
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn("Este token expirou", response.data["detail"])
+
+    def test_login_renova_token_existente(self):
+        """Fazer login novamente deve deletar o token antigo e gerar um novo ciclo de 7 dias."""
+        # 1. Envelhece o token atual para simular que ele estava quase expirando
+        data_antiga = timezone.now() - timedelta(days=6)
+        Token.objects.filter(pk=self.token.pk).update(created=data_antiga)
+        
+        # 2. Realiza a requisição de login
+        dados_login = {
+            "username": "vendedor_teste@joias.com",
+            "password": "SenhaForte123!"
+        }
+        response = self.client.post(self.url_login, dados_login)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # 3. Verifica se o token mudou e se a nova data de criação é recente
+        novo_token_key = response.data['token']
+        self.assertNotEqual(novo_token_key, self.token.key)
+        
+        token_do_banco = Token.objects.get(key=novo_token_key)
+        # A margem de tolerância garante que o teste passe mesmo com milessegundos de diferença
+        self.assertAlmostEqual(token_do_banco.created, timezone.now(), delta=timedelta(seconds=5))
