@@ -88,7 +88,7 @@ class AnalyticsService:
             'valor_venda',
             'cliente_nome',
             'observacoes'
-        ).order_by('-data_hora')[:20]
+        ).order_by('-data_hora')
 
         return {
             "kpis": kpis,
