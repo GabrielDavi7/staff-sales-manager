@@ -57,6 +57,12 @@ const getStatusColors = (status) => {
   return "bg-blue-50 text-blue-700 border-blue-200";
 };
 
+// Função para pegar a data formatada (YYYY-MM-DD) no fuso local
+const getLocalDataString = (dateObj) => {
+  const tzoffset = dateObj.getTimezoneOffset() * 60000;
+  return new Date(dateObj.getTime() - tzoffset).toISOString().slice(0, 10);
+};
+
 export function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -66,18 +72,20 @@ export function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // --- NOVO: Estado para os botões de período ---
+  const [periodo, setPeriodo] = useState("Hoje");
+
   // Estados para pesquisa e paginação
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10; // Quantidade de registros por página
+  const itemsPerPage = 10;
 
   const [selectedAtendimento, setSelectedAtendimento] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Se o usuário digitar na pesquisa, volta para a primeira página automaticamente
   useEffect(() => {
     setCurrentPage(1);
-  }, [search]);
+  }, [search, periodo]);
 
   // 1. PRIMEIRA TRAVA: Redirecionamento de Dispositivo
   useEffect(() => {
@@ -89,12 +97,11 @@ export function Home() {
     }
   }, [user?.cargo, navigate, location.pathname]);
 
-  // 2. SEGUNDA TRAVA (CRÍTICA): Não renderiza NADA se for dispositivo
   if (user?.cargo === "DISPOSITIVO") {
     return null;
   }
 
-  // 3. BUSCA DE DADOS
+  // 2. BUSCA DE DADOS (Agora enviando Data Inicial e Final para o Django)
   useEffect(() => {
     if (!user || user?.cargo === "DISPOSITIVO") return;
 
@@ -103,17 +110,33 @@ export function Home() {
         setLoading(true);
         setError(null);
 
+        // Calcula a data de início e fim baseada no botão selecionado
+        let queryParams = "";
+        const hojeStr = getLocalDataString(new Date());
+
+        if (periodo === "Hoje") {
+          queryParams = `data_inicio=${hojeStr}&data_fim=${hojeStr}`;
+        } else if (periodo === "7 Dias") {
+          const limit = new Date();
+          limit.setDate(limit.getDate() - 7);
+          queryParams = `data_inicio=${getLocalDataString(limit)}&data_fim=${hojeStr}`;
+        } else if (periodo === "30 Dias") {
+          const limit = new Date();
+          limit.setDate(limit.getDate() - 30);
+          queryParams = `data_inicio=${getLocalDataString(limit)}&data_fim=${hojeStr}`;
+        }
+        // Se for "Tudo", queryParams fica vazio e o Django traz todo o histórico!
+
         let endpoint = "";
 
         if (user?.cargo === "VENDEDOR") {
-          endpoint = "/api/analytics/meu-desempenho/";
+          endpoint = `/api/analytics/meu-desempenho/?${queryParams}`;
         } else if (user?.cargo === "SUPERVISOR") {
           const idLojaSupervisor = user.loja?.id || user.loja;
-          endpoint = idLojaSupervisor
-            ? `/api/analytics/loja/?loja_id=${idLojaSupervisor}`
-            : "/api/analytics/loja/";
+          endpoint = `/api/analytics/loja/?${queryParams}`;
+          if (idLojaSupervisor) endpoint += `&loja_id=${idLojaSupervisor}`;
         } else if (user?.cargo === "ADMIN") {
-          endpoint = "/api/analytics/geral/";
+          endpoint = `/api/analytics/geral/?${queryParams}`;
         }
 
         const response = await api.get(endpoint);
@@ -126,7 +149,7 @@ export function Home() {
     };
 
     fetchAnalytics();
-  }, [user, user?.cargo]);
+  }, [user, user?.cargo, periodo]); // Recarrega quando o botão de período mudar
 
   // --- LÓGICA DE DADOS ---
   const kpis = data?.kpis || {};
@@ -146,7 +169,7 @@ export function Home() {
 
   const dataHorario = data?.grafico_vendas || [];
 
-  // FILTRAGEM (Pesquisa aprimorada para buscar por cliente também)
+  // FILTRAGEM (Como o Django já filtra as datas, aqui filtramos só a barra de pesquisa)
   const tabelaFiltrada = (data?.tabela || []).filter((item) => {
     const nomeVendedor =
       `${item.vendedor__first_name || ""} ${item.vendedor__last_name || ""}`.toLowerCase();
@@ -167,7 +190,7 @@ export function Home() {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = tabelaFiltrada.slice(indexOfFirstItem, indexOfLastItem);
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="h-[70vh] flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 border-4 border-[#4D7BAB]/30 border-t-[#4D7BAB] rounded-full animate-spin"></div>
@@ -177,7 +200,17 @@ export function Home() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-8 animate-in fade-in duration-500">
+    <div className="max-w-7xl mx-auto flex flex-col gap-8 animate-in fade-in duration-500 relative">
+      {/* Loading translúcido ao trocar de data */}
+      {loading && data && (
+        <div className="absolute inset-0 bg-slate-50/50 backdrop-blur-[2px] z-20 rounded-3xl flex items-center justify-center">
+          <div className="bg-white p-4 rounded-full shadow-xl flex items-center gap-3">
+            <div className="w-6 h-6 border-2 border-[#4D7BAB]/30 border-t-[#4D7BAB] rounded-full animate-spin"></div>
+            <span className="font-bold text-[#4D7BAB]">Atualizando...</span>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-700 text-sm">
           <AlertCircle size={18} /> {error}
@@ -202,12 +235,32 @@ export function Home() {
             </p>
           </div>
         </div>
-        <Link
-          to="/registrarvenda"
-          className="bg-[#4D7BAB] text-white hover:bg-[#3a5d82] px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-all"
-        >
-          <Plus size={20} /> Novo Atendimento
-        </Link>
+
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+          {/* BOTÕES DE PERÍODO */}
+          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 w-full sm:w-auto justify-center">
+            {["Hoje", "7 Dias", "30 Dias", "Tudo"].map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriodo(p)}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none ${
+                  periodo === p
+                    ? "bg-white text-[#4D7BAB] shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 bg-transparent"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+
+          <Link
+            to="/registrarvenda"
+            className="bg-[#4D7BAB] text-white hover:bg-[#3a5d82] px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-all w-full sm:w-auto justify-center"
+          >
+            <Plus size={20} /> Novo
+          </Link>
+        </div>
       </div>
 
       {/* Cards de Métricas */}
@@ -248,6 +301,7 @@ export function Home() {
                   axisLine={false}
                   tickLine={false}
                   style={{ fontSize: "12px" }}
+                  allowDecimals={false}
                 />
                 <Tooltip cursor={{ fill: "#f8fafc" }} />
                 <Bar dataKey="vendas" fill="#4D7BAB" radius={[4, 4, 0, 0]} />
@@ -279,6 +333,7 @@ export function Home() {
                   axisLine={false}
                   tickLine={false}
                   style={{ fontSize: "12px" }}
+                  allowDecimals={false}
                 />
                 <Tooltip />
                 <Line
@@ -354,7 +409,6 @@ export function Home() {
             <tbody className="divide-y divide-slate-100">
               {currentItems.length === 0 ? (
                 <tr>
-                  {/* Atualizado colSpan para 6 por causa da nova coluna */}
                   <td
                     colSpan={6}
                     className="py-12 text-center text-slate-400 font-medium"
@@ -376,7 +430,6 @@ export function Home() {
                         minute: "2-digit",
                       })}
                     </td>
-
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-[#4D7BAB]/10 text-[#4D7BAB] flex items-center justify-center text-xs font-bold shrink-0">
@@ -387,7 +440,6 @@ export function Home() {
                         </span>
                       </div>
                     </td>
-                    {/* NOVA COLUNA: Cliente */}
                     <td className="px-6 py-4 text-sm font-semibold text-slate-700">
                       {row.cliente_nome ? (
                         row.cliente_nome
@@ -449,11 +501,9 @@ export function Home() {
             >
               <ArrowLeft size={18} /> Anterior
             </button>
-
             <span className="text-sm font-semibold text-slate-500">
               Página {currentPage} de {totalPages}
             </span>
-
             <button
               onClick={() =>
                 setCurrentPage((prev) => Math.min(prev + 1, totalPages))
@@ -487,7 +537,7 @@ export function Home() {
                 <X size={28} />
               </button>
             </div>
-
+            {/* O conteúdo do modal segue inalterado... */}
             <div className="p-10 space-y-8">
               <div className="grid grid-cols-2 gap-8">
                 <div className="space-y-1.5">
@@ -508,7 +558,6 @@ export function Home() {
                   </p>
                 </div>
               </div>
-
               <div className="p-8 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-6">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">
@@ -525,7 +574,6 @@ export function Home() {
                     </span>
                   </div>
                 </div>
-
                 <div className="text-right">
                   {selectedAtendimento.venda_fechada ? (
                     <>
@@ -552,7 +600,6 @@ export function Home() {
                   )}
                 </div>
               </div>
-
               <div className="space-y-3">
                 <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
                   Observações
@@ -568,7 +615,6 @@ export function Home() {
                 </div>
               </div>
             </div>
-
             <div className="px-10 py-8 bg-slate-50 border-t flex justify-end">
               <button
                 onClick={() => setIsModalOpen(false)}

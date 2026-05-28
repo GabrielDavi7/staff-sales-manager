@@ -27,12 +27,18 @@ import {
   Legend,
 } from "recharts";
 
+// Função para formatar a data local (YYYY-MM-DD)
+const getLocalDataString = (dateObj) => {
+  const tzoffset = dateObj.getTimezoneOffset() * 60000;
+  return new Date(dateObj.getTime() - tzoffset).toISOString().slice(0, 10);
+};
+
 export function Grafics() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Estados de Filtro
+  // Estados de Filtro (Botões de Período)
   const [periodo, setPeriodo] = useState("Hoje");
   const [lojaSelecionada, setLojaSelecionada] = useState("");
   const [lojasDisponiveis, setLojasDisponiveis] = useState([]);
@@ -71,7 +77,7 @@ export function Grafics() {
     fetchLojas();
   }, [isAdmin]);
 
-  // 3. BUSCA DE DADOS NA API DE ANALYTICS CORRIGIDA
+  // 3. BUSCA DE DADOS NA API COM FILTRO DE PERÍODO
   useEffect(() => {
     if (!user || user?.cargo === "DISPOSITIVO") return;
 
@@ -80,24 +86,40 @@ export function Grafics() {
         setLoading(true);
         setError(null);
 
+        const params = new URLSearchParams();
+        const hojeStr = getLocalDataString(new Date());
+
+        // Configura as datas com base no botão clicado
+        if (periodo === "Hoje") {
+          params.append("data_inicio", hojeStr);
+          params.append("data_fim", hojeStr);
+        } else if (periodo === "7 Dias") {
+          const limit = new Date();
+          limit.setDate(limit.getDate() - 7);
+          params.append("data_inicio", getLocalDataString(limit));
+          params.append("data_fim", hojeStr);
+        } else if (periodo === "30 Dias") {
+          const limit = new Date();
+          limit.setDate(limit.getDate() - 30);
+          params.append("data_inicio", getLocalDataString(limit));
+          params.append("data_fim", hojeStr);
+        }
+        // Se for "Tudo", não envia datas, e o backend traz todo o histórico.
+
         let endpoint = "";
 
         if (user?.cargo === "VENDEDOR") {
           endpoint = "/api/analytics/meu-desempenho/";
         } else if (user?.cargo === "SUPERVISOR") {
-          // CORREÇÃO: Passa o ID da filial sob supervisão para filtrar as barras e evolução financeira
           const idLojaSupervisor = user.loja?.id || user.loja;
-          endpoint = idLojaSupervisor
-            ? `/api/analytics/loja/?loja_id=${idLojaSupervisor}`
-            : "/api/analytics/loja/";
+          endpoint = "/api/analytics/loja/";
+          if (idLojaSupervisor) params.append("loja_id", idLojaSupervisor);
         } else if (isAdmin) {
           endpoint = "/api/analytics/geral/";
-          if (lojaSelecionada) {
-            endpoint += `?loja_id=${lojaSelecionada}`;
-          }
+          if (lojaSelecionada) params.append("loja_id", lojaSelecionada);
         }
 
-        const response = await api.get(endpoint);
+        const response = await api.get(`${endpoint}?${params.toString()}`);
         setData(response.data);
       } catch (err) {
         console.error("Erro ao carregar gráficos:", err);
@@ -163,7 +185,7 @@ export function Grafics() {
     color: coresMotivos[index % coresMotivos.length],
   }));
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="h-[70vh] flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 border-4 border-[#4D7BAB]/30 border-t-[#4D7BAB] rounded-full animate-spin"></div>
@@ -175,7 +197,19 @@ export function Grafics() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-7xl mx-auto flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
+      {/* Overlay translúcido de carregamento */}
+      {loading && data && (
+        <div className="absolute inset-0 bg-slate-50/50 backdrop-blur-[2px] z-20 rounded-3xl flex items-center justify-center">
+          <div className="bg-white p-4 rounded-full shadow-xl flex items-center gap-3">
+            <div className="w-6 h-6 border-2 border-[#4D7BAB]/30 border-t-[#4D7BAB] rounded-full animate-spin"></div>
+            <span className="font-bold text-[#4D7BAB]">
+              Atualizando Gráficos...
+            </span>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-700 text-sm">
           <AlertCircle size={18} /> {error}
@@ -202,37 +236,45 @@ export function Grafics() {
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
+          {/* BOTÕES DE PERÍODO */}
+          <div className="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl p-1 w-full sm:w-auto shadow-sm">
+            {["Hoje", "7 Dias", "30 Dias", "Tudo"].map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriodo(p)}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none whitespace-nowrap ${
+                  periodo === p
+                    ? "bg-white text-[#4D7BAB] shadow-sm border border-slate-100"
+                    : "text-slate-500 hover:text-slate-700 bg-transparent"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+
+          {/* SELETOR DE LOJAS (Apenas Admin) */}
           {isAdmin && (
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                 <Building2 size={16} />
               </div>
               <select
                 value={lojaSelecionada}
                 onChange={(e) => setLojaSelecionada(e.target.value)}
-                className="pl-9 pr-4 py-2 rounded-xl text-sm font-bold bg-white border-2 border-slate-100 text-slate-600 focus:outline-none focus:border-[#4D7BAB] transition-all cursor-pointer shadow-sm appearance-none min-w-[160px]"
+                className="pl-9 pr-4 py-2 w-full rounded-2xl text-sm font-bold bg-white border-2 border-slate-100 text-slate-600 focus:outline-none focus:border-[#4D7BAB] transition-all cursor-pointer shadow-sm appearance-none min-w-[160px]"
               >
                 <option value="">Todas as Lojas</option>
-                {lojasDisponiveis.map((loja) => (
-                  <option key={loja.id} value={loja.id}>
-                    {loja.nome}
-                  </option>
-                ))}
+                {lojasDisponiveis
+                  .filter((loja) => loja.ativo === true)
+                  .map((loja) => (
+                    <option key={loja.id} value={loja.id}>
+                      {loja.nome}
+                    </option>
+                  ))}
               </select>
             </div>
           )}
-
-          <div className="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl p-1">
-            {["Hoje", "7 Dias", "30 Dias"].map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriodo(p)}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${periodo === p ? "bg-white text-[#4D7BAB] shadow-sm border border-slate-100" : "text-slate-500 hover:text-slate-700"}`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
