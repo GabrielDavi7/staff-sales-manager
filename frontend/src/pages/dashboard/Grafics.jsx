@@ -85,7 +85,7 @@ export function Grafics() {
         if (user?.cargo === "VENDEDOR") {
           endpoint = "/api/analytics/meu-desempenho/";
         } else if (user?.cargo === "SUPERVISOR") {
-          // CORREÇÃO: Passa o ID da filial sob supervisão para filtrar as barras e evolução financeira
+          // Passa o ID da filial sob supervisão para filtrar as barras e evolução financeira
           const idLojaSupervisor = user.loja?.id || user.loja;
           endpoint = idLojaSupervisor
             ? `/api/analytics/loja/?loja_id=${idLojaSupervisor}`
@@ -213,26 +213,17 @@ export function Grafics() {
                 className="pl-9 pr-4 py-2 rounded-xl text-sm font-bold bg-white border-2 border-slate-100 text-slate-600 focus:outline-none focus:border-[#4D7BAB] transition-all cursor-pointer shadow-sm appearance-none min-w-[160px]"
               >
                 <option value="">Todas as Lojas</option>
-                {lojasDisponiveis.map((loja) => (
-                  <option key={loja.id} value={loja.id}>
-                    {loja.nome}
-                  </option>
-                ))}
+                {/* AQUI ESTÁ O FILTRO PARA MOSTRAR APENAS LOJAS ATIVAS */}
+                {lojasDisponiveis
+                  .filter((loja) => loja.ativo === true)
+                  .map((loja) => (
+                    <option key={loja.id} value={loja.id}>
+                      {loja.nome}
+                    </option>
+                  ))}
               </select>
             </div>
           )}
-
-          <div className="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl p-1">
-            {["Hoje", "7 Dias", "30 Dias"].map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriodo(p)}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${periodo === p ? "bg-white text-[#4D7BAB] shadow-sm border border-slate-100" : "text-slate-500 hover:text-slate-700"}`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 

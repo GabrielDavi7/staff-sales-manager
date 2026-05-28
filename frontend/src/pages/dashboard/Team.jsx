@@ -27,6 +27,12 @@ import {
   Cell,
 } from "recharts";
 
+// --- FUNÇÃO AUXILIAR PARA FUSO HORÁRIO ---
+const getLocalDataString = (dateObj) => {
+  const tzoffset = dateObj.getTimezoneOffset() * 60000;
+  return new Date(dateObj.getTime() - tzoffset).toISOString().slice(0, 10);
+};
+
 export function Team() {
   const { user } = useAuth();
 
@@ -37,9 +43,13 @@ export function Team() {
   const [atendimentos, setAtendimentos] = useState([]);
   const [metricasMestre, setMetricasMestre] = useState([]);
 
+  // Estados de Filtro
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [filtroLoja, setFiltroLoja] = useState("");
+
+  // Estado para controlar o período do gráfico
+  const [periodo, setPeriodo] = useState("30 Dias");
 
   const cargoLogado = user?.cargo?.toUpperCase();
   const isAdmin = cargoLogado === "ADMIN";
@@ -58,10 +68,36 @@ export function Team() {
         setLoading(true);
         setError("");
 
-        // Todos os cargos têm autorização nativa para ler o histórico de atendimentos do core
-        const resAtendimentos = await api.get("/api/core/atendimentos/");
-        const listaAtendimentos =
-          resAtendimentos.data?.results || resAtendimentos.data || [];
+        // =================================================================
+        // LOOP DE PAGINAÇÃO PARA O HISTÓRICO DE ATENDIMENTOS
+        // O Admin tem muitos registros. Precisamos buscar todas as páginas
+        // para que o cálculo gráfico do Frontend não "esqueça" vendas antigas.
+        // =================================================================
+        let listaAtendimentos = [];
+        let urlAtendimentos = "/api/core/atendimentos/";
+
+        while (urlAtendimentos) {
+          const resAtendimentos = await api.get(urlAtendimentos);
+          const dados =
+            resAtendimentos.data?.results || resAtendimentos.data || [];
+
+          if (Array.isArray(dados)) {
+            listaAtendimentos = [...listaAtendimentos, ...dados];
+          } else {
+            listaAtendimentos = dados;
+            break;
+          }
+
+          if (resAtendimentos.data?.next) {
+            // Pega o caminho relativo da próxima página
+            urlAtendimentos = resAtendimentos.data.next.substring(
+              resAtendimentos.data.next.indexOf("/api/"),
+            );
+          } else {
+            urlAtendimentos = null; // Encerra o laço
+          }
+        }
+
         setAtendimentos(listaAtendimentos);
 
         // =================================================================
@@ -97,7 +133,7 @@ export function Team() {
             const dadosProd =
               resVendedores.data?.results || resVendedores.data || [];
 
-            // CORREÇÃO: Normaliza o objeto injetando cargo e ativação se vierem ausentes do Django
+            // Normaliza o objeto injetando cargo e ativação se vierem ausentes do Django
             const timeMapeado = dadosProd.map((v) => ({
               ...v,
               cargo: v.cargo || "VENDEDOR",
@@ -179,19 +215,44 @@ export function Team() {
             setUsuariosRaw(Object.values(mapaVendedores));
           }
         } else if (isAdmin) {
-          const [resMetricas, resUsuarios, resLojas] = await Promise.all([
+          // 1. Busca as métricas e lojas normalmente
+          const [resMetricas, resLojas] = await Promise.all([
             api.get("/api/admin/metricas/"),
-            api.get("/api/admin/usuarios/"),
             api.get("/api/admin/lojas/"),
           ]);
           setMetricasMestre(
             resMetricas.data?.results || resMetricas.data || [],
           );
-          setUsuariosRaw(resUsuarios.data?.results || resUsuarios.data || []);
           setLojas(resLojas.data?.results || resLojas.data || []);
+
+          // 2. CORREÇÃO: LOOP DE PAGINAÇÃO PARA USUÁRIOS
+          let listaUsuarios = [];
+          let urlUsuarios = "/api/admin/usuarios/";
+
+          while (urlUsuarios) {
+            const resUsuarios = await api.get(urlUsuarios);
+            const dados = resUsuarios.data?.results || resUsuarios.data || [];
+
+            if (Array.isArray(dados)) {
+              listaUsuarios = [...listaUsuarios, ...dados];
+            } else {
+              listaUsuarios = dados;
+              break;
+            }
+
+            if (resUsuarios.data?.next) {
+              urlUsuarios = resUsuarios.data.next.substring(
+                resUsuarios.data.next.indexOf("/api/"),
+              );
+            } else {
+              urlUsuarios = null;
+            }
+          }
+
+          setUsuariosRaw(listaUsuarios);
         }
       } catch (err) {
-        console.error("Erro ao processar painel de equipe:", err);
+        console.error("Erro ao processar painel de equipa:", err);
         setError(
           "Não foi possível sincronizar os indicadores de performance com o servidor.",
         );
@@ -207,7 +268,7 @@ export function Team() {
   // REGRAS DE VISUALIZAÇÃO E PRIVACIDADE LATERAL (RBAC)
   // =================================================================
   const vendedoresFiltrados = usuariosRaw.filter((u) => {
-    // CORREÇÃO: Caso as propriedades is_active ou ativo não venham descritas, assume true
+    // Caso as propriedades is_active ou ativo não venham descritas, assume true
     const contaAtiva =
       u.is_active === true ||
       u.ativo === true ||
@@ -266,7 +327,7 @@ export function Team() {
   }, [filtroLoja, filteredTeam, selectedUser]);
 
   // =================================================================
-  // CALCULO DE MÉTRICAS INDIVIDUAIS (TOTAL, CONVERSÃO E GRÁFICO)
+  // CÁLCULO DE MÉTRICAS INDIVIDUAIS COM FILTRO DE TEMPO
   // =================================================================
   const obterMetricasVendedor = (vendedorId) => {
     if (!vendedorId || atendimentos.length === 0) {
@@ -278,9 +339,29 @@ export function Team() {
       };
     }
 
-    const historicoVendedor = atendimentos.filter(
+    let historicoVendedor = atendimentos.filter(
       (a) => String(a.vendedor?.id || a.vendedor) === String(vendedorId),
     );
+
+    // APLICA O FILTRO DE PERÍODO
+    if (periodo === "Hoje") {
+      const hojeStr = getLocalDataString(new Date());
+      historicoVendedor = historicoVendedor.filter((a) => {
+        if (!a.data_hora) return false;
+        const dataVenda = new Date(a.data_hora);
+        const vendaStr = getLocalDataString(dataVenda);
+        return vendaStr === hojeStr;
+      });
+    } else if (periodo === "7 Dias" || periodo === "30 Dias") {
+      const dias = periodo === "7 Dias" ? 7 : 30;
+      const limitDate = new Date();
+      limitDate.setDate(limitDate.getDate() - dias);
+      limitDate.setHours(0, 0, 0, 0);
+      historicoVendedor = historicoVendedor.filter(
+        (a) => new Date(a.data_hora) >= limitDate,
+      );
+    }
+    // Se for "Tudo", não filtra nada e calcula todo o histórico
 
     const totalAtendimentos = historicoVendedor.length;
     const vendasConcluidas = historicoVendedor.filter(
@@ -332,7 +413,7 @@ export function Team() {
     : null;
 
   const getSubtituloDinamico = () => {
-    if (isAdmin) return "Painel de controle analítico global da rede";
+    if (isAdmin) return "Painel de controlo analítico global da rede";
     if (isSupervisor) return "Desempenho comercial focado na sua filial física";
     return "Acompanhamento em tempo real dos seus resultados comerciais";
   };
@@ -342,7 +423,7 @@ export function Team() {
       <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
         <Loader2 className="animate-spin text-[#4D7BAB]" size={48} />
         <p className="text-slate-500 font-medium">
-          Isolando níveis de acesso e computando gráficos...
+          A isolar níveis de acesso e computar gráficos...
         </p>
       </div>
     );
@@ -351,14 +432,14 @@ export function Team() {
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-6 animate-in fade-in duration-500">
       {/* Cabeçalho */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-[2rem] shadow-xl border border-blue-50">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-6 rounded-[2rem] shadow-xl border border-blue-50">
         <div className="flex items-center gap-4">
           <div className="p-4 bg-[#4D7BAB]/10 rounded-2xl text-[#4D7BAB]">
             <Users size={32} />
           </div>
           <div>
             <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
-              {isVendedor ? "Meus Indicadores" : "Equipe Comercial"}
+              {isVendedor ? "Meus Indicadores" : "Equipa Comercial"}
             </h1>
             <p className="text-sm text-slate-500 mt-1">
               {getSubtituloDinamico()}
@@ -366,9 +447,26 @@ export function Team() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto overflow-x-auto">
+          {/* BOTÕES DE PERÍODO (ATUALIZADO) */}
+          <div className="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl p-1 w-full sm:w-auto">
+            {["Hoje", "7 Dias", "30 Dias", "Tudo"].map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriodo(p)}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none whitespace-nowrap ${
+                  periodo === p
+                    ? "bg-white text-[#4D7BAB] shadow-sm border border-slate-100"
+                    : "text-slate-500 hover:text-slate-700 bg-transparent"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+
           {isAdmin && (
-            <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200 w-full sm:w-auto">
+            <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200 w-full sm:w-auto shrink-0">
               <Store size={20} className="text-[#4D7BAB] ml-2" />
               <select
                 className="outline-none bg-transparent font-bold text-slate-600 pr-4 w-full cursor-pointer border-none"
@@ -388,7 +486,7 @@ export function Team() {
           )}
 
           {isSupervisor && user?.loja && (
-            <div className="flex items-center gap-2 px-5 py-3 bg-blue-50 text-[#4D7BAB] rounded-2xl font-bold text-sm border border-blue-100">
+            <div className="flex items-center gap-2 px-5 py-3 bg-blue-50 text-[#4D7BAB] rounded-2xl font-bold text-sm border border-blue-100 shrink-0">
               <Store size={18} /> Filial Protegida
             </div>
           )}
@@ -415,7 +513,7 @@ export function Team() {
               placeholder={
                 isVendedor
                   ? "Painel Individual Ativado"
-                  : "Buscar colaborador..."
+                  : "Procurar colaborador..."
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -434,7 +532,7 @@ export function Team() {
                   (l) => String(l.id) === String(v.loja?.id || v.loja),
                 );
                 const nomeDaLoja =
-                  v.loja_nome || correspondenteLoja?.nome || "Minha Unidade";
+                  v.loja_nome || correspondenteLoja?.nome || "A Minha Unidade";
 
                 return (
                   <button
@@ -469,18 +567,29 @@ export function Team() {
         <div className="w-full lg:w-2/3 bg-white p-8 rounded-[2.5rem] shadow-xl border border-blue-50 h-[650px] flex flex-col overflow-hidden">
           {selectedUser && performanceAtual ? (
             <>
-              <div className="flex items-center gap-5 mb-6 pb-5 border-b border-slate-100">
-                <div className="w-16 h-16 rounded-2xl bg-[#4D7BAB] text-white flex items-center justify-center font-black text-2xl flex-shrink-0">
-                  {selectedUser.first_name?.[0].toUpperCase()}
+              <div className="flex items-center justify-between gap-5 mb-6 pb-5 border-b border-slate-100">
+                <div className="flex items-center gap-5">
+                  <div className="w-16 h-16 rounded-2xl bg-[#4D7BAB] text-white flex items-center justify-center font-black text-2xl flex-shrink-0">
+                    {selectedUser.first_name?.[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">
+                      {selectedUser.first_name} {selectedUser.last_name || ""}
+                    </h2>
+                    <p className="text-slate-400 text-sm font-semibold">
+                      Utilizador: @{selectedUser.username} •{" "}
+                      {selectedUser.email || "Sem e-mail registado"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">
-                    {selectedUser.first_name} {selectedUser.last_name || ""}
-                  </h2>
-                  <p className="text-slate-400 text-sm font-semibold">
-                    Usuário: @{selectedUser.username} •{" "}
-                    {selectedUser.email || "Sem e-mail cadastrado"}
-                  </p>
+                {/* Indica o período selecionado para o utilizador saber o que está a ver */}
+                <div className="hidden sm:block text-right">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400 block">
+                    Período
+                  </span>
+                  <span className="text-sm font-bold text-[#4D7BAB]">
+                    {periodo}
+                  </span>
                 </div>
               </div>
 
@@ -567,8 +676,8 @@ export function Team() {
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-sm italic py-10">
-                    Você ainda não possui históricos de atendimento registrados
-                    no banco de dados.
+                    Não existem registos de atendimento para o período
+                    selecionado.
                   </div>
                 )}
               </div>
@@ -581,7 +690,7 @@ export function Team() {
                 className="mb-4 text-slate-200"
               />
               <p className="font-medium">
-                Nenhum colaborador selecionado ou cadastrado.
+                Nenhum colaborador selecionado ou registado.
               </p>
             </div>
           )}
