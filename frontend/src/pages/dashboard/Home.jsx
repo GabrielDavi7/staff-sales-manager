@@ -16,6 +16,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Calendar,
+  Building2,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -73,10 +74,19 @@ export function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // --- NOVO: Estado para os botões de período ---
+  const isAdmin = user?.cargo?.toUpperCase() === "ADMIN";
+
+  // --- Estados para os botões de período ---
   const [periodo, setPeriodo] = useState("Hoje");
-  const [dataEspecifica, setDataEspecifica] = useState("");
-  const dateInputRef = useRef(null);
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
+  const dateInputInicioRef = useRef(null);
+  const dateInputFimRef = useRef(null);
+
+  // --- Estados de Filtro de Loja ---
+  const [lojaSelecionada, setLojaSelecionada] = useState("");
+  const [lojasDisponiveis, setLojasDisponiveis] = useState([]);
+
   // Estados para pesquisa e paginação
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -87,7 +97,7 @@ export function Home() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, periodo]);
+  }, [search, periodo, lojaSelecionada]);
 
   // 1. PRIMEIRA TRAVA: Redirecionamento de Dispositivo
   useEffect(() => {
@@ -99,11 +109,24 @@ export function Home() {
     }
   }, [user?.cargo, navigate, location.pathname]);
 
-  if (user?.cargo === "DISPOSITIVO") {
-    return null;
-  }
+  // 2. BUSCA A LISTA DE LOJAS (Somente para ADMIN)
+  useEffect(() => {
+    if (!isAdmin) return;
 
-  // 2. BUSCA DE DADOS (Agora enviando Data Inicial e Final para o Django)
+    const fetchLojas = async () => {
+      try {
+        const response = await api.get("/api/admin/lojas/");
+        const listaLojas = response.data.results || response.data;
+        setLojasDisponiveis(listaLojas);
+      } catch (err) {
+        console.error("Erro ao buscar lojas:", err);
+      }
+    };
+
+    fetchLojas();
+  }, [isAdmin]);
+
+  // 3. BUSCA DE DADOS NA API COM FILTROS (Data e Loja)
   useEffect(() => {
     if (!user || user?.cargo === "DISPOSITIVO") return;
 
@@ -112,40 +135,42 @@ export function Home() {
         setLoading(true);
         setError(null);
 
-        // Calcula a data de início e fim baseada no botão selecionado
-        let queryParams = "";
+        const params = new URLSearchParams();
         const hojeStr = getLocalDataString(new Date());
 
-        if (periodo === "Hoje") {
-          queryParams = `data_inicio=${hojeStr}&data_fim=${hojeStr}`;
+        // Calcula a data de início e fim baseada no botão selecionado
+        if (periodo === "Especifico") {
+          if (dataInicio) params.append("data_inicio", dataInicio);
+          if (dataFim) params.append("data_fim", dataFim);
+        } else if (periodo === "Hoje") {
+          params.append("data_inicio", hojeStr);
+          params.append("data_fim", hojeStr);
         } else if (periodo === "7 Dias") {
           const limit = new Date();
           limit.setDate(limit.getDate() - 7);
-          queryParams = `data_inicio=${getLocalDataString(limit)}&data_fim=${hojeStr}`;
+          params.append("data_inicio", getLocalDataString(limit));
+          params.append("data_fim", hojeStr);
         } else if (periodo === "30 Dias") {
           const limit = new Date();
           limit.setDate(limit.getDate() - 30);
-          queryParams = `data_inicio=${getLocalDataString(limit)}&data_fim=${hojeStr}`;
-        } else if (periodo === "Especifico" && dataEspecifica) {
-          // Quando escolher uma data no calendário, enviamos essa mesma data para inicio e fim
-          queryParams = `data_inicio=${dataEspecifica}&data_fim=${dataEspecifica}`;
+          params.append("data_inicio", getLocalDataString(limit));
+          params.append("data_fim", hojeStr);
         }
-
-        // Se for "Tudo", queryParams fica vazio e o Django traz todo o histórico!
 
         let endpoint = "";
 
         if (user?.cargo === "VENDEDOR") {
-          endpoint = `/api/analytics/meu-desempenho/?${queryParams}`;
+          endpoint = "/api/analytics/meu-desempenho/";
         } else if (user?.cargo === "SUPERVISOR") {
           const idLojaSupervisor = user.loja?.id || user.loja;
-          endpoint = `/api/analytics/loja/?${queryParams}`;
-          if (idLojaSupervisor) endpoint += `&loja_id=${idLojaSupervisor}`;
-        } else if (user?.cargo === "ADMIN") {
-          endpoint = `/api/analytics/geral/?${queryParams}`;
+          endpoint = "/api/analytics/loja/";
+          if (idLojaSupervisor) params.append("loja_id", idLojaSupervisor);
+        } else if (isAdmin) {
+          endpoint = "/api/analytics/geral/";
+          if (lojaSelecionada) params.append("loja_id", lojaSelecionada);
         }
 
-        const response = await api.get(endpoint);
+        const response = await api.get(`${endpoint}?${params.toString()}`);
         setData(response.data);
       } catch (err) {
         setError("Não foi possível carregar as métricas do servidor.");
@@ -155,7 +180,19 @@ export function Home() {
     };
 
     fetchAnalytics();
-  }, [user, user?.cargo, periodo, dataEspecifica]); // Recarrega quando o botão de período mudar
+  }, [
+    user,
+    user?.cargo,
+    periodo,
+    dataInicio,
+    dataFim,
+    lojaSelecionada,
+    isAdmin,
+  ]);
+
+  if (user?.cargo === "DISPOSITIVO") {
+    return null;
+  }
 
   // --- LÓGICA DE DADOS ---
   const kpis = data?.kpis || {};
@@ -175,10 +212,10 @@ export function Home() {
 
   const dataHorario = data?.grafico_vendas || [];
 
-  // FILTRAGEM (Como o Django já filtra as datas, aqui filtramos só a barra de pesquisa)
+  // FILTRAGEM (Como o Django já filtra as datas e lojas, aqui filtramos só a barra de pesquisa de texto)
   const removeAcentos = (str) => {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  }; // FILTRAGEM
+  };
 
   const tabelaFiltrada = (data?.tabela || []).filter((item) => {
     const nomeVendedor =
@@ -186,8 +223,8 @@ export function Home() {
     const nomeCliente = (item.cliente_nome || "").toLowerCase();
     const statusReal = item.venda_fechada
       ? "concretizada"
-      : (item.metrica__nome || "não informada").toLowerCase(); // Limpa a busca (tira acento e deixa minúsculo)
-    const buscaLimpa = removeAcentos(search.toLowerCase()); // Limpa os campos da tabela e compara com a busca limpa
+      : (item.metrica__nome || "não informada").toLowerCase();
+    const buscaLimpa = removeAcentos(search.toLowerCase());
 
     return (
       removeAcentos(nomeVendedor).includes(buscaLimpa) ||
@@ -197,7 +234,7 @@ export function Home() {
   });
 
   // PAGINAÇÃO CLIENT-SIDE
-  const totalPages = Math.ceil(tabelaFiltrada.length / itemsPerPage);
+  const totalPages = Math.ceil(tabelaFiltrada.length / itemsPerPage) || 1;
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = tabelaFiltrada.slice(indexOfFirstItem, indexOfLastItem);
@@ -213,7 +250,7 @@ export function Home() {
 
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-8 animate-in fade-in duration-500 relative">
-      {/* Loading translúcido ao trocar de data */}
+      {/* Loading translúcido ao trocar de data/loja */}
       {loading && data && (
         <div className="absolute inset-0 bg-slate-50/50 backdrop-blur-[2px] z-20 rounded-3xl flex items-center justify-center">
           <div className="bg-white p-4 rounded-full shadow-xl flex items-center gap-3">
@@ -230,8 +267,8 @@ export function Home() {
       )}
 
       {/* Cabeçalho */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl shadow-lg border border-blue-50">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-6 rounded-3xl shadow-lg border border-blue-50">
+        <div className="flex items-center gap-4 shrink-0">
           <div className="p-3 bg-[#4D7BAB]/10 rounded-2xl text-[#4D7BAB]">
             <LayoutDashboard size={28} />
           </div>
@@ -248,66 +285,126 @@ export function Home() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-          {/* BOTÕES DE PERÍODO */}
-          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 w-full sm:w-auto items-center gap-1 overflow-x-auto">
+        <div className="flex flex-col xl:flex-row items-center gap-3 w-full xl:w-auto overflow-hidden">
+          {/* BOTÕES DE PERÍODO + CALENDÁRIO COMPACTOS */}
+          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 w-full xl:w-auto items-center gap-1 overflow-x-auto custom-scrollbar">
             {["Hoje", "7 Dias", "30 Dias", "Tudo"].map((p) => (
               <button
                 key={p}
                 onClick={() => {
                   setPeriodo(p);
-                  setDataEspecifica(""); // Limpa o calendário se escolher um atalho
+                  setDataInicio("");
+                  setDataFim("");
                 }}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-none outline-none whitespace-nowrap ${
                   periodo === p
-                    ? // AQUI ESTÁ A MUDANÇA: troquei bg-white por bg-blue-50
-                      "bg-blue-200 text-[#4D7BAB] shadow-sm"
+                    ? "bg-blue-200 text-[#4D7BAB] shadow-sm"
                     : "text-slate-500 hover:text-slate-700 hover:bg-slate-100 bg-transparent"
                 }`}
               >
                 {p}
               </button>
             ))}
-            {/* Separador */}
-            <div className="w-[1px] h-6 bg-slate-200 mx-2 hidden sm:block"></div>
 
-            {/* Input de Calendário com visual destacado e clique ativado */}
+            {/* Separador */}
+            <div className="w-[1px] h-5 bg-slate-200 mx-1 hidden sm:block shrink-0"></div>
+
+            {/* Input de Calendário: DATA INICIAL */}
             <div
-              onClick={() => dateInputRef.current?.showPicker()} // <-- Dispara a abertura do calendário
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm ${
-                periodo === "Especifico"
-                  ? // 1. COR QUANDO ESTÁ SELECIONADO (Ex: bg-blue-50 para um azul bem clarinho)
-                    "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-2 ring-[#4D7BAB]/10"
-                  : // 2. COR QUANDO NÃO ESTÁ SELECIONADO (Ex: bg-slate-100 para um cinza claro)
-                    "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
+              onClick={() => dateInputInicioRef.current?.showPicker()}
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm shrink-0 ${
+                periodo === "Especifico" && dataInicio
+                  ? "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-1 ring-[#4D7BAB]/10"
+                  : "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
               }`}
             >
               <Calendar
-                size={16}
+                size={14}
                 className={
-                  periodo === "Especifico" ? "text-[#4D7BAB]" : "text-slate-400"
+                  periodo === "Especifico" && dataInicio
+                    ? "text-[#4D7BAB]"
+                    : "text-slate-400"
                 }
               />
               <input
-                ref={dateInputRef} // <-- Conecta o input à nossa referência
+                ref={dateInputInicioRef}
                 type="date"
-                value={dataEspecifica}
+                value={dataInicio}
                 onChange={(e) => {
-                  setDataEspecifica(e.target.value);
+                  setDataInicio(e.target.value);
                   setPeriodo("Especifico");
                 }}
-                className="bg-transparent text-sm font-bold outline-none cursor-pointer w-full text-inherit"
-                // Uma dica extra: esconder o ícone padrão do navegador para não ficar com 2 ícones de calendário
+                className="bg-transparent text-xs font-bold outline-none cursor-pointer w-[95px] text-inherit"
                 style={{ WebkitAppearance: "none" }}
+                title="Data Inicial"
+              />
+            </div>
+
+            <span className="text-slate-400 text-[10px] font-bold hidden sm:block shrink-0">
+              até
+            </span>
+
+            {/* Input de Calendário: DATA FINAL */}
+            <div
+              onClick={() => dateInputFimRef.current?.showPicker()}
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm shrink-0 ${
+                periodo === "Especifico" && dataFim
+                  ? "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-1 ring-[#4D7BAB]/10"
+                  : "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
+              }`}
+            >
+              <Calendar
+                size={14}
+                className={
+                  periodo === "Especifico" && dataFim
+                    ? "text-[#4D7BAB]"
+                    : "text-slate-400"
+                }
+              />
+              <input
+                ref={dateInputFimRef}
+                type="date"
+                min={dataInicio}
+                value={dataFim}
+                onChange={(e) => {
+                  setDataFim(e.target.value);
+                  setPeriodo("Especifico");
+                }}
+                className="bg-transparent text-xs font-bold outline-none cursor-pointer w-[95px] text-inherit"
+                style={{ WebkitAppearance: "none" }}
+                title="Data Final"
               />
             </div>
           </div>
 
+          {/* SELETOR DE LOJAS COMPACTO (Apenas Admin) */}
+          {isAdmin && (
+            <div className="relative w-full sm:w-auto shrink-0">
+              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                <Building2 size={14} />
+              </div>
+              <select
+                value={lojaSelecionada}
+                onChange={(e) => setLojaSelecionada(e.target.value)}
+                className="pl-8 pr-6 py-2 w-full rounded-2xl text-xs font-bold bg-slate-50 hover:bg-slate-100 border-2 border-slate-100 text-slate-600 focus:outline-none focus:border-[#4D7BAB] transition-all cursor-pointer shadow-sm appearance-none min-w-[140px]"
+              >
+                <option value="">Todas Lojas</option>
+                {lojasDisponiveis
+                  .filter((loja) => loja.ativo === true)
+                  .map((loja) => (
+                    <option key={loja.id} value={loja.id}>
+                      {loja.nome}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+
           <Link
             to="/registrarvenda"
-            className="bg-[#4D7BAB] text-white hover:bg-[#3a5d82] px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-all w-full sm:w-auto justify-center"
+            className="bg-[#4D7BAB] text-white hover:bg-[#3a5d82] px-5 py-2.5 rounded-2xl text-sm font-bold shadow-lg flex items-center gap-2 transition-all w-full sm:w-auto justify-center shrink-0"
           >
-            <Plus size={20} /> Novo
+            <Plus size={18} /> Novo
           </Link>
         </div>
       </div>
@@ -383,11 +480,12 @@ export function Home() {
                   tickLine={false}
                   style={{ fontSize: "12px" }}
                   allowDecimals={false}
+                  tickFormatter={(val) => `R$${val / 1000}k`}
                 />
-                <Tooltip />
+                <Tooltip formatter={(value) => [`R$ ${value}`, "Valor"]} />
                 <Line
                   type="monotone"
-                  dataKey="vendas"
+                  dataKey="renda"
                   stroke="#10b981"
                   strokeWidth={3}
                   dot={{ r: 4, fill: "#10b981" }}
@@ -586,7 +684,6 @@ export function Home() {
                 <X size={28} />
               </button>
             </div>
-            {/* O conteúdo do modal segue inalterado... */}
             <div className="p-10 space-y-8">
               <div className="grid grid-cols-2 gap-8">
                 <div className="space-y-1.5">
@@ -678,3 +775,5 @@ export function Home() {
     </div>
   );
 }
+
+export default Home;
