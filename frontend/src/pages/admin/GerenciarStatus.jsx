@@ -623,7 +623,7 @@ export default function GerenciarStatus({ onBack }) {
               {/* Equipe Comercial Opcional */}
               <div>
                 <label className="text-xs font-bold text-slate-300 block mb-1">
-                  Equipe Comercial (Opcional)
+                  Equipe Comercial
                 </label>
                 <select
                   value={usuarioEditando.equipe || ""}
