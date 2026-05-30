@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Users,
   Search,
@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Percent,
   Activity,
+  Calendar,
 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
@@ -47,6 +48,8 @@ export function Team() {
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [filtroLoja, setFiltroLoja] = useState("");
+  const [dataEspecifica, setDataEspecifica] = useState("");
+  const dateInputRef = useRef(null);
 
   // Estado para controlar o período do gráfico
   const [periodo, setPeriodo] = useState("30 Dias");
@@ -344,7 +347,14 @@ export function Team() {
     );
 
     // APLICA O FILTRO DE PERÍODO
-    if (periodo === "Hoje") {
+    if (periodo === "Especifico" && dataEspecifica) {
+      historicoVendedor = historicoVendedor.filter((a) => {
+        if (!a.data_hora) return false;
+        const dataVenda = new Date(a.data_hora);
+        const vendaStr = getLocalDataString(dataVenda);
+        return vendaStr === dataEspecifica;
+      });
+    } else if (periodo === "Hoje") {
       const hojeStr = getLocalDataString(new Date());
       historicoVendedor = historicoVendedor.filter((a) => {
         if (!a.data_hora) return false;
@@ -456,13 +466,40 @@ export function Team() {
                 onClick={() => setPeriodo(p)}
                 className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none whitespace-nowrap ${
                   periodo === p
-                    ? "bg-white text-[#4D7BAB] shadow-sm border border-slate-100"
+                    ? "bg-blue-200 text-[#4D7BAB] shadow-sm border border-slate-100"
                     : "text-slate-500 hover:text-slate-700 bg-transparent"
                 }`}
               >
                 {p}
               </button>
             ))}
+            {/* Calendário */}
+            <div
+              onClick={() => dateInputRef.current?.showPicker()}
+              className={`flex items-center gap-2 px-3 py-1.5 ml-1 rounded-xl transition-all cursor-pointer border shadow-sm ${
+                periodo === "Especifico"
+                  ? "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-2 ring-[#4D7BAB]/10"
+                  : "bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
+              }`}
+            >
+              <Calendar
+                size={16}
+                className={
+                  periodo === "Especifico" ? "text-[#4D7BAB]" : "text-slate-400"
+                }
+              />
+              <input
+                ref={dateInputRef}
+                type="date"
+                value={dataEspecifica}
+                onChange={(e) => {
+                  setDataEspecifica(e.target.value);
+                  setPeriodo("Especifico");
+                }}
+                className="bg-transparent text-sm font-bold outline-none cursor-pointer w-full text-inherit"
+                style={{ WebkitAppearance: "none" }}
+              />
+            </div>
           </div>
 
           {isAdmin && (
