@@ -170,17 +170,23 @@ export function Home() {
   const dataHorario = data?.grafico_vendas || [];
 
   // FILTRAGEM (Como o Django já filtra as datas, aqui filtramos só a barra de pesquisa)
+  const removeAcentos = (str) => {
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }; // FILTRAGEM
+
   const tabelaFiltrada = (data?.tabela || []).filter((item) => {
     const nomeVendedor =
       `${item.vendedor__first_name || ""} ${item.vendedor__last_name || ""}`.toLowerCase();
     const nomeCliente = (item.cliente_nome || "").toLowerCase();
-    const metrica = (item.metrica__nome || "").toLowerCase();
-    const busca = search.toLowerCase();
+    const statusReal = item.venda_fechada
+      ? "concretizada"
+      : (item.metrica__nome || "não informada").toLowerCase(); // Limpa a busca (tira acento e deixa minúsculo)
+    const buscaLimpa = removeAcentos(search.toLowerCase()); // Limpa os campos da tabela e compara com a busca limpa
 
     return (
-      nomeVendedor.includes(busca) ||
-      metrica.includes(busca) ||
-      nomeCliente.includes(busca)
+      removeAcentos(nomeVendedor).includes(buscaLimpa) ||
+      removeAcentos(nomeCliente).includes(buscaLimpa) ||
+      removeAcentos(statusReal).includes(buscaLimpa)
     );
   });
 
