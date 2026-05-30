@@ -28,7 +28,8 @@ const Login = () => {
     setError("");
     setIsLoading(true);
 
-    const result = await login(username, password);
+    // Adicionado o rememberMe como argumento para o AuthContext
+    const result = await login(username, password, rememberMe);
 
     if (result.success) {
       const userRole = result.user?.cargo;
@@ -45,19 +46,12 @@ const Login = () => {
   };
 
   return (
-    // Fundo principal com gradiente profundo e formas abstratas sutis
     <div className="min-h-screen bg-[#010528] bg-gradient-to-br from-[#010528] via-[#001A4F] to-[#010528] flex items-center justify-center p-4 md:p-8 relative overflow-hidden font-sans">
-      {/* Elementos decorativos de fundo sutilmente animados */}
       <div className="absolute top-[-15%] left-[-10%] w-[35rem] h-[35rem] bg-[#004BBE]/20 rounded-full blur-[120px] animate-pulse duration-[10s]"></div>
       <div className="absolute bottom-[-15%] right-[-5%] w-[40rem] h-[40rem] bg-[#002A7A]/30 rounded-full blur-[150px]"></div>
 
-      {/* Card Principal Split-Screen com Glassmorphism */}
       <div className="max-w-5xl w-full bg-white/5 backdrop-blur-xl rounded-[2.5rem] shadow-3xl border border-white/10 overflow-hidden flex flex-col md:flex-row relative z-10 animate-in fade-in zoom-in-95 duration-700 ease-out">
-        {/* ======================================================= */}
-        {/* LADO ESQUERDO: Branding & Estética de Luxo (md+ apenas) */}
-        {/* ======================================================= */}
         <div className="md:w-1/2 p-12 lg:p-16 flex flex-col justify-between items-center text-center relative overflow-hidden bg-[#010528]/60 border-r border-white/5">
-          {/* Padrão geométrico sutil no fundo */}
           <div className="absolute inset-0 opacity-[0.03] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48ZyBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTAgMGg0MHY0MEgwVjB6bTIwIDIwaDIwdjIwSDIWMjB6TTAgMjBoMjB2MjBIMFYyMHoyMCAwaDIwdjIwSDIwVjB6Ii8+PC9nPjwvZz48L3N2Zz4=')]"></div>
 
           <div className="relative z-10 flex flex-col items-center flex-1 justify-center space-y-8">
@@ -85,11 +79,7 @@ const Login = () => {
           </div>
         </div>
 
-        {/* ======================================================= */}
-        {/* LADO DIREITO: Formulário de Login                        */}
-        {/* ======================================================= */}
         <div className="md:w-1/2 p-10 lg:p-16 flex flex-col justify-center bg-white/5">
-          {/* Header Mobile (Visível apenas em telas pequenas) */}
           <div className="flex md:hidden flex-col items-center mb-12 text-center">
             <Diamond
               size={40}
@@ -117,7 +107,6 @@ const Login = () => {
               </div>
             )}
 
-            {/* Input: Usuário / E-mail */}
             <div className="space-y-2.5">
               <label
                 htmlFor="username"
@@ -143,7 +132,6 @@ const Login = () => {
               </div>
             </div>
 
-            {/* Input: Senha */}
             <div className="space-y-2.5">
               <label
                 htmlFor="password"
@@ -177,7 +165,6 @@ const Login = () => {
               </div>
             </div>
 
-            {/* Funcionalidades Extras: Manter Conectado & Esqueci Senha */}
             <div className="flex items-center justify-between text-sm pt-1">
               <label className="flex items-center gap-2.5 cursor-pointer text-blue-100/80 hover:text-white transition-colors group">
                 <div className="relative flex items-center justify-center">
@@ -207,7 +194,6 @@ const Login = () => {
               </button>
             </div>
 
-            {/* Botão de Submit Premium */}
             <button
               type="submit"
               disabled={isLoading}
@@ -236,7 +222,6 @@ const Login = () => {
   );
 };
 
-// Ícones adicionais necessários para o novo design
 const Check = ({ size = 16, ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"

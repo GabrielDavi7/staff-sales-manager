@@ -1,4 +1,3 @@
-// frontend/src/contexts/AuthContext.jsx
 import { createContext, useState, useContext, useEffect } from "react";
 import api from "../api/axios";
 
@@ -9,15 +8,20 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    const token = localStorage.getItem("auth_token");
+    // Tenta recuperar primeiro do sessionStorage (sessão ativa) e, caso não encontre, busca no localStorage
+    const storedUser =
+      sessionStorage.getItem("user") || localStorage.getItem("user");
+    const token =
+      sessionStorage.getItem("auth_token") ||
+      localStorage.getItem("auth_token");
+
     if (storedUser && token) {
       setUser(JSON.parse(storedUser));
     }
     setLoading(false);
   }, []);
 
-  const login = async (username, password) => {
+  const login = async (username, password, rememberMe = false) => {
     try {
       const response = await api.post("/api/users/login/", {
         username,
@@ -25,9 +29,19 @@ export const AuthProvider = ({ children }) => {
       });
       const { token, user } = response.data;
 
-      // Armazenar token e dados do usuário
-      localStorage.setItem("auth_token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+      // Define qual storage será utilizado com base na escolha do usuário
+      const storage = rememberMe ? localStorage : sessionStorage;
+
+      // Limpa dados residuais de acessos anteriores em ambos para evitar conflitos
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("user");
+      sessionStorage.removeItem("auth_token");
+      sessionStorage.removeItem("user");
+
+      // Armazena token e dados do usuário no storage apropriado
+      storage.setItem("auth_token", token);
+      storage.setItem("user", JSON.stringify(user));
+
       setUser(user);
 
       return { success: true, user };
@@ -51,10 +65,11 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error("Erro ao invalidar o token no backend:", error);
     } finally {
-      // O bloco finally garante que, mesmo se a API der erro (ex: sem internet), 
-      // o usuário será deslogado localmente no frontend.
+      // Garante a remoção em ambos os storages independentemente de onde o token estava salvo
       localStorage.removeItem("auth_token");
       localStorage.removeItem("user");
+      sessionStorage.removeItem("auth_token");
+      sessionStorage.removeItem("user");
       setUser(null);
     }
   };
