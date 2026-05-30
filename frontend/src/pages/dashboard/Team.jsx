@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Users,
   Search,
@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Percent,
   Activity,
+  Calendar,
 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
@@ -47,6 +48,12 @@ export function Team() {
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [filtroLoja, setFiltroLoja] = useState("");
+
+  // Estados para o intervalo de datas
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
+  const dateInputInicioRef = useRef(null);
+  const dateInputFimRef = useRef(null);
 
   // Estado para controlar o período do gráfico
   const [periodo, setPeriodo] = useState("30 Dias");
@@ -344,7 +351,27 @@ export function Team() {
     );
 
     // APLICA O FILTRO DE PERÍODO
-    if (periodo === "Hoje") {
+    if (periodo === "Especifico" && (dataInicio || dataFim)) {
+      historicoVendedor = historicoVendedor.filter((a) => {
+        if (!a.data_hora) return false;
+        const dataVenda = new Date(a.data_hora);
+        const vendaStr = getLocalDataString(dataVenda);
+
+        // Se o utilizador preencheu ambas as datas (Intervalo)
+        if (dataInicio && dataFim) {
+          return vendaStr >= dataInicio && vendaStr <= dataFim;
+        }
+        // Se preencheu apenas a data de Início (Desta data em diante)
+        if (dataInicio && !dataFim) {
+          return vendaStr >= dataInicio;
+        }
+        // Se preencheu apenas a data de Fim (Até esta data)
+        if (!dataInicio && dataFim) {
+          return vendaStr <= dataFim;
+        }
+        return true;
+      });
+    } else if (periodo === "Hoje") {
       const hojeStr = getLocalDataString(new Date());
       historicoVendedor = historicoVendedor.filter((a) => {
         if (!a.data_hora) return false;
@@ -447,29 +474,115 @@ export function Team() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto overflow-x-auto">
-          {/* BOTÕES DE PERÍODO (ATUALIZADO) */}
-          <div className="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl p-1 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+          {/* BOTÕES DE PERÍODO */}
+          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 w-full sm:w-auto items-center gap-1 overflow-x-auto">
             {["Hoje", "7 Dias", "30 Dias", "Tudo"].map((p) => (
               <button
                 key={p}
-                onClick={() => setPeriodo(p)}
+                onClick={() => {
+                  setPeriodo(p);
+                  setDataInicio(""); // Limpa o calendário inicial
+                  setDataFim(""); // Limpa o calendário final
+                }}
                 className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none whitespace-nowrap ${
                   periodo === p
-                    ? "bg-white text-[#4D7BAB] shadow-sm border border-slate-100"
-                    : "text-slate-500 hover:text-slate-700 bg-transparent"
+                    ? "bg-blue-200 text-[#4D7BAB] shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-100 bg-transparent"
                 }`}
               >
                 {p}
               </button>
             ))}
-          </div>
 
+            {/* Separador */}
+            <div className="w-[1px] h-6 bg-slate-200 mx-2 hidden sm:block"></div>
+
+            {/* Input de Calendário: DATA INICIAL */}
+            <div
+              onClick={() => dateInputInicioRef.current?.showPicker()}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm ${
+                periodo === "Especifico" && dataInicio
+                  ? "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-2 ring-[#4D7BAB]/10"
+                  : "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
+              }`}
+            >
+              <Calendar
+                size={16}
+                className={
+                  periodo === "Especifico" && dataInicio
+                    ? "text-[#4D7BAB]"
+                    : "text-slate-400"
+                }
+              />
+              <input
+                ref={dateInputInicioRef}
+                type="date"
+                value={dataInicio}
+                onChange={(e) => {
+                  setDataInicio(e.target.value);
+                  setPeriodo("Especifico");
+                }}
+                className="bg-transparent text-sm font-bold outline-none cursor-pointer w-full text-inherit"
+                style={{ WebkitAppearance: "none" }}
+                title="Data Inicial"
+              />
+            </div>
+
+            <span className="text-slate-400 text-xs font-bold hidden sm:block">
+              até
+            </span>
+
+            {/* Input de Calendário: DATA FINAL */}
+            <div
+              onClick={() => dateInputFimRef.current?.showPicker()}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm ${
+                periodo === "Especifico" && dataFim
+                  ? "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-2 ring-[#4D7BAB]/10"
+                  : "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
+              }`}
+            >
+              <Calendar
+                size={16}
+                className={
+                  periodo === "Especifico" && dataFim
+                    ? "text-[#4D7BAB]"
+                    : "text-slate-400"
+                }
+              />
+              <input
+                ref={dateInputFimRef}
+                type="date"
+                value={dataFim}
+                min={dataInicio} // Impede que o utilizador escolha uma data final anterior à inicial
+                onChange={(e) => {
+                  setDataFim(e.target.value);
+                  setPeriodo("Especifico");
+                }}
+                className="bg-transparent text-sm font-bold outline-none cursor-pointer w-full text-inherit"
+                style={{ WebkitAppearance: "none" }}
+                title="Data Final"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl flex items-center gap-2">
+          <AlertCircle size={20} /> {error}
+        </div>
+      )}
+
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* COLUNA ESQUERDA: Lista Lateral */}
+        <div className="w-full lg:w-1/3 bg-white p-6 rounded-[2rem] shadow-xl border border-blue-50 flex flex-col h-[650px]">
+          {/* FILTRO DE LOJAS (Reposicionado) */}
           {isAdmin && (
-            <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200 w-full sm:w-auto shrink-0">
-              <Store size={20} className="text-[#4D7BAB] ml-2" />
+            <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200 w-full mb-4">
+              <Store size={20} className="text-[#4D7BAB] ml-2 shrink-0" />
               <select
-                className="outline-none bg-transparent font-bold text-slate-600 pr-4 w-full cursor-pointer border-none"
+                className="outline-none bg-transparent font-bold text-slate-600 pr-2 w-full cursor-pointer border-none truncate"
                 value={filtroLoja}
                 onChange={(e) => setFiltroLoja(e.target.value)}
               >
@@ -485,23 +598,14 @@ export function Team() {
             </div>
           )}
 
+          {/* AVISO SUPERVISOR (Reposicionado) */}
           {isSupervisor && user?.loja && (
-            <div className="flex items-center gap-2 px-5 py-3 bg-blue-50 text-[#4D7BAB] rounded-2xl font-bold text-sm border border-blue-100 shrink-0">
+            <div className="flex items-center justify-center gap-2 px-5 py-3 bg-blue-50 text-[#4D7BAB] rounded-2xl font-bold text-sm border border-blue-100 w-full mb-4">
               <Store size={18} /> Filial Protegida
             </div>
           )}
-        </div>
-      </div>
 
-      {error && (
-        <div className="p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl flex items-center gap-2">
-          <AlertCircle size={20} /> {error}
-        </div>
-      )}
-
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* COLUNA ESQUERDA: Lista Lateral */}
-        <div className="w-full lg:w-1/3 bg-white p-6 rounded-[2rem] shadow-xl border border-blue-50 flex flex-col h-[650px]">
+          {/* CAMPO DE PESQUISA */}
           <div className="relative mb-6">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"

@@ -321,7 +321,7 @@ const NewAttendance = () => {
               <div className="space-y-2">
                 <label className="text-lg font-bold text-slate-700 flex items-center gap-2">
                   <Calendar size={20} className="text-[#4D7BAB]" /> Hora do
-                  Atendimento (Opcional):
+                  Atendimento:
                 </label>
                 <input
                   type="time"
@@ -351,15 +351,11 @@ const NewAttendance = () => {
                     }
                   }}
                 />
-                <p className="text-[12px] text-slate-400 italic pl-1 font-medium">
-                  A data será registrada como hoje. Deixe em branco para usar a
-                  hora exata de agora.
-                </p>
               </div>
 
               <div className="space-y-2">
                 <label className="text-lg font-bold text-slate-700">
-                  Nome do Cliente (Opcional):
+                  Nome do Cliente:
                 </label>
                 <input
                   type="text"
@@ -390,7 +386,7 @@ const NewAttendance = () => {
 
               <div className="space-y-2">
                 <label className="text-lg font-bold text-slate-700">
-                  Observações (Opcional):
+                  Observações:
                 </label>
                 <textarea
                   rows="3"

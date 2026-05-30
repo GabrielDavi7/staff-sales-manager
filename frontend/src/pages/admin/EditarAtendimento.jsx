@@ -208,9 +208,6 @@ export default function EditarAtendimento({ atendimento, onSave, onCancel }) {
               onChange={handleChange}
               className="w-full bg-[#003847] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#3E5641] disabled:opacity-50"
             />
-            <p className="text-[11px] text-slate-400 italic pl-1">
-              Deixe em branco para assumir o horário local atual.
-            </p>
           </div>
 
           {/* Nome do Cliente (REQUISITO: Totalmente Opcional) */}
@@ -225,7 +222,7 @@ export default function EditarAtendimento({ atendimento, onSave, onCancel }) {
               value={formData.cliente_nome}
               onChange={handleChange}
               className="w-full bg-[#003847] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#3E5641] disabled:opacity-50"
-              placeholder="Ex: Maria Silva (Opcional)"
+              placeholder="Ex: Maria Silva"
             />
           </div>
 
