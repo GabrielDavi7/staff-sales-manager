@@ -43,8 +43,12 @@ export function Grafics() {
   const [periodo, setPeriodo] = useState("Hoje");
   const [lojaSelecionada, setLojaSelecionada] = useState("");
   const [lojasDisponiveis, setLojasDisponiveis] = useState([]);
-  const [dataEspecifica, setDataEspecifica] = useState("");
-  const dateInputRef = useRef(null);
+
+  // Estados para o intervalo de datas
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
+  const dateInputInicioRef = useRef(null);
+  const dateInputFimRef = useRef(null);
 
   // Estados de Dados
   const [data, setData] = useState(null);
@@ -93,9 +97,10 @@ export function Grafics() {
         const hojeStr = getLocalDataString(new Date());
 
         // Configura as datas com base no botão clicado
-        if (periodo === "Especifico" && dataEspecifica) {
-          params.append("data_inicio", dataEspecifica);
-          params.append("data_fim", dataEspecifica);
+        if (periodo === "Especifico") {
+          // Se o utilizador preencher ambos ou apenas um dos lados do intervalo
+          if (dataInicio) params.append("data_inicio", dataInicio);
+          if (dataFim) params.append("data_fim", dataFim);
         } else if (periodo === "Hoje") {
           params.append("data_inicio", hojeStr);
           params.append("data_fim", hojeStr);
@@ -136,7 +141,15 @@ export function Grafics() {
     };
 
     fetchAnalytics();
-  }, [user, user?.cargo, periodo, lojaSelecionada, isAdmin]);
+  }, [
+    user,
+    user?.cargo,
+    periodo,
+    lojaSelecionada,
+    isAdmin,
+    dataInicio,
+    dataFim,
+  ]);
 
   if (user?.cargo === "DISPOSITIVO") return null;
 
@@ -223,16 +236,16 @@ export function Grafics() {
       )}
 
       {/* Cabeçalho */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 lg:p-8 rounded-[2rem] shadow-xl shadow-blue-100/40 border border-blue-50">
-        <div className="flex items-center gap-4">
-          <div className="p-4 bg-[#4D7BAB]/10 rounded-2xl text-[#4D7BAB]">
-            <PieChartIcon size={32} strokeWidth={2} />
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-6 rounded-[2rem] shadow-xl shadow-blue-100/40 border border-blue-50">
+        <div className="flex items-center gap-4 shrink-0">
+          <div className="p-3 bg-[#4D7BAB]/10 rounded-2xl text-[#4D7BAB]">
+            <PieChartIcon size={28} strokeWidth={2} />
           </div>
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
+            <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">
               Gráficos Lojas
             </h1>
-            <p className="text-base text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 mt-0.5">
               Visão:{" "}
               <strong className="uppercase text-[#4D7BAB]">
                 {user?.cargo}
@@ -241,73 +254,110 @@ export function Grafics() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-          {/* BOTÕES DE PERÍODO */}
-          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 w-full sm:w-auto items-center gap-1 overflow-x-auto">
+        <div className="flex flex-col xl:flex-row items-center gap-3 w-full xl:w-auto overflow-hidden">
+          {/* BOTÕES DE PERÍODO + CALENDÁRIO COMPACTOS */}
+          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 w-full xl:w-auto items-center gap-1 overflow-x-auto custom-scrollbar">
             {["Hoje", "7 Dias", "30 Dias", "Tudo"].map((p) => (
               <button
                 key={p}
                 onClick={() => {
                   setPeriodo(p);
-                  setDataEspecifica(""); // Limpa o calendário se escolher um atalho
+                  setDataInicio("");
+                  setDataFim("");
                 }}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none whitespace-nowrap ${
+                className={`px-4 py-1.5 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none whitespace-nowrap ${
                   periodo === p
-                    ? // AQUI ESTÁ A MUDANÇA: troquei bg-white por bg-blue-50
-                      "bg-blue-200 text-[#4D7BAB] shadow-sm"
+                    ? "bg-blue-200 text-[#4D7BAB] shadow-sm"
                     : "text-slate-500 hover:text-slate-700 hover:bg-slate-100 bg-transparent"
                 }`}
               >
                 {p}
               </button>
             ))}
-            {/* Separador */}
-            <div className="w-[1px] h-6 bg-slate-200 mx-2 hidden sm:block"></div>
 
-            {/* Input de Calendário com visual destacado e clique ativado */}
+            {/* Separador */}
+            <div className="w-[1px] h-5 bg-slate-200 mx-1 hidden sm:block shrink-0"></div>
+
+            {/* Input de Calendário: DATA INICIAL */}
             <div
-              onClick={() => dateInputRef.current?.showPicker()} // <-- Dispara a abertura do calendário
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm ${
-                periodo === "Especifico"
-                  ? // 1. COR QUANDO ESTÁ SELECIONADO (Ex: bg-blue-50 para um azul bem clarinho)
-                    "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-2 ring-[#4D7BAB]/10"
-                  : // 2. COR QUANDO NÃO ESTÁ SELECIONADO (Ex: bg-slate-100 para um cinza claro)
-                    "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
+              onClick={() => dateInputInicioRef.current?.showPicker()}
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm shrink-0 ${
+                periodo === "Especifico" && dataInicio
+                  ? "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-1 ring-[#4D7BAB]/10"
+                  : "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
               }`}
             >
               <Calendar
                 size={16}
                 className={
-                  periodo === "Especifico" ? "text-[#4D7BAB]" : "text-slate-400"
+                  periodo === "Especifico" && dataInicio
+                    ? "text-[#4D7BAB]"
+                    : "text-slate-400"
                 }
               />
               <input
-                ref={dateInputRef} // <-- Conecta o input à nossa referência
+                ref={dateInputInicioRef}
                 type="date"
-                value={dataEspecifica}
+                value={dataInicio}
                 onChange={(e) => {
-                  setDataEspecifica(e.target.value);
+                  setDataInicio(e.target.value);
                   setPeriodo("Especifico");
                 }}
-                className="bg-transparent text-sm font-bold outline-none cursor-pointer w-full text-inherit"
-                // Uma dica extra: esconder o ícone padrão do navegador para não ficar com 2 ícones de calendário
+                className="bg-transparent text-xs font-bold outline-none cursor-pointer w-[110px] text-inherit"
                 style={{ WebkitAppearance: "none" }}
+                title="Data Inicial"
+              />
+            </div>
+
+            <span className="text-slate-400 text-[10px] font-bold hidden sm:block shrink-0">
+              até
+            </span>
+
+            {/* Input de Calendário: DATA FINAL */}
+            <div
+              onClick={() => dateInputFimRef.current?.showPicker()}
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm shrink-0 ${
+                periodo === "Especifico" && dataFim
+                  ? "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-1 ring-[#4D7BAB]/10"
+                  : "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
+              }`}
+            >
+              <Calendar
+                size={16}
+                className={
+                  periodo === "Especifico" && dataFim
+                    ? "text-[#4D7BAB]"
+                    : "text-slate-400"
+                }
+              />
+              <input
+                ref={dateInputFimRef}
+                type="date"
+                min={dataInicio}
+                value={dataFim}
+                onChange={(e) => {
+                  setDataFim(e.target.value);
+                  setPeriodo("Especifico");
+                }}
+                className="bg-transparent text-xs font-bold outline-none cursor-pointer w-[95px] text-inherit"
+                style={{ WebkitAppearance: "none" }}
+                title="Data Final"
               />
             </div>
           </div>
 
-          {/* SELETOR DE LOJAS (Apenas Admin) */}
+          {/* SELETOR DE LOJAS COMPACTO (Apenas Admin) */}
           {isAdmin && (
-            <div className="relative w-full sm:w-auto">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <Building2 size={16} />
+            <div className="relative w-full sm:w-auto shrink-0">
+              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                <Building2 size={14} />
               </div>
               <select
                 value={lojaSelecionada}
                 onChange={(e) => setLojaSelecionada(e.target.value)}
-                className="pl-9 pr-4 py-2 w-full rounded-2xl text-sm font-bold bg-white border-2 border-slate-100 text-slate-600 focus:outline-none focus:border-[#4D7BAB] transition-all cursor-pointer shadow-sm appearance-none min-w-[160px]"
+                className="pl-8 pr-6 py-2 w-full rounded-2xl text-xs font-bold bg-slate-50 hover:bg-slate-100 border-2 border-slate-100 text-slate-600 focus:outline-none focus:border-[#4D7BAB] transition-all cursor-pointer shadow-sm appearance-none min-w-[140px]"
               >
-                <option value="">Todas as Lojas</option>
+                <option value="">Todas Lojas</option>
                 {lojasDisponiveis
                   .filter((loja) => loja.ativo === true)
                   .map((loja) => (
