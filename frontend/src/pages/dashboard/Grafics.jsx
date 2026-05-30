@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import api from "../../api/axios";
@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Building2,
   MessageSquareX,
+  Calendar,
 } from "lucide-react";
 import {
   BarChart,
@@ -42,6 +43,8 @@ export function Grafics() {
   const [periodo, setPeriodo] = useState("Hoje");
   const [lojaSelecionada, setLojaSelecionada] = useState("");
   const [lojasDisponiveis, setLojasDisponiveis] = useState([]);
+  const [dataEspecifica, setDataEspecifica] = useState("");
+  const dateInputRef = useRef(null);
 
   // Estados de Dados
   const [data, setData] = useState(null);
@@ -90,7 +93,10 @@ export function Grafics() {
         const hojeStr = getLocalDataString(new Date());
 
         // Configura as datas com base no botão clicado
-        if (periodo === "Hoje") {
+        if (periodo === "Especifico" && dataEspecifica) {
+          params.append("data_inicio", dataEspecifica);
+          params.append("data_fim", dataEspecifica);
+        } else if (periodo === "Hoje") {
           params.append("data_inicio", hojeStr);
           params.append("data_fim", hojeStr);
         } else if (periodo === "7 Dias") {
@@ -235,22 +241,59 @@ export function Grafics() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
           {/* BOTÕES DE PERÍODO */}
-          <div className="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl p-1 w-full sm:w-auto shadow-sm">
+          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 w-full sm:w-auto items-center gap-1 overflow-x-auto">
             {["Hoje", "7 Dias", "30 Dias", "Tudo"].map((p) => (
               <button
                 key={p}
-                onClick={() => setPeriodo(p)}
+                onClick={() => {
+                  setPeriodo(p);
+                  setDataEspecifica(""); // Limpa o calendário se escolher um atalho
+                }}
                 className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none whitespace-nowrap ${
                   periodo === p
-                    ? "bg-white text-[#4D7BAB] shadow-sm border border-slate-100"
-                    : "text-slate-500 hover:text-slate-700 bg-transparent"
+                    ? // AQUI ESTÁ A MUDANÇA: troquei bg-white por bg-blue-50
+                      "bg-blue-200 text-[#4D7BAB] shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-100 bg-transparent"
                 }`}
               >
                 {p}
               </button>
             ))}
+            {/* Separador */}
+            <div className="w-[1px] h-6 bg-slate-200 mx-2 hidden sm:block"></div>
+
+            {/* Input de Calendário com visual destacado e clique ativado */}
+            <div
+              onClick={() => dateInputRef.current?.showPicker()} // <-- Dispara a abertura do calendário
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm ${
+                periodo === "Especifico"
+                  ? // 1. COR QUANDO ESTÁ SELECIONADO (Ex: bg-blue-50 para um azul bem clarinho)
+                    "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-2 ring-[#4D7BAB]/10"
+                  : // 2. COR QUANDO NÃO ESTÁ SELECIONADO (Ex: bg-slate-100 para um cinza claro)
+                    "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
+              }`}
+            >
+              <Calendar
+                size={16}
+                className={
+                  periodo === "Especifico" ? "text-[#4D7BAB]" : "text-slate-400"
+                }
+              />
+              <input
+                ref={dateInputRef} // <-- Conecta o input à nossa referência
+                type="date"
+                value={dataEspecifica}
+                onChange={(e) => {
+                  setDataEspecifica(e.target.value);
+                  setPeriodo("Especifico");
+                }}
+                className="bg-transparent text-sm font-bold outline-none cursor-pointer w-full text-inherit"
+                // Uma dica extra: esconder o ícone padrão do navegador para não ficar com 2 ícones de calendário
+                style={{ WebkitAppearance: "none" }}
+              />
+            </div>
           </div>
 
           {/* SELETOR DE LOJAS (Apenas Admin) */}
