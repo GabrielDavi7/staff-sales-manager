@@ -210,32 +210,34 @@ export function Home() {
     { name: "Perdidas", value: vendasPerdidas, color: "#f43f5e" },
   ];
 
-  // --- NOVO: CÁLCULO DA PERFORMANCE FINANCEIRA (R$/Hora) ---
+  // --- CÁLCULO DE FLUXO E PERFORMANCE FINANCEIRA (Agrupado e Ordenado) ---
   const dataHorarioProcessado = useMemo(() => {
-    const graficoBase = data?.grafico_vendas || [];
     const tabelaBase = data?.tabela || [];
+    const agrupado = {};
 
-    return graficoBase.map((item) => {
-      // Extrai apenas a hora ("14" a partir de "14:00")
-      const horaGrafico = item.hora ? item.hora.substring(0, 2) : "";
+    tabelaBase.forEach((venda) => {
+      // Ignora se não for venda fechada ou não tiver data
+      if (!venda.venda_fechada || !venda.data_hora) return;
 
-      // Soma o valor da venda de todos os atendimentos daquela hora
-      const valorPorHora = tabelaBase
-        .filter((venda) => {
-          if (!venda.venda_fechada || !venda.data_hora) return false;
-          const horaVenda = new Date(venda.data_hora)
-            .getHours()
-            .toString()
-            .padStart(2, "0");
-          return horaVenda === horaGrafico;
-        })
-        .reduce((acc, curr) => acc + Number(curr.valor_venda || 0), 0);
+      // Pega a hora exata da venda no fuso local do navegador (ex: "09:00")
+      const horaLocal =
+        new Date(venda.data_hora).getHours().toString().padStart(2, "0") +
+        ":00";
 
-      return {
-        ...item,
-        renda: valorPorHora, // Adicionamos a propriedade "renda" com o somatório em Reais
-      };
+      // Se a hora ainda não existe no nosso objeto, cria-a zerada
+      if (!agrupado[horaLocal]) {
+        agrupado[horaLocal] = { hora: horaLocal, vendas: 0, renda: 0 };
+      }
+
+      // Soma +1 no fluxo de atendimentos e adiciona o valor financeiro
+      agrupado[horaLocal].vendas += 1;
+      agrupado[horaLocal].renda += Number(venda.valor_venda || 0);
     });
+
+    // Pega o objeto, transforma numa lista e ORDENA do menor para o maior (08 -> 23)
+    return Object.values(agrupado).sort(
+      (a, b) => parseInt(a.hora) - parseInt(b.hora),
+    );
   }, [data]);
 
   // FILTRAGEM (Como o Django já filtra as datas e lojas, aqui filtramos só a barra de pesquisa de texto)
@@ -457,7 +459,6 @@ export function Home() {
           </h3>
           <div className="h-64">
             <ResponsiveContainer>
-              {/* O Fluxo de Atendimento continua a usar "vendas" como chave (quantidade) */}
               <BarChart data={dataHorarioProcessado}>
                 <CartesianGrid
                   strokeDasharray="3 3"
@@ -490,7 +491,6 @@ export function Home() {
           </h3>
           <div className="h-64">
             <ResponsiveContainer>
-              {/* A Performance Financeira agora usa "renda" (valor em R$) */}
               <LineChart data={dataHorarioProcessado}>
                 <CartesianGrid
                   strokeDasharray="3 3"
