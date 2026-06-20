@@ -180,9 +180,18 @@ export function ExportModal({ isOpen, onClose, onExport, lojasDisponiveis }) {
             Cancelar
           </button>
           <button
-            onClick={() =>
-              onExport(exportFormat, lojaSelecionada, dataInicio, dataFim)
-            }
+            onClick={() => {
+              const lojaObj = lojasDisponiveis.find(
+                (l) => String(l.id) === String(lojaSelecionada),
+              );
+              onExport(
+                exportFormat,
+                lojaSelecionada,
+                lojaObj?.nome || "",
+                dataInicio,
+                dataFim,
+              );
+            }}
             disabled={!lojaSelecionada || !dataInicio || !dataFim}
             className="px-10 py-3 bg-[#4D7BAB] dark:bg-blue-600 text-white font-bold rounded-2xl hover:bg-[#3a5d82] dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg cursor-pointer border-none outline-none"
           >
@@ -957,16 +966,61 @@ export function Home() {
       <ExportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        onExport={(format, lojaId, exportStart, exportEnd) => {
-          const params = new URLSearchParams(window.location.search);
-          params.set("loja_id", lojaId);
-          if (exportStart) params.set("data_inicio", exportStart);
-          if (exportEnd) params.set("data_fim", exportEnd);
+        onExport={async (format, lojaId, nomeLoja, exportStart, exportEnd) => {
+          try {
+            const params = new URLSearchParams();
+            params.set("loja_id", lojaId);
+            if (exportStart) params.set("data_inicio", exportStart);
+            if (exportEnd) params.set("data_fim", exportEnd);
 
-          window.open(
-            `/api/analytics/exportar-${format}/?${params.toString()}`,
-            "_blank",
-          );
+            // 1. Fazemos a chamada segura pelo Axios (com baseURL e Token inclusos)
+            const response = await api.get(
+              `/api/analytics/exportar-${format}/?${params.toString()}`,
+              { responseType: "blob" }, // Avisa que receberá um arquivo binário
+            );
+
+            // FUNÇÃO DE FORMATAÇÃO: Remove acentos, caracteres especiais e troca espaços por _
+            const formatarNomeArquivo = (nome) => {
+              if (!nome) return `loja_${lojaId}`;
+              return nome
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase()
+                .replace(/[^a-z0-9\s_-]/g, "")
+                .trim()
+                .replace(/\s+/g, "_")
+                .replace(/-+/g, "_");
+            };
+
+            const lojaFormatada = formatarNomeArquivo(nomeLoja);
+            const dataInicioFormatada = exportStart
+              ? exportStart.replace(/-/g, "")
+              : "";
+            const dataFimFormatada = exportEnd
+              ? exportEnd.replace(/-/g, "")
+              : "";
+
+            // 2. Cria o arquivo na memória do navegador e força o download automático
+            const blob = new Blob([response.data]);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+
+            // Nome formatado bonitinho
+            link.download = `relatorio_${lojaFormatada}_${dataInicioFormatada}_a_${dataFimFormatada}.${format}`;
+
+            document.body.appendChild(link);
+            link.click();
+
+            // 3. Limpa os elementos da memória
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            // 4. Fecha o modal de exportação
+            setIsExportModalOpen(false);
+          } catch (err) {
+            console.error("Erro ao executar a exportação no frontend:", err);
+          }
         }}
         lojasDisponiveis={lojasDisponiveis}
       />
