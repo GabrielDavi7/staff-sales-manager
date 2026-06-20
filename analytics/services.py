@@ -83,6 +83,7 @@ class AnalyticsService:
             'data_hora',
             'vendedor__first_name',
             'vendedor__last_name',
+            'vendedor__loja__nome',  # adicionado para mostrar o nome da loja 20/06/2026
             'metrica__nome',
             'venda_fechada',
             'valor_venda',

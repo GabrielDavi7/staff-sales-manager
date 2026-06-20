@@ -216,31 +216,26 @@ export function Home() {
     const agrupado = {};
 
     tabelaBase.forEach((venda) => {
-      // Ignora se não for venda fechada ou não tiver data
       if (!venda.venda_fechada || !venda.data_hora) return;
 
-      // Pega a hora exata da venda no fuso local do navegador (ex: "09:00")
       const horaLocal =
         new Date(venda.data_hora).getHours().toString().padStart(2, "0") +
         ":00";
 
-      // Se a hora ainda não existe no nosso objeto, cria-a zerada
       if (!agrupado[horaLocal]) {
         agrupado[horaLocal] = { hora: horaLocal, vendas: 0, renda: 0 };
       }
 
-      // Soma +1 no fluxo de atendimentos e adiciona o valor financeiro
       agrupado[horaLocal].vendas += 1;
       agrupado[horaLocal].renda += Number(venda.valor_venda || 0);
     });
 
-    // Pega o objeto, transforma numa lista e ORDENA do menor para o maior (08 -> 23)
     return Object.values(agrupado).sort(
       (a, b) => parseInt(a.hora) - parseInt(b.hora),
     );
   }, [data]);
 
-  // FILTRAGEM (Como o Django já filtra as datas e lojas, aqui filtramos só a barra de pesquisa de texto)
+  // FILTRAGEM
   const removeAcentos = (str) => {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   };
@@ -249,6 +244,11 @@ export function Home() {
     const nomeVendedor =
       `${item.vendedor__first_name || ""} ${item.vendedor__last_name || ""}`.toLowerCase();
     const nomeCliente = (item.cliente_nome || "").toLowerCase();
+    const nomeLoja = (
+      item.loja__nome ||
+      item.vendedor__loja__nome ||
+      ""
+    ).toLowerCase();
     const statusReal = item.venda_fechada
       ? "concretizada"
       : (item.metrica__nome || "não informada").toLowerCase();
@@ -257,6 +257,7 @@ export function Home() {
     return (
       removeAcentos(nomeVendedor).includes(buscaLimpa) ||
       removeAcentos(nomeCliente).includes(buscaLimpa) ||
+      removeAcentos(nomeLoja).includes(buscaLimpa) ||
       removeAcentos(statusReal).includes(buscaLimpa)
     );
   });
@@ -565,7 +566,7 @@ export function Home() {
             />
             <input
               type="text"
-              placeholder="Pesquisar cliente, vendedor ou motivo..."
+              placeholder="Pesquisar cliente, loja, vendedor ou motivo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#4D7BAB] outline-none transition-all"
@@ -579,6 +580,7 @@ export function Home() {
               <tr>
                 <th className="px-6 py-4">Horário</th>
                 <th className="px-6 py-4">Colaborador</th>
+                <th className="px-6 py-4">Loja</th> {/* NOVA COLUNA */}
                 <th className="px-6 py-4">Cliente</th>
                 <th className="px-6 py-4">Venda</th>
                 <th className="px-6 py-4">Status</th>
@@ -589,83 +591,104 @@ export function Home() {
               {currentItems.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7} // Atualizado para 7
                     className="py-12 text-center text-slate-400 font-medium"
                   >
                     Nenhum registro encontrado.
                   </td>
                 </tr>
               ) : (
-                currentItems.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="hover:bg-blue-50/30 transition-colors group"
-                  >
-                    <td className="px-6 py-4 text-sm text-slate-500">
-                      {new Date(row.data_hora).toLocaleString("pt-BR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </td>
+                currentItems.map((row) => {
+                  const nomeDaLoja = row.loja__nome || row.vendedor__loja__nome;
+                  return (
+                    <tr
+                      key={row.id}
+                      className="hover:bg-blue-50/30 transition-colors group"
+                    >
+                      <td className="px-6 py-4 text-sm text-slate-500">
+                        {new Date(row.data_hora).toLocaleString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </td>
 
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#4D7BAB]/10 text-[#4D7BAB] flex items-center justify-center text-xs font-bold shrink-0">
-                          {row.vendedor__first_name?.[0]}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-[#4D7BAB]/10 text-[#4D7BAB] flex items-center justify-center text-xs font-bold shrink-0">
+                            {row.vendedor__first_name?.[0]}
+                          </div>
+                          <span className="text-sm font-semibold text-slate-700">
+                            {row.vendedor__first_name} {row.vendedor__last_name}
+                          </span>
                         </div>
-                        <span className="text-sm font-semibold text-slate-700">
-                          {row.vendedor__first_name} {row.vendedor__last_name}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-semibold text-slate-700">
-                      {row.cliente_nome ? (
-                        row.cliente_nome
-                      ) : (
-                        <span className="text-slate-400 italic font-normal">
-                          Não informado
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 font-bold text-slate-700 text-sm">
-                      {row.venda_fechada ? (
-                        `R$ ${Number(row.valor_venda).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                      ) : (
-                        <span className="text-slate-300">-</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={clsx(
-                          "px-3 py-1 rounded-full text-[10px] font-bold border uppercase whitespace-nowrap",
-                          getStatusColors(
-                            row.venda_fechada
-                              ? "Venda concretizada"
-                              : row.metrica__nome,
-                          ),
+                      </td>
+
+                      {/* NOVA CÉLULA: LOJA */}
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {nomeDaLoja ? (
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <Building2
+                              size={14}
+                              className="text-[#4D7BAB] opacity-70"
+                            />
+                            {nomeDaLoja}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic font-normal text-xs">
+                            Não informada
+                          </span>
                         )}
-                      >
-                        {row.venda_fechada
-                          ? "Concretizada"
-                          : row.metrica__nome || "Não informada"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => {
-                          setSelectedAtendimento(row);
-                          setIsModalOpen(true);
-                        }}
-                        className="cursor-pointer p-2 hover:bg-blue-50 rounded-full transition-colors text-[#4D7BAB]"
-                        title="Visualizar Detalhes"
-                      >
-                        <Eye size={20} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-700">
+                        {row.cliente_nome ? (
+                          row.cliente_nome
+                        ) : (
+                          <span className="text-slate-400 italic font-normal">
+                            Não informado
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 font-bold text-slate-700 text-sm">
+                        {row.venda_fechada ? (
+                          `R$ ${Number(row.valor_venda).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={clsx(
+                            "px-3 py-1 rounded-full text-[10px] font-bold border uppercase whitespace-nowrap",
+                            getStatusColors(
+                              row.venda_fechada
+                                ? "Venda concretizada"
+                                : row.metrica__nome,
+                            ),
+                          )}
+                        >
+                          {row.venda_fechada
+                            ? "Concretizada"
+                            : row.metrica__nome || "Não informada"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => {
+                            setSelectedAtendimento(row);
+                            setIsModalOpen(true);
+                          }}
+                          className="cursor-pointer p-2 hover:bg-blue-50 rounded-full transition-colors text-[#4D7BAB]"
+                          title="Visualizar Detalhes"
+                        >
+                          <Eye size={20} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -727,6 +750,13 @@ export function Home() {
                     {selectedAtendimento.vendedor__first_name}{" "}
                     {selectedAtendimento.vendedor__last_name}
                   </p>
+                  {/* Mostrar loja também no modal, opcional */}
+                  <span className="text-xs font-semibold text-slate-400 flex items-center gap-1">
+                    <Building2 size={12} />
+                    {selectedAtendimento.loja__nome ||
+                      selectedAtendimento.vendedor__loja__nome ||
+                      "Loja não informada"}
+                  </span>
                 </div>
                 <div className="space-y-1.5">
                   <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
