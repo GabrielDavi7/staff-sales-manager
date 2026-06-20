@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import api from "../../api/axios";
@@ -156,25 +156,35 @@ export function Grafics() {
   // --- PROCESSAMENTO DE DADOS ---
   const totalFaturamento = data?.kpis?.total_vendas_valor || 0;
 
-  const processadoHorario = (data?.grafico_vendas || []).map((gv) => {
-    const horaGrafico = gv.hora.substring(0, 2);
-    const rendaSomada = (data?.tabela || [])
-      .filter((t) => {
-        if (!t.venda_fechada) return false;
-        const horaTabela = new Date(t.data_hora)
-          .getHours()
-          .toString()
-          .padStart(2, "0");
-        return horaTabela === horaGrafico;
-      })
-      .reduce((acc, curr) => acc + (curr.valor_venda || 0), 0);
+  // --- CÁLCULO DE FLUXO E PERFORMANCE FINANCEIRA (Agrupado e Ordenado) ---
+  const processadoHorario = useMemo(() => {
+    const tabelaBase = data?.tabela || [];
+    const agrupado = {};
 
-    return {
-      hora: gv.hora,
-      atendimentos: gv.vendas,
-      renda: rendaSomada,
-    };
-  });
+    tabelaBase.forEach((venda) => {
+      // Ignora se não for venda fechada ou não tiver data
+      if (!venda.venda_fechada || !venda.data_hora) return;
+
+      // Pega a hora exata da venda no fuso local do navegador (ex: "09:00")
+      const horaLocal =
+        new Date(venda.data_hora).getHours().toString().padStart(2, "0") +
+        ":00";
+
+      // Se a hora ainda não existe no nosso objeto, cria-a zerada
+      if (!agrupado[horaLocal]) {
+        agrupado[horaLocal] = { hora: horaLocal, atendimentos: 0, renda: 0 };
+      }
+
+      // Soma +1 no fluxo de atendimentos e adiciona o valor financeiro
+      agrupado[horaLocal].atendimentos += 1;
+      agrupado[horaLocal].renda += Number(venda.valor_venda || 0);
+    });
+
+    // Pega o objeto, transforma numa lista e ORDENA do menor para o maior (08 -> 23)
+    return Object.values(agrupado).sort(
+      (a, b) => parseInt(a.hora) - parseInt(b.hora),
+    );
+  }, [data]);
 
   const processadoConversao = [
     {
