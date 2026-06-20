@@ -16,6 +16,10 @@ import {
   ArrowRight,
   Calendar,
   Building2,
+  FileDown,
+  FileSpreadsheet,
+  FileText,
+  Store,
 } from "lucide-react";
 import { clsx } from "clsx";
 import {
@@ -33,6 +37,162 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+
+// --- COMPONENTE DO MODAL DE EXPORTAÇÃO ---
+export function ExportModal({ isOpen, onClose, onExport, lojasDisponiveis }) {
+  const [exportFormat, setExportFormat] = useState("xlsx");
+  const [lojaSelecionada, setLojaSelecionada] = useState("");
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
+
+  const dateInicioRef = useRef(null);
+  const dateFimRef = useRef(null);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100 dark:border-slate-800 transition-colors">
+        {/* Cabeçalho */}
+        <div className="bg-slate-50 dark:bg-slate-800/80 px-10 py-8 border-b dark:border-slate-800 flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">
+              Exportar Relatório
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Selecione a loja, o formato e o período
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-3 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 transition-colors cursor-pointer border-none outline-none"
+          >
+            <X size={28} />
+          </button>
+        </div>
+
+        <div className="p-10 space-y-8">
+          {/* Seleção de Loja */}
+          <div>
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-4">
+              Loja (Obrigatório)
+            </span>
+            <div className="relative">
+              <Store
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                size={20}
+              />
+              <select
+                value={lojaSelecionada}
+                onChange={(e) => setLojaSelecionada(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-[#4D7BAB] dark:text-white text-slate-700 font-bold cursor-pointer appearance-none transition-colors"
+              >
+                <option value="">Selecione uma loja...</option>
+                {lojasDisponiveis
+                  .filter((loja) => loja.ativo === true)
+                  .map((loja) => (
+                    <option key={loja.id} value={loja.id}>
+                      {loja.nome}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Período da Exportação */}
+          <div>
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-4">
+              Período da Exportação (Obrigatório)
+            </span>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div
+                onClick={() => dateInicioRef.current?.showPicker()}
+                className="flex items-center gap-3 p-4 rounded-2xl border bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors"
+              >
+                <Calendar
+                  size={18}
+                  className="text-slate-400 dark:text-slate-500"
+                />
+                <input
+                  ref={dateInicioRef}
+                  type="date"
+                  value={dataInicio}
+                  onChange={(e) => setDataInicio(e.target.value)}
+                  className="bg-transparent outline-none cursor-pointer w-full text-slate-700 dark:text-slate-200 dark:[color-scheme:dark]"
+                />
+              </div>
+
+              <div
+                onClick={() => dateFimRef.current?.showPicker()}
+                className="flex items-center gap-3 p-4 rounded-2xl border bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors"
+              >
+                <Calendar
+                  size={18}
+                  className="text-slate-400 dark:text-slate-500"
+                />
+                <input
+                  ref={dateFimRef}
+                  type="date"
+                  min={dataInicio}
+                  value={dataFim}
+                  onChange={(e) => setDataFim(e.target.value)}
+                  className="bg-transparent outline-none cursor-pointer w-full text-slate-700 dark:text-slate-200 dark:[color-scheme:dark]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Formato */}
+          <div>
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-4">
+              Formato
+            </span>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => setExportFormat("xlsx")}
+                className={`p-5 rounded-2xl border-2 transition-all flex items-center justify-center gap-3 cursor-pointer ${
+                  exportFormat === "xlsx"
+                    ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-700 dark:text-emerald-400"
+                    : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400"
+                }`}
+              >
+                <FileSpreadsheet size={24} /> Excel (.xlsx)
+              </button>
+              <button
+                onClick={() => setExportFormat("csv")}
+                className={`p-5 rounded-2xl border-2 transition-all flex items-center justify-center gap-3 cursor-pointer ${
+                  exportFormat === "csv"
+                    ? "bg-blue-50 dark:bg-blue-900/30 border-blue-500 text-blue-700 dark:text-blue-400"
+                    : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400"
+                }`}
+              >
+                <FileText size={24} /> CSV (.csv)
+              </button>
+            </div>
+          </div>
+        </div>
+        {/* Rodapé */}
+        <div className="px-10 py-8 bg-slate-50 dark:bg-slate-800/80 border-t dark:border-slate-800 flex justify-end gap-4 transition-colors">
+          <button
+            onClick={onClose}
+            className="px-8 py-3 rounded-2xl border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() =>
+              onExport(exportFormat, lojaSelecionada, dataInicio, dataFim)
+            }
+            disabled={!lojaSelecionada || !dataInicio || !dataFim}
+            className="px-10 py-3 bg-[#4D7BAB] dark:bg-blue-600 text-white font-bold rounded-2xl hover:bg-[#3a5d82] dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg cursor-pointer border-none outline-none"
+          >
+            Exportar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // --- COMPONENTES AUXILIARES ---
 const MetricCard = ({ title, value }) => (
@@ -65,6 +225,7 @@ const getLocalDataString = (dateObj) => {
   return new Date(dateObj.getTime() - tzoffset).toISOString().slice(0, 10);
 };
 
+// --- FUNÇÃO PRINCIPAL ---
 export function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -91,6 +252,8 @@ export function Home() {
 
   const [selectedAtendimento, setSelectedAtendimento] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -302,13 +465,11 @@ export function Home() {
           </div>
         </div>
       )}
-
       {error && (
         <div className="p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-700 dark:text-rose-400 text-sm">
           <AlertCircle size={18} /> {error}
         </div>
       )}
-
       {/* Cabeçalho */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-lg border border-blue-50 dark:border-slate-800 transition-colors">
         <div className="flex items-center gap-4 shrink-0">
@@ -446,7 +607,6 @@ export function Home() {
           </Link>
         </div>
       </div>
-
       {/* Cards de Métricas */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <MetricCard
@@ -459,7 +619,6 @@ export function Home() {
         <MetricCard title="Atendimentos" value={totalAtendimentos} />
         <MetricCard title="Conversão" value={`${conversionRate}%`} />
       </div>
-
       {/* Área de Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-blue-50 dark:border-slate-800 shadow-xl transition-colors">
@@ -604,10 +763,9 @@ export function Home() {
           </div>
         </div>
       </div>
-
       {/* Listagem de Atendimentos */}
       <div className="bg-white dark:bg-slate-900 border border-blue-50 dark:border-slate-800 rounded-[2rem] shadow-xl overflow-hidden transition-colors">
-        <div className="p-6 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+        <div className="p-6 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 transition-colors">
           <div className="relative w-full sm:w-96">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -621,6 +779,15 @@ export function Home() {
               className="w-full pl-12 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-[#4D7BAB] outline-none transition-all"
             />
           </div>
+          {/* Botão de Exportação */}
+          {isAdmin && (
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              className="flex items-center gap-2 bg-[#4D7BAB] bg-[#4D7BAB] text-white px-5 py-2.5 rounded-2xl text-sm font-bold shadow-lg hover:bg-[#3a5d82] dark:hover:bg-blue-600 transition-all w-full sm:w-auto justify-center cursor-pointer border-none outline-none shrink-0"
+            >
+              <FileDown size={18} /> Exportar Dados
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -786,6 +953,23 @@ export function Home() {
           </div>
         )}
       </div>
+
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExport={(format, lojaId, exportStart, exportEnd) => {
+          const params = new URLSearchParams(window.location.search);
+          params.set("loja_id", lojaId);
+          if (exportStart) params.set("data_inicio", exportStart);
+          if (exportEnd) params.set("data_fim", exportEnd);
+
+          window.open(
+            `/api/analytics/exportar-${format}/?${params.toString()}`,
+            "_blank",
+          );
+        }}
+        lojasDisponiveis={lojasDisponiveis}
+      />
 
       {/* Modal de Detalhes */}
       {isModalOpen && selectedAtendimento && (
