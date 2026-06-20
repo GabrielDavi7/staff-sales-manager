@@ -375,11 +375,11 @@ export function Team() {
           </div>
           <div>
             <h1 className="text-3xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">
-              {isVendedor ? "Meus Indicadores" : "Equipa Comercial"}
+              {isVendedor ? "Meus Indicadores" : "Equipe Comercial"}
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               {isAdmin
-                ? "Painel de controlo analítico global"
+                ? "Painel de controle analítico global"
                 : isSupervisor
                   ? "Desempenho da sua filial física"
                   : "Acompanhamento de resultados comerciais"}

@@ -1,24 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { useTheme } from "../../contexts/ThemeContext"; // <-- IMPORTAÇÃO DO CONTEXTO DE TEMA
+import { useTheme } from "../../contexts/ThemeContext";
 import {
   LayoutDashboard,
   PlusCircle,
   Users,
   PieChart,
   LogOut,
-  Diamond,
+  TrendingUp, // <-- NOVO ÍCONE ADICIONADO AQUI
   Menu,
   X,
-  Sun, // <-- ÍCONE PARA TEMA CLARO
-  Moon, // <-- ÍCONE PARA TEMA ESCURO
+  Sun,
+  Moon,
 } from "lucide-react";
 import { clsx } from "clsx";
 
 const DashboardLayout = () => {
   const { logout, user } = useAuth();
-  const { theme, toggleTheme } = useTheme(); // <-- PUXANDO O TEMA E A FUNÇÃO DE TROCA
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -78,7 +78,6 @@ const DashboardLayout = () => {
   );
 
   return (
-    // Fundo principal já com a classe dark
     <div className="flex h-screen bg-[#F8FAFC] dark:bg-slate-950 font-sans overflow-hidden transition-colors duration-300">
       {isOpen && (
         <div
@@ -95,13 +94,19 @@ const DashboardLayout = () => {
           isOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="h-20 md:h-24 flex items-center gap-3 px-8 border-b border-slate-50 dark:border-slate-800 shrink-0">
-          <div className="p-2 bg-[#4D7BAB] rounded-xl text-white shadow-md shadow-blue-900/20">
-            <Diamond size={24} />
+        {/* LOGO SIDEBAR - NOVO DESIGN */}
+        <div className="h-20 md:h-24 flex items-center gap-3 px-8 border-b border-slate-50 dark:border-slate-800 shrink-0 select-none">
+          <div className="p-2.5 bg-gradient-to-br from-[#4D7BAB] to-blue-400 rounded-xl text-white shadow-lg shadow-blue-500/30">
+            <TrendingUp size={24} strokeWidth={2.5} />
           </div>
-          <span className="text-xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight transition-colors">
-            Joias Manager
-          </span>
+          <div className="flex flex-col justify-center">
+            <span className="text-[1.35rem] font-black bg-gradient-to-r from-slate-800 to-slate-500 dark:from-slate-100 dark:to-slate-400 bg-clip-text text-transparent tracking-tight leading-none mb-1">
+              Staff Sales
+            </span>
+            <span className="text-[0.65rem] font-black text-[#4D7BAB] dark:text-blue-400 uppercase tracking-[0.2em] leading-none">
+              Manager
+            </span>
+          </div>
         </div>
 
         <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto custom-scrollbar">
@@ -134,7 +139,6 @@ const DashboardLayout = () => {
         <div className="p-6 border-t border-slate-50 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 transition-colors">
           <div className="flex items-center gap-3 mb-6 px-2">
             <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[#4D7BAB] dark:text-blue-400 font-bold border border-blue-50 dark:border-slate-700 shrink-0">
-              {/* Usa a inicial do first_name, se não tiver, tenta o username, se não, "U" */}
               {user?.first_name
                 ? user.first_name.charAt(0).toUpperCase()
                 : user?.username
@@ -143,7 +147,6 @@ const DashboardLayout = () => {
             </div>
             <div className="flex flex-col overflow-hidden">
               <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
-                {/* Junta first_name e last_name. Se estiverem vazios, usa o username */}
                 {user?.first_name
                   ? `${user.first_name} ${user?.last_name || ""}`.trim()
                   : user?.username || "Usuário"}
@@ -180,15 +183,20 @@ const DashboardLayout = () => {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* HEADER MOBILE */}
+        {/* HEADER MOBILE - NOVO DESIGN */}
         <header className="md:hidden bg-white dark:bg-slate-900 border-b border-blue-50 dark:border-slate-800 px-6 py-4 flex items-center justify-between shadow-sm z-30 shrink-0 transition-colors">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-[#4D7BAB] rounded-lg text-white shadow-sm">
-              <Diamond size={18} />
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-gradient-to-br from-[#4D7BAB] to-blue-400 rounded-lg text-white shadow-sm shadow-blue-500/30">
+              <TrendingUp size={18} strokeWidth={2.5} />
             </div>
-            <span className="text-lg font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">
-              Joias Manager
-            </span>
+            <div className="flex flex-col justify-center">
+              <span className="text-[1.05rem] font-black bg-gradient-to-r from-slate-800 to-slate-500 dark:from-slate-100 dark:to-slate-400 bg-clip-text text-transparent tracking-tight leading-none mb-0.5">
+                Staff Sales
+              </span>
+              <span className="text-[0.55rem] font-black text-[#4D7BAB] dark:text-blue-400 uppercase tracking-[0.2em] leading-none">
+                Manager
+              </span>
+            </div>
           </div>
           <button
             onClick={toggleMenu}
