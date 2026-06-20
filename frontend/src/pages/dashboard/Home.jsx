@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import api from "../../api/axios";
@@ -210,7 +210,33 @@ export function Home() {
     { name: "Perdidas", value: vendasPerdidas, color: "#f43f5e" },
   ];
 
-  const dataHorario = data?.grafico_vendas || [];
+  // --- NOVO: CÁLCULO DA PERFORMANCE FINANCEIRA (R$/Hora) ---
+  const dataHorarioProcessado = useMemo(() => {
+    const graficoBase = data?.grafico_vendas || [];
+    const tabelaBase = data?.tabela || [];
+
+    return graficoBase.map((item) => {
+      // Extrai apenas a hora ("14" a partir de "14:00")
+      const horaGrafico = item.hora ? item.hora.substring(0, 2) : "";
+
+      // Soma o valor da venda de todos os atendimentos daquela hora
+      const valorPorHora = tabelaBase
+        .filter((venda) => {
+          if (!venda.venda_fechada || !venda.data_hora) return false;
+          const horaVenda = new Date(venda.data_hora)
+            .getHours()
+            .toString()
+            .padStart(2, "0");
+          return horaVenda === horaGrafico;
+        })
+        .reduce((acc, curr) => acc + Number(curr.valor_venda || 0), 0);
+
+      return {
+        ...item,
+        renda: valorPorHora, // Adicionamos a propriedade "renda" com o somatório em Reais
+      };
+    });
+  }, [data]);
 
   // FILTRAGEM (Como o Django já filtra as datas e lojas, aqui filtramos só a barra de pesquisa de texto)
   const removeAcentos = (str) => {
@@ -431,7 +457,8 @@ export function Home() {
           </h3>
           <div className="h-64">
             <ResponsiveContainer>
-              <BarChart data={dataHorario}>
+              {/* O Fluxo de Atendimento continua a usar "vendas" como chave (quantidade) */}
+              <BarChart data={dataHorarioProcessado}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
@@ -463,7 +490,8 @@ export function Home() {
           </h3>
           <div className="h-64">
             <ResponsiveContainer>
-              <LineChart data={dataHorario}>
+              {/* A Performance Financeira agora usa "renda" (valor em R$) */}
+              <LineChart data={dataHorarioProcessado}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
@@ -479,10 +507,14 @@ export function Home() {
                   axisLine={false}
                   tickLine={false}
                   style={{ fontSize: "12px" }}
-                  allowDecimals={false}
-                  tickFormatter={(val) => `R$${val / 1000}k`}
+                  tickFormatter={(val) => `R$${val}`}
                 />
-                <Tooltip formatter={(value) => [`R$ ${value}`, "Valor"]} />
+                <Tooltip
+                  formatter={(value) => [
+                    `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+                    "Valor Vendido",
+                  ]}
+                />
                 <Line
                   type="monotone"
                   dataKey="renda"
@@ -577,6 +609,7 @@ export function Home() {
                         minute: "2-digit",
                       })}
                     </td>
+
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-[#4D7BAB]/10 text-[#4D7BAB] flex items-center justify-center text-xs font-bold shrink-0">
