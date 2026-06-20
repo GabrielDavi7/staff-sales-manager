@@ -28,7 +28,7 @@ const Login = () => {
     setError("");
     setIsLoading(true);
 
-    // Adicionado o rememberMe como argumento para o AuthContext
+    // Adicionado o rememberMe como arguumento para o AuthContext
     const result = await login(username, password, rememberMe);
 
     if (result.success) {
@@ -112,7 +112,7 @@ const Login = () => {
                 htmlFor="username"
                 className="text-sm font-semibold text-blue-100/90 ml-1 tracking-wide"
               >
-                E-mail ou Usuário
+                E-mail do Usuário
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-blue-300/60 group-focus-within:text-[#D4AF37] transition-colors">
