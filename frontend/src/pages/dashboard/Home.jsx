@@ -12,7 +12,6 @@ import {
   AlertCircle,
   Eye,
   X,
-  ClipboardCheck,
   ArrowLeft,
   ArrowRight,
   Calendar,
@@ -37,17 +36,19 @@ import {
 
 // --- COMPONENTES AUXILIARES ---
 const MetricCard = ({ title, value }) => (
-  <div className="bg-white p-6 rounded-3xl border border-blue-50 shadow-lg shadow-blue-100/40">
-    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">
+  <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-blue-50 dark:border-slate-800 shadow-lg shadow-blue-100/40 dark:shadow-none transition-colors">
+    <h3 className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
       {title}
     </h3>
-    <p className="text-3xl font-extrabold text-[#4D7BAB]">{value}</p>
+    <p className="text-3xl font-extrabold text-[#4D7BAB] dark:text-blue-400">
+      {value}
+    </p>
   </div>
 );
 
 const getStatusColors = (status) => {
   if (!status || status === "Venda concretizada")
-    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    return "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20";
   const lower = status.toLowerCase();
   if (
     lower.includes("não") ||
@@ -55,8 +56,8 @@ const getStatusColors = (status) => {
     lower.includes("falta") ||
     lower.includes("caro")
   )
-    return "bg-rose-50 text-rose-700 border-rose-200";
-  return "bg-blue-50 text-blue-700 border-blue-200";
+    return "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/20";
+  return "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/20";
 };
 
 const getLocalDataString = (dateObj) => {
@@ -180,9 +181,7 @@ export function Home() {
     isAdmin,
   ]);
 
-  if (user?.cargo === "DISPOSITIVO") {
-    return null;
-  }
+  if (user?.cargo === "DISPOSITIVO") return null;
 
   const kpis = data?.kpis || {};
   const totalValor = kpis.total_vendas_valor || 0;
@@ -244,13 +243,11 @@ export function Home() {
     );
   });
 
-  // PAGINAÇÃO CLIENT-SIDE
   const totalPages = Math.ceil(tabelaFiltrada.length / itemsPerPage) || 1;
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = tabelaFiltrada.slice(indexOfFirstItem, indexOfLastItem);
 
-  // --- LÓGICA DE GERAÇÃO DOS NÚMEROS DE PÁGINA ---
   const getPageNumbers = () => {
     const pages = [];
     if (totalPages <= 5) {
@@ -286,7 +283,9 @@ export function Home() {
     return (
       <div className="h-[70vh] flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 border-4 border-[#4D7BAB]/30 border-t-[#4D7BAB] rounded-full animate-spin"></div>
-        <p className="text-slate-500 font-medium">Sincronizando dados...</p>
+        <p className="text-slate-500 dark:text-slate-400 font-medium">
+          Sincronizando dados...
+        </p>
       </div>
     );
   }
@@ -294,32 +293,35 @@ export function Home() {
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-8 animate-in fade-in duration-500 relative">
       {loading && data && (
-        <div className="absolute inset-0 bg-slate-50/50 backdrop-blur-[2px] z-20 rounded-3xl flex items-center justify-center">
-          <div className="bg-white p-4 rounded-full shadow-xl flex items-center gap-3">
+        <div className="absolute inset-0 bg-slate-50/50 dark:bg-slate-950/50 backdrop-blur-[2px] z-20 rounded-3xl flex items-center justify-center">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-full shadow-xl flex items-center gap-3">
             <div className="w-6 h-6 border-2 border-[#4D7BAB]/30 border-t-[#4D7BAB] rounded-full animate-spin"></div>
-            <span className="font-bold text-[#4D7BAB]">Atualizando...</span>
+            <span className="font-bold text-[#4D7BAB] dark:text-blue-400">
+              Atualizando...
+            </span>
           </div>
         </div>
       )}
 
       {error && (
-        <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-700 text-sm">
+        <div className="p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-700 dark:text-rose-400 text-sm">
           <AlertCircle size={18} /> {error}
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-6 rounded-3xl shadow-lg border border-blue-50">
+      {/* Cabeçalho */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-lg border border-blue-50 dark:border-slate-800 transition-colors">
         <div className="flex items-center gap-4 shrink-0">
-          <div className="p-3 bg-[#4D7BAB]/10 rounded-2xl text-[#4D7BAB]">
+          <div className="p-3 bg-[#4D7BAB]/10 dark:bg-[#4D7BAB]/20 rounded-2xl text-[#4D7BAB] dark:text-blue-400">
             <LayoutDashboard size={28} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
               Painel Gerencial
             </h1>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Acesso:{" "}
-              <strong className="text-[#4D7BAB] uppercase">
+              <strong className="text-[#4D7BAB] dark:text-blue-400 uppercase">
                 {user?.cargo}
               </strong>
             </p>
@@ -327,7 +329,7 @@ export function Home() {
         </div>
 
         <div className="flex flex-col xl:flex-row items-center gap-3 w-full xl:w-auto overflow-hidden">
-          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 w-full xl:w-auto items-center gap-1 overflow-x-auto custom-scrollbar">
+          <div className="flex bg-slate-50 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 w-full xl:w-auto items-center gap-1 overflow-x-auto custom-scrollbar">
             {["Hoje", "7 Dias", "30 Dias", "Tudo"].map((p) => (
               <button
                 key={p}
@@ -338,29 +340,30 @@ export function Home() {
                 }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-none outline-none whitespace-nowrap ${
                   periodo === p
-                    ? "bg-blue-200 text-[#4D7BAB] shadow-sm"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-100 bg-transparent"
+                    ? "bg-blue-200 dark:bg-[#4D7BAB] text-[#4D7BAB] dark:text-white shadow-sm"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 bg-transparent"
                 }`}
               >
                 {p}
               </button>
             ))}
 
-            <div className="w-[1px] h-5 bg-slate-200 mx-1 hidden sm:block shrink-0"></div>
+            <div className="w-[1px] h-5 bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block shrink-0"></div>
 
+            {/* Input Data Início */}
             <div
               onClick={() => dateInputInicioRef.current?.showPicker()}
               className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm shrink-0 ${
                 periodo === "Especifico" && dataInicio
-                  ? "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-1 ring-[#4D7BAB]/10"
-                  : "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
+                  ? "bg-blue-200 dark:bg-[#4D7BAB]/30 text-[#4D7BAB] dark:text-blue-400 border-[#4D7BAB]/40 ring-1 ring-[#4D7BAB]/10"
+                  : "bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
               <Calendar
                 size={14}
                 className={
                   periodo === "Especifico" && dataInicio
-                    ? "text-[#4D7BAB]"
+                    ? "text-[#4D7BAB] dark:text-blue-400"
                     : "text-slate-400"
                 }
               />
@@ -372,29 +375,29 @@ export function Home() {
                   setDataInicio(e.target.value);
                   setPeriodo("Especifico");
                 }}
-                className="bg-transparent text-xs font-bold outline-none cursor-pointer w-[95px] text-inherit"
+                className="bg-transparent text-xs font-bold outline-none cursor-pointer w-[95px] text-inherit dark:[color-scheme:dark]"
                 style={{ WebkitAppearance: "none" }}
-                title="Data Inicial"
               />
             </div>
 
-            <span className="text-slate-400 text-[10px] font-bold hidden sm:block shrink-0">
+            <span className="text-slate-400 dark:text-slate-500 text-[10px] font-bold hidden sm:block shrink-0">
               até
             </span>
 
+            {/* Input Data Fim */}
             <div
               onClick={() => dateInputFimRef.current?.showPicker()}
               className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm shrink-0 ${
                 periodo === "Especifico" && dataFim
-                  ? "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-1 ring-[#4D7BAB]/10"
-                  : "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
+                  ? "bg-blue-200 dark:bg-[#4D7BAB]/30 text-[#4D7BAB] dark:text-blue-400 border-[#4D7BAB]/40 ring-1 ring-[#4D7BAB]/10"
+                  : "bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
               <Calendar
                 size={14}
                 className={
                   periodo === "Especifico" && dataFim
-                    ? "text-[#4D7BAB]"
+                    ? "text-[#4D7BAB] dark:text-blue-400"
                     : "text-slate-400"
                 }
               />
@@ -407,9 +410,8 @@ export function Home() {
                   setDataFim(e.target.value);
                   setPeriodo("Especifico");
                 }}
-                className="bg-transparent text-xs font-bold outline-none cursor-pointer w-[95px] text-inherit"
+                className="bg-transparent text-xs font-bold outline-none cursor-pointer w-[95px] text-inherit dark:[color-scheme:dark]"
                 style={{ WebkitAppearance: "none" }}
-                title="Data Final"
               />
             </div>
           </div>
@@ -422,7 +424,7 @@ export function Home() {
               <select
                 value={lojaSelecionada}
                 onChange={(e) => setLojaSelecionada(e.target.value)}
-                className="pl-8 pr-6 py-2 w-full rounded-2xl text-xs font-bold bg-slate-50 hover:bg-slate-100 border-2 border-slate-100 text-slate-600 focus:outline-none focus:border-[#4D7BAB] transition-all cursor-pointer shadow-sm appearance-none min-w-[140px]"
+                className="pl-8 pr-6 py-2 w-full rounded-2xl text-xs font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border-2 border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-300 focus:outline-none focus:border-[#4D7BAB] dark:focus:border-blue-500 transition-all cursor-pointer shadow-sm appearance-none min-w-[140px]"
               >
                 <option value="">Todas Lojas</option>
                 {lojasDisponiveis
@@ -438,13 +440,14 @@ export function Home() {
 
           <Link
             to="/registrarvenda"
-            className="bg-[#4D7BAB] text-white hover:bg-[#3a5d82] px-5 py-2.5 rounded-2xl text-sm font-bold shadow-lg flex items-center gap-2 transition-all w-full sm:w-auto justify-center shrink-0"
+            className="bg-[#4D7BAB] text-white hover:bg-[#3a5d82] dark:hover:bg-blue-600 px-5 py-2.5 rounded-2xl text-sm font-bold shadow-lg flex items-center gap-2 transition-all w-full sm:w-auto justify-center shrink-0"
           >
             <Plus size={18} /> Novo
           </Link>
         </div>
       </div>
 
+      {/* Cards de Métricas */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <MetricCard
           title="Faturamento"
@@ -457,11 +460,15 @@ export function Home() {
         <MetricCard title="Conversão" value={`${conversionRate}%`} />
       </div>
 
+      {/* Área de Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-[2rem] border border-blue-50 shadow-xl">
-          <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
-            <BarChart3 size={18} className="text-[#4D7BAB]" /> Fluxo de
-            Atendimento
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-blue-50 dark:border-slate-800 shadow-xl transition-colors">
+          <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-6 flex items-center gap-2">
+            <BarChart3
+              size={18}
+              className="text-[#4D7BAB] dark:text-blue-400"
+            />{" "}
+            Fluxo de Atendimento
           </h3>
           <div className="h-64">
             <ResponsiveContainer>
@@ -469,29 +476,43 @@ export function Home() {
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
-                  stroke="#f1f5f9"
+                  stroke="currentColor"
+                  className="text-slate-200 dark:text-slate-700"
                 />
                 <XAxis
                   dataKey="hora"
                   axisLine={false}
                   tickLine={false}
                   style={{ fontSize: "12px" }}
+                  stroke="currentColor"
+                  className="text-slate-500 dark:text-slate-400"
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
                   style={{ fontSize: "12px" }}
                   allowDecimals={false}
+                  stroke="currentColor"
+                  className="text-slate-500 dark:text-slate-400"
                 />
-                <Tooltip cursor={{ fill: "#f8fafc" }} />
+                <Tooltip
+                  cursor={{ fill: "currentColor" }}
+                  contentStyle={{
+                    backgroundColor: "#1e293b",
+                    borderRadius: "12px",
+                    border: "none",
+                    color: "#f8fafc",
+                  }}
+                  className="dark:text-slate-800"
+                />
                 <Bar dataKey="vendas" fill="#4D7BAB" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-[2rem] border border-blue-50 shadow-xl">
-          <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-blue-50 dark:border-slate-800 shadow-xl transition-colors">
+          <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-6 flex items-center gap-2">
             <TrendingUp size={18} className="text-emerald-500" /> Performance
             Financeira
           </h3>
@@ -501,21 +522,32 @@ export function Home() {
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
-                  stroke="#f1f5f9"
+                  stroke="currentColor"
+                  className="text-slate-200 dark:text-slate-700"
                 />
                 <XAxis
                   dataKey="hora"
                   axisLine={false}
                   tickLine={false}
                   style={{ fontSize: "12px" }}
+                  stroke="currentColor"
+                  className="text-slate-500 dark:text-slate-400"
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
                   style={{ fontSize: "12px" }}
                   tickFormatter={(val) => `R$${val}`}
+                  stroke="currentColor"
+                  className="text-slate-500 dark:text-slate-400"
                 />
                 <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1e293b",
+                    borderRadius: "12px",
+                    border: "none",
+                    color: "#f8fafc",
+                  }}
                   formatter={(value) => [
                     `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
                     "Valor Vendido",
@@ -533,8 +565,8 @@ export function Home() {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-[2rem] border border-blue-50 shadow-xl">
-          <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-blue-50 dark:border-slate-800 shadow-xl transition-colors">
+          <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-6 flex items-center gap-2">
             <PieChartIcon size={18} className="text-amber-500" /> Mix de
             Conversão
           </h3>
@@ -553,16 +585,29 @@ export function Home() {
                     <Cell key={index} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend verticalAlign="bottom" height={36} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1e293b",
+                    borderRadius: "12px",
+                    border: "none",
+                    color: "#f8fafc",
+                  }}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  height={36}
+                  wrapperStyle={{ color: "currentColor" }}
+                  className="text-slate-600 dark:text-slate-300"
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      <div className="bg-white border border-blue-50 rounded-[2rem] shadow-xl overflow-hidden">
-        <div className="p-6 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
+      {/* Listagem de Atendimentos */}
+      <div className="bg-white dark:bg-slate-900 border border-blue-50 dark:border-slate-800 rounded-[2rem] shadow-xl overflow-hidden transition-colors">
+        <div className="p-6 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
           <div className="relative w-full sm:w-96">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -573,14 +618,14 @@ export function Home() {
               placeholder="Pesquisar cliente, loja, vendedor ou motivo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#4D7BAB] outline-none transition-all"
+              className="w-full pl-12 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-[#4D7BAB] outline-none transition-all"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
+            <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
               <tr>
                 <th className="px-6 py-4">Horário</th>
                 <th className="px-6 py-4">Colaborador</th>
@@ -591,7 +636,7 @@ export function Home() {
                 <th className="px-6 py-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {currentItems.length === 0 ? (
                 <tr>
                   <td
@@ -607,9 +652,9 @@ export function Home() {
                   return (
                     <tr
                       key={row.id}
-                      className="hover:bg-blue-50/30 transition-colors group"
+                      className="hover:bg-blue-50/30 dark:hover:bg-slate-800/50 transition-colors group"
                     >
-                      <td className="px-6 py-4 text-sm text-slate-500">
+                      <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
                         {new Date(row.data_hora).toLocaleString("pt-BR", {
                           day: "2-digit",
                           month: "2-digit",
@@ -617,25 +662,23 @@ export function Home() {
                           minute: "2-digit",
                         })}
                       </td>
-
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-[#4D7BAB]/10 text-[#4D7BAB] flex items-center justify-center text-xs font-bold shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-[#4D7BAB]/10 dark:bg-[#4D7BAB]/20 text-[#4D7BAB] dark:text-blue-400 flex items-center justify-center text-xs font-bold shrink-0">
                             {row.vendedor__first_name?.[0]}
                           </div>
-                          <span className="text-sm font-semibold text-slate-700">
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                             {row.vendedor__first_name} {row.vendedor__last_name}
                           </span>
                         </div>
                       </td>
-
-                      <td className="px-6 py-4 text-sm text-slate-600">
+                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
                         {nomeDaLoja ? (
                           <span className="flex items-center gap-1.5 font-medium">
                             <Building2
                               size={14}
-                              className="text-[#4D7BAB] opacity-70"
-                            />
+                              className="text-[#4D7BAB] dark:text-blue-400 opacity-70"
+                            />{" "}
                             {nomeDaLoja}
                           </span>
                         ) : (
@@ -644,8 +687,7 @@ export function Home() {
                           </span>
                         )}
                       </td>
-
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-700">
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-700 dark:text-slate-200">
                         {row.cliente_nome ? (
                           row.cliente_nome
                         ) : (
@@ -654,11 +696,13 @@ export function Home() {
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 font-bold text-slate-700 text-sm">
+                      <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-200 text-sm">
                         {row.venda_fechada ? (
                           `R$ ${Number(row.valor_venda).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
                         ) : (
-                          <span className="text-slate-300">-</span>
+                          <span className="text-slate-300 dark:text-slate-600">
+                            -
+                          </span>
                         )}
                       </td>
                       <td className="px-6 py-4">
@@ -683,8 +727,7 @@ export function Home() {
                             setSelectedAtendimento(row);
                             setIsModalOpen(true);
                           }}
-                          className="cursor-pointer p-2 hover:bg-blue-50 rounded-full transition-colors text-[#4D7BAB]"
-                          title="Visualizar Detalhes"
+                          className="cursor-pointer p-2 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-full transition-colors text-[#4D7BAB] dark:text-blue-400"
                         >
                           <Eye size={20} />
                         </button>
@@ -697,17 +740,16 @@ export function Home() {
           </table>
         </div>
 
-        {/* CONTROLES DE PAGINAÇÃO OTIMIZADOS */}
+        {/* CONTROLES DE PAGINAÇÃO */}
         {totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row justify-between items-center p-6 border-t border-slate-100 bg-slate-50/50 gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-center p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 gap-4">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-slate-500 font-bold cursor-pointer transition-all hover:bg-slate-100 border border-slate-200 shadow-sm w-full sm:w-auto justify-center"
+              className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-slate-500 dark:text-slate-400 font-bold cursor-pointer transition-all hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 shadow-sm w-full sm:w-auto justify-center"
             >
               <ArrowLeft size={18} /> Anterior
             </button>
-
             <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar max-w-full pb-1 sm:pb-0">
               {getPageNumbers().map((page, index) =>
                 page === "..." ? (
@@ -724,7 +766,7 @@ export function Home() {
                     className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all cursor-pointer shrink-0 ${
                       currentPage === page
                         ? "bg-[#4D7BAB] text-white shadow-md shadow-blue-500/20 border-none"
-                        : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-100 hover:text-slate-700"
+                        : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
                     }`}
                   >
                     {page}
@@ -732,13 +774,12 @@ export function Home() {
                 ),
               )}
             </div>
-
             <button
               onClick={() =>
                 setCurrentPage((prev) => Math.min(prev + 1, totalPages))
               }
               disabled={currentPage === totalPages}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-slate-500 font-bold cursor-pointer transition-all hover:bg-slate-100 border border-slate-200 shadow-sm w-full sm:w-auto justify-center"
+              className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-slate-500 dark:text-slate-400 font-bold cursor-pointer transition-all hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 shadow-sm w-full sm:w-auto justify-center"
             >
               Próxima <ArrowRight size={18} />
             </button>
@@ -748,20 +789,20 @@ export function Home() {
 
       {/* Modal de Detalhes */}
       {isModalOpen && selectedAtendimento && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-100">
-            <div className="bg-slate-50 px-10 py-8 border-b flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-3xl overflow-hidden border border-slate-100 dark:border-slate-800 transition-colors">
+            <div className="bg-slate-50 dark:bg-slate-800/80 px-10 py-8 border-b dark:border-slate-800 flex justify-between items-center">
               <div>
-                <h2 className="text-2xl font-black text-slate-800">
+                <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">
                   Detalhes do Atendimento
                 </h2>
-                <p className="text-base text-slate-500">
+                <p className="text-base text-slate-500 dark:text-slate-400">
                   Informações registradas no sistema
                 </p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-3 hover:bg-slate-200 rounded-full text-slate-500 transition-colors cursor-pointer border-none outline-none"
+                className="p-3 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-slate-500 dark:text-slate-400 transition-colors cursor-pointer border-none outline-none"
               >
                 <X size={28} />
               </button>
@@ -772,7 +813,7 @@ export function Home() {
                   <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
                     Vendedor
                   </span>
-                  <p className="text-lg font-bold text-slate-700">
+                  <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
                     {selectedAtendimento.vendedor__first_name}{" "}
                     {selectedAtendimento.vendedor__last_name}
                   </p>
@@ -786,12 +827,12 @@ export function Home() {
                   <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
                     Cliente
                   </span>
-                  <p className="text-lg font-bold text-slate-700">
+                  <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
                     {selectedAtendimento.cliente_nome || "Não informado"}
                   </p>
                 </div>
               </div>
-              <div className="p-8 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-6">
+              <div className="p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-6">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">
                     Status da Venda
@@ -800,7 +841,7 @@ export function Home() {
                     <div
                       className={`w-3 h-3 rounded-full ${selectedAtendimento.venda_fechada ? "bg-emerald-500" : "bg-rose-500"}`}
                     />
-                    <span className="text-lg font-extrabold text-slate-700">
+                    <span className="text-lg font-extrabold text-slate-700 dark:text-slate-200">
                       {selectedAtendimento.venda_fechada
                         ? "Concretizada"
                         : "Não Concretizada"}
@@ -813,7 +854,7 @@ export function Home() {
                       <span className="text-xs font-bold uppercase tracking-widest text-emerald-500 block mb-2">
                         Valor Final
                       </span>
-                      <p className="text-4xl font-extrabold text-emerald-600">
+                      <p className="text-4xl font-extrabold text-emerald-600 dark:text-emerald-400">
                         R${" "}
                         {Number(selectedAtendimento.valor_venda).toLocaleString(
                           "pt-BR",
@@ -826,7 +867,7 @@ export function Home() {
                       <span className="text-xs font-bold uppercase tracking-widest text-rose-500 block mb-2">
                         Motivo / Métrica
                       </span>
-                      <p className="text-xl font-black text-rose-600">
+                      <p className="text-xl font-black text-rose-600 dark:text-rose-400">
                         {selectedAtendimento.metrica__nome || "N/A"}
                       </p>
                     </>
@@ -837,21 +878,21 @@ export function Home() {
                 <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
                   Observações
                 </span>
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 text-base text-slate-600 italic leading-relaxed min-h-[120px]">
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 text-base text-slate-600 dark:text-slate-400 italic leading-relaxed min-h-[120px]">
                   {selectedAtendimento.observacoes ? (
                     selectedAtendimento.observacoes
                   ) : (
-                    <span className="text-slate-300">
+                    <span className="text-slate-300 dark:text-slate-600">
                       Nenhuma observação detalhada para este registro.
                     </span>
                   )}
                 </div>
               </div>
             </div>
-            <div className="px-10 py-8 bg-slate-50 border-t flex justify-end">
+            <div className="px-10 py-8 bg-slate-50 dark:bg-slate-800/80 border-t dark:border-slate-800 flex justify-end">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-12 py-4 bg-[#4D7BAB] text-white text-lg font-bold rounded-2xl hover:bg-[#3a5d82] transition-all shadow-lg active:scale-95 cursor-pointer border-none outline-none"
+                className="px-12 py-4 bg-[#4D7BAB] text-white text-lg font-bold rounded-2xl hover:bg-[#3a5d82] dark:hover:bg-blue-600 transition-all shadow-lg active:scale-95 cursor-pointer border-none outline-none"
               >
                 Entendido
               </button>
