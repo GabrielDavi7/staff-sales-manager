@@ -59,7 +59,6 @@ const getStatusColors = (status) => {
   return "bg-blue-50 text-blue-700 border-blue-200";
 };
 
-// Função para pegar a data formatada (YYYY-MM-DD) no fuso local
 const getLocalDataString = (dateObj) => {
   const tzoffset = dateObj.getTimezoneOffset() * 60000;
   return new Date(dateObj.getTime() - tzoffset).toISOString().slice(0, 10);
@@ -76,18 +75,15 @@ export function Home() {
 
   const isAdmin = user?.cargo?.toUpperCase() === "ADMIN";
 
-  // --- Estados para os botões de período ---
   const [periodo, setPeriodo] = useState("Hoje");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
   const dateInputInicioRef = useRef(null);
   const dateInputFimRef = useRef(null);
 
-  // --- Estados de Filtro de Loja ---
   const [lojaSelecionada, setLojaSelecionada] = useState("");
   const [lojasDisponiveis, setLojasDisponiveis] = useState([]);
 
-  // Estados para pesquisa e paginação
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -99,7 +95,6 @@ export function Home() {
     setCurrentPage(1);
   }, [search, periodo, lojaSelecionada]);
 
-  // 1. PRIMEIRA TRAVA: Redirecionamento de Dispositivo
   useEffect(() => {
     if (
       user?.cargo === "DISPOSITIVO" &&
@@ -109,10 +104,8 @@ export function Home() {
     }
   }, [user?.cargo, navigate, location.pathname]);
 
-  // 2. BUSCA A LISTA DE LOJAS (Somente para ADMIN)
   useEffect(() => {
     if (!isAdmin) return;
-
     const fetchLojas = async () => {
       try {
         const response = await api.get("/api/admin/lojas/");
@@ -122,11 +115,9 @@ export function Home() {
         console.error("Erro ao buscar lojas:", err);
       }
     };
-
     fetchLojas();
   }, [isAdmin]);
 
-  // 3. BUSCA DE DADOS NA API COM FILTROS (Data e Loja)
   useEffect(() => {
     if (!user || user?.cargo === "DISPOSITIVO") return;
 
@@ -138,7 +129,6 @@ export function Home() {
         const params = new URLSearchParams();
         const hojeStr = getLocalDataString(new Date());
 
-        // Calcula a data de início e fim baseada no botão selecionado
         if (periodo === "Especifico") {
           if (dataInicio) params.append("data_inicio", dataInicio);
           if (dataFim) params.append("data_fim", dataFim);
@@ -194,7 +184,6 @@ export function Home() {
     return null;
   }
 
-  // --- LÓGICA DE DADOS ---
   const kpis = data?.kpis || {};
   const totalValor = kpis.total_vendas_valor || 0;
   const vendasConcluidas = kpis.vendas_concluidas_count || 0;
@@ -210,14 +199,12 @@ export function Home() {
     { name: "Perdidas", value: vendasPerdidas, color: "#f43f5e" },
   ];
 
-  // --- CÁLCULO DE FLUXO E PERFORMANCE FINANCEIRA (Agrupado e Ordenado) ---
   const dataHorarioProcessado = useMemo(() => {
     const tabelaBase = data?.tabela || [];
     const agrupado = {};
 
     tabelaBase.forEach((venda) => {
       if (!venda.venda_fechada || !venda.data_hora) return;
-
       const horaLocal =
         new Date(venda.data_hora).getHours().toString().padStart(2, "0") +
         ":00";
@@ -235,7 +222,6 @@ export function Home() {
     );
   }, [data]);
 
-  // FILTRAGEM
   const removeAcentos = (str) => {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   };
@@ -244,11 +230,7 @@ export function Home() {
     const nomeVendedor =
       `${item.vendedor__first_name || ""} ${item.vendedor__last_name || ""}`.toLowerCase();
     const nomeCliente = (item.cliente_nome || "").toLowerCase();
-    const nomeLoja = (
-      item.loja__nome ||
-      item.vendedor__loja__nome ||
-      ""
-    ).toLowerCase();
+    const nomeLoja = (item.vendedor__loja__nome || "").toLowerCase();
     const statusReal = item.venda_fechada
       ? "concretizada"
       : (item.metrica__nome || "não informada").toLowerCase();
@@ -268,6 +250,38 @@ export function Home() {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = tabelaFiltrada.slice(indexOfFirstItem, indexOfLastItem);
 
+  // --- LÓGICA DE GERAÇÃO DOS NÚMEROS DE PÁGINA ---
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, "...", totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(
+          1,
+          "...",
+          totalPages - 3,
+          totalPages - 2,
+          totalPages - 1,
+          totalPages,
+        );
+      } else {
+        pages.push(
+          1,
+          "...",
+          currentPage - 1,
+          currentPage,
+          currentPage + 1,
+          "...",
+          totalPages,
+        );
+      }
+    }
+    return pages;
+  };
+
   if (loading && !data) {
     return (
       <div className="h-[70vh] flex flex-col items-center justify-center space-y-4">
@@ -279,7 +293,6 @@ export function Home() {
 
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-8 animate-in fade-in duration-500 relative">
-      {/* Loading translúcido ao trocar de data/loja */}
       {loading && data && (
         <div className="absolute inset-0 bg-slate-50/50 backdrop-blur-[2px] z-20 rounded-3xl flex items-center justify-center">
           <div className="bg-white p-4 rounded-full shadow-xl flex items-center gap-3">
@@ -295,7 +308,6 @@ export function Home() {
         </div>
       )}
 
-      {/* Cabeçalho */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-6 rounded-3xl shadow-lg border border-blue-50">
         <div className="flex items-center gap-4 shrink-0">
           <div className="p-3 bg-[#4D7BAB]/10 rounded-2xl text-[#4D7BAB]">
@@ -315,7 +327,6 @@ export function Home() {
         </div>
 
         <div className="flex flex-col xl:flex-row items-center gap-3 w-full xl:w-auto overflow-hidden">
-          {/* BOTÕES DE PERÍODO + CALENDÁRIO COMPACTOS */}
           <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 w-full xl:w-auto items-center gap-1 overflow-x-auto custom-scrollbar">
             {["Hoje", "7 Dias", "30 Dias", "Tudo"].map((p) => (
               <button
@@ -335,10 +346,8 @@ export function Home() {
               </button>
             ))}
 
-            {/* Separador */}
             <div className="w-[1px] h-5 bg-slate-200 mx-1 hidden sm:block shrink-0"></div>
 
-            {/* Input de Calendário: DATA INICIAL */}
             <div
               onClick={() => dateInputInicioRef.current?.showPicker()}
               className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm shrink-0 ${
@@ -373,7 +382,6 @@ export function Home() {
               até
             </span>
 
-            {/* Input de Calendário: DATA FINAL */}
             <div
               onClick={() => dateInputFimRef.current?.showPicker()}
               className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm shrink-0 ${
@@ -406,7 +414,6 @@ export function Home() {
             </div>
           </div>
 
-          {/* SELETOR DE LOJAS COMPACTO (Apenas Admin) */}
           {isAdmin && (
             <div className="relative w-full sm:w-auto shrink-0">
               <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
@@ -438,7 +445,6 @@ export function Home() {
         </div>
       </div>
 
-      {/* Cards de Métricas */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <MetricCard
           title="Faturamento"
@@ -451,7 +457,6 @@ export function Home() {
         <MetricCard title="Conversão" value={`${conversionRate}%`} />
       </div>
 
-      {/* Área de Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-[2rem] border border-blue-50 shadow-xl">
           <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
@@ -556,7 +561,6 @@ export function Home() {
         </div>
       </div>
 
-      {/* Listagem de Atendimentos */}
       <div className="bg-white border border-blue-50 rounded-[2rem] shadow-xl overflow-hidden">
         <div className="p-6 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
           <div className="relative w-full sm:w-96">
@@ -580,7 +584,7 @@ export function Home() {
               <tr>
                 <th className="px-6 py-4">Horário</th>
                 <th className="px-6 py-4">Colaborador</th>
-                <th className="px-6 py-4">Loja</th> {/* NOVA COLUNA */}
+                <th className="px-6 py-4">Loja</th>
                 <th className="px-6 py-4">Cliente</th>
                 <th className="px-6 py-4">Venda</th>
                 <th className="px-6 py-4">Status</th>
@@ -591,7 +595,7 @@ export function Home() {
               {currentItems.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7} // Atualizado para 7
+                    colSpan={7}
                     className="py-12 text-center text-slate-400 font-medium"
                   >
                     Nenhum registro encontrado.
@@ -599,7 +603,7 @@ export function Home() {
                 </tr>
               ) : (
                 currentItems.map((row) => {
-                  const nomeDaLoja = row.loja__nome || row.vendedor__loja__nome;
+                  const nomeDaLoja = row.vendedor__loja__nome;
                   return (
                     <tr
                       key={row.id}
@@ -625,7 +629,6 @@ export function Home() {
                         </div>
                       </td>
 
-                      {/* NOVA CÉLULA: LOJA */}
                       <td className="px-6 py-4 text-sm text-slate-600">
                         {nomeDaLoja ? (
                           <span className="flex items-center gap-1.5 font-medium">
@@ -637,7 +640,7 @@ export function Home() {
                           </span>
                         ) : (
                           <span className="text-slate-400 italic font-normal text-xs">
-                            Não informada
+                            Sem loja alocada
                           </span>
                         )}
                       </td>
@@ -694,25 +697,48 @@ export function Home() {
           </table>
         </div>
 
-        {/* CONTROLES DE PAGINAÇÃO */}
+        {/* CONTROLES DE PAGINAÇÃO OTIMIZADOS */}
         {totalPages > 1 && (
-          <div className="flex justify-between items-center p-6 border-t border-slate-100 bg-slate-50/50">
+          <div className="flex flex-col sm:flex-row justify-between items-center p-6 border-t border-slate-100 bg-slate-50/50 gap-4">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-slate-500 font-bold cursor-pointer transition-all hover:bg-slate-100 border border-slate-200 shadow-sm"
+              className="flex items-center gap-2 px-5 py-2.5 bg-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-slate-500 font-bold cursor-pointer transition-all hover:bg-slate-100 border border-slate-200 shadow-sm w-full sm:w-auto justify-center"
             >
               <ArrowLeft size={18} /> Anterior
             </button>
-            <span className="text-sm font-semibold text-slate-500">
-              Página {currentPage} de {totalPages}
-            </span>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar max-w-full pb-1 sm:pb-0">
+              {getPageNumbers().map((page, index) =>
+                page === "..." ? (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="px-3 py-2 text-slate-400 font-bold"
+                  >
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all cursor-pointer shrink-0 ${
+                      currentPage === page
+                        ? "bg-[#4D7BAB] text-white shadow-md shadow-blue-500/20 border-none"
+                        : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-100 hover:text-slate-700"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ),
+              )}
+            </div>
+
             <button
               onClick={() =>
                 setCurrentPage((prev) => Math.min(prev + 1, totalPages))
               }
               disabled={currentPage === totalPages}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-slate-500 font-bold cursor-pointer transition-all hover:bg-slate-100 border border-slate-200 shadow-sm"
+              className="flex items-center gap-2 px-5 py-2.5 bg-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-slate-500 font-bold cursor-pointer transition-all hover:bg-slate-100 border border-slate-200 shadow-sm w-full sm:w-auto justify-center"
             >
               Próxima <ArrowRight size={18} />
             </button>
@@ -750,12 +776,10 @@ export function Home() {
                     {selectedAtendimento.vendedor__first_name}{" "}
                     {selectedAtendimento.vendedor__last_name}
                   </p>
-                  {/* Mostrar loja também no modal, opcional */}
                   <span className="text-xs font-semibold text-slate-400 flex items-center gap-1">
                     <Building2 size={12} />
-                    {selectedAtendimento.loja__nome ||
-                      selectedAtendimento.vendedor__loja__nome ||
-                      "Loja não informada"}
+                    {selectedAtendimento.vendedor__loja__nome ||
+                      "Sem loja alocada"}
                   </span>
                 </div>
                 <div className="space-y-1.5">
