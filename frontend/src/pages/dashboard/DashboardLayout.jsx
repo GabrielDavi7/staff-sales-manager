@@ -134,11 +134,19 @@ const DashboardLayout = () => {
         <div className="p-6 border-t border-slate-50 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 transition-colors">
           <div className="flex items-center gap-3 mb-6 px-2">
             <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[#4D7BAB] dark:text-blue-400 font-bold border border-blue-50 dark:border-slate-700 shrink-0">
-              {user?.nome ? user.nome.charAt(0).toUpperCase() : "U"}
+              {/* Usa a inicial do first_name, se não tiver, tenta o username, se não, "U" */}
+              {user?.first_name
+                ? user.first_name.charAt(0).toUpperCase()
+                : user?.username
+                  ? user.username.charAt(0).toUpperCase()
+                  : "U"}
             </div>
             <div className="flex flex-col overflow-hidden">
               <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
-                {user?.nome || "Usuário"}
+                {/* Junta first_name e last_name. Se estiverem vazios, usa o username */}
+                {user?.first_name
+                  ? `${user.first_name} ${user?.last_name || ""}`.trim()
+                  : user?.username || "Usuário"}
               </span>
               <span className="text-xs text-slate-400 dark:text-slate-500 capitalize truncate">
                 {user?.cargo || "Administrador"}
