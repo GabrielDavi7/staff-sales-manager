@@ -75,7 +75,7 @@ const Login = () => {
 
           <div className="relative z-10 pt-10 text-xs text-blue-200/50 flex items-center gap-2 border-t border-white/5 w-full justify-center">
             <ShieldCheck size={14} className="text-[#D4AF37]/70" /> Plataforma
-            versão 1.1.0 - 26/06/2026
+            versão 1.2.0 - 26/06/2026
           </div>
         </div>
 
