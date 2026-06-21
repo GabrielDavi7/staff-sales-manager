@@ -52,42 +52,56 @@ export function Perfil() {
   const currentRole = user?.cargo?.toUpperCase() || "";
   const isVendedor = currentRole === "VENDEDOR";
 
-  // Temas Dinâmicos
+  // Temas Dinâmicos Otimizados para Dark Mode
   const roleStyles = {
     ADMIN: {
-      wrapper: "bg-rose-50 border-rose-100",
+      wrapper:
+        "bg-rose-50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/50",
       headerBg: "bg-rose-500 text-white",
-      title: "text-rose-900",
-      subtitle: "text-rose-600",
-      iconBox: "text-rose-500 border-rose-100 bg-white",
-      activeInput: "border-rose-500 text-rose-900",
-      editBtn: "bg-rose-100 text-rose-700 hover:bg-rose-200",
-      badge: "bg-rose-200 text-rose-800 border-rose-300",
+      title: "text-rose-900 dark:text-rose-400",
+      subtitle: "text-rose-600 dark:text-rose-300",
+      iconBox:
+        "text-rose-500 dark:text-rose-400 border-rose-100 dark:border-rose-800 bg-white dark:bg-slate-900",
+      activeInput:
+        "border-rose-500 dark:border-rose-400 text-rose-900 dark:text-rose-100",
+      editBtn:
+        "bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-500/40",
+      badge:
+        "bg-rose-200 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700/50",
     },
     SUPERVISOR: {
-      wrapper: "bg-amber-50 border-amber-100",
+      wrapper:
+        "bg-amber-50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/50",
       headerBg: "bg-amber-500 text-white",
-      title: "text-amber-900",
-      subtitle: "text-amber-600",
-      iconBox: "text-amber-600 border-amber-200 bg-white",
-      activeInput: "border-amber-500 text-amber-900",
-      editBtn: "bg-amber-100 text-amber-700 hover:bg-amber-200",
-      badge: "bg-amber-200 text-amber-800 border-amber-300",
+      title: "text-amber-900 dark:text-amber-400",
+      subtitle: "text-amber-600 dark:text-amber-300",
+      iconBox:
+        "text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900",
+      activeInput:
+        "border-amber-500 dark:border-amber-400 text-amber-900 dark:text-amber-100",
+      editBtn:
+        "bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-500/40",
+      badge:
+        "bg-amber-200 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/50",
     },
     VENDEDOR: {
-      wrapper: "bg-blue-50 border-blue-100",
+      wrapper:
+        "bg-blue-50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/50",
       headerBg: "bg-[#4D7BAB] text-white",
-      title: "text-blue-900",
-      subtitle: "text-blue-600",
-      iconBox: "text-[#4D7BAB] border-blue-100 bg-white",
-      activeInput: "border-[#4D7BAB] text-blue-900",
-      editBtn: "bg-blue-100 text-[#4D7BAB] hover:bg-blue-200",
-      badge: "bg-blue-200 text-blue-800 border-blue-300",
+      title: "text-blue-900 dark:text-blue-400",
+      subtitle: "text-blue-600 dark:text-blue-300",
+      iconBox:
+        "text-[#4D7BAB] dark:text-blue-400 border-blue-100 dark:border-blue-800 bg-white dark:bg-slate-900",
+      activeInput:
+        "border-[#4D7BAB] dark:border-blue-400 text-blue-900 dark:text-blue-100",
+      editBtn:
+        "bg-blue-100 dark:bg-blue-500/20 text-[#4D7BAB] dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-500/40",
+      badge:
+        "bg-blue-200 dark:bg-blue-500/20 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700/50",
     },
   };
   const theme = roleStyles[currentRole] || roleStyles.VENDEDOR;
 
-  // Busca os dados do endpoint
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -126,62 +140,41 @@ export function Perfil() {
     toggleEdit(field);
   };
 
-  // Salva dados pessoais via PUT/PATCH
   const handleSaveField = async (field) => {
     setError("");
     setSuccess("");
-
-    if (!formData[field]) {
-      setError("Este campo não pode ficar vazio.");
-      return;
-    }
-
-    if (field === "pin" && formData.pin.length !== 4) {
-      setError("O PIN deve conter exatamente 4 dígitos.");
-      return;
-    }
+    if (!formData[field]) return setError("Este campo não pode ficar vazio.");
+    if (field === "pin" && formData.pin.length !== 4)
+      return setError("O PIN deve conter exatamente 4 dígitos.");
 
     try {
       setSaving(true);
       const payload = { [field]: formData[field] };
-
       await api.patch("/api/users/user/me/", payload);
-
-      // Atualiza o contexto caso o nome seja alterado
       if (field === "first_name" || field === "last_name") {
-        if (typeof setUser === "function") {
+        if (typeof setUser === "function")
           setUser((prev) => ({ ...prev, ...payload }));
-        }
       }
-
       setSuccess("Perfil atualizado com sucesso!");
       setEditMode((prev) => ({ ...prev, [field]: false }));
     } catch (err) {
-      console.error("Erro capturado:", err);
       setError(err.response?.data?.detail || "Erro ao atualizar os dados.");
     } finally {
       setSaving(false);
     }
   };
 
-  // Salva alteração de senha
   const handleSavePassword = async () => {
     setError("");
     setSuccess("");
-
     if (
       !passwordData.current_password ||
       !passwordData.new_password ||
       !passwordData.confirm_password
-    ) {
-      setError("Preencha todos os campos de senha.");
-      return;
-    }
-
-    if (passwordData.new_password !== passwordData.confirm_password) {
-      setError("A nova senha e a confirmação não coincidem.");
-      return;
-    }
+    )
+      return setError("Preencha todos os campos de senha.");
+    if (passwordData.new_password !== passwordData.confirm_password)
+      return setError("A nova senha e a confirmação não coincidem.");
 
     try {
       setSaving(true);
@@ -189,9 +182,7 @@ export function Perfil() {
         current_password: passwordData.current_password,
         new_password: passwordData.new_password,
       };
-
       await api.patch("/api/users/user/me/", payload);
-
       setSuccess("Senha atualizada com sucesso!");
       setPasswordData({
         current_password: "",
@@ -213,8 +204,13 @@ export function Perfil() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-        <Loader2 className="animate-spin text-[#4D7BAB]" size={48} />
-        <p className="text-slate-500 font-medium">Carregando seus dados...</p>
+        <Loader2
+          className="animate-spin text-[#4D7BAB] dark:text-blue-500"
+          size={48}
+        />
+        <p className="text-slate-500 dark:text-slate-400 font-medium">
+          Carregando seus dados...
+        </p>
       </div>
     );
   }
@@ -223,12 +219,12 @@ export function Perfil() {
     <div className="max-w-4xl mx-auto py-8 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div
         className={clsx(
-          "rounded-[2.5rem] shadow-2xl border overflow-hidden",
+          "rounded-[2.5rem] shadow-2xl border overflow-hidden transition-colors",
           theme.wrapper,
         )}
       >
         {/* Cabeçalho */}
-        <div className="px-10 py-8 border-b border-white/40 flex items-center gap-5">
+        <div className="px-10 py-8 border-b border-white/40 dark:border-slate-800 flex items-center gap-5">
           <div className={clsx("p-4 rounded-2xl shadow-lg", theme.headerBg)}>
             <User size={32} />
           </div>
@@ -261,12 +257,12 @@ export function Perfil() {
 
         {/* Alertas */}
         {error && (
-          <div className="mx-10 mt-6 p-4 bg-white/60 border border-rose-200 text-rose-700 rounded-2xl font-bold flex items-center gap-3 backdrop-blur-sm">
+          <div className="mx-10 mt-6 p-4 bg-white/60 dark:bg-slate-900 border border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-400 rounded-2xl font-bold flex items-center gap-3 backdrop-blur-sm transition-colors">
             <AlertCircle size={20} /> {error}
           </div>
         )}
         {success && (
-          <div className="mx-10 mt-6 p-4 bg-white/60 border border-emerald-200 text-emerald-700 rounded-2xl font-bold flex items-center gap-3 backdrop-blur-sm">
+          <div className="mx-10 mt-6 p-4 bg-white/60 dark:bg-slate-900 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-2xl font-bold flex items-center gap-3 backdrop-blur-sm transition-colors">
             <ClipboardCheck size={20} /> {success}
           </div>
         )}
@@ -274,7 +270,7 @@ export function Perfil() {
         {/* Formulário / Grid */}
         <div className="p-10 space-y-5">
           {/* NOME */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 dark:bg-slate-900/50 border border-white/50 dark:border-slate-800 shadow-sm transition-colors">
             <div className="flex items-center gap-4 flex-1">
               <div
                 className={clsx(
@@ -301,7 +297,7 @@ export function Perfil() {
                     setFormData({ ...formData, first_name: e.target.value })
                   }
                   className={clsx(
-                    "w-full bg-transparent font-bold outline-none transition-all text-lg text-slate-800",
+                    "w-full bg-transparent font-bold outline-none transition-all text-lg text-slate-800 dark:text-slate-100",
                     editMode.first_name &&
                       `border-b-2 pb-0.5 ${theme.activeInput}`,
                   )}
@@ -320,7 +316,7 @@ export function Perfil() {
                   </button>
                   <button
                     onClick={() => handleCancel("first_name")}
-                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300"
+                    className="p-2.5 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700"
                   >
                     <X size={18} />
                   </button>
@@ -340,7 +336,7 @@ export function Perfil() {
           </div>
 
           {/* SOBRENOME */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 dark:bg-slate-900/50 border border-white/50 dark:border-slate-800 shadow-sm transition-colors">
             <div className="flex items-center gap-4 flex-1">
               <div
                 className={clsx(
@@ -367,7 +363,7 @@ export function Perfil() {
                     setFormData({ ...formData, last_name: e.target.value })
                   }
                   className={clsx(
-                    "w-full bg-transparent font-bold outline-none transition-all text-lg text-slate-800",
+                    "w-full bg-transparent font-bold outline-none transition-all text-lg text-slate-800 dark:text-slate-100",
                     editMode.last_name &&
                       `border-b-2 pb-0.5 ${theme.activeInput}`,
                   )}
@@ -386,7 +382,7 @@ export function Perfil() {
                   </button>
                   <button
                     onClick={() => handleCancel("last_name")}
-                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300"
+                    className="p-2.5 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700"
                   >
                     <X size={18} />
                   </button>
@@ -406,7 +402,7 @@ export function Perfil() {
           </div>
 
           {/* E-MAIL */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 dark:bg-slate-900/50 border border-white/50 dark:border-slate-800 shadow-sm transition-colors">
             <div className="flex items-center gap-4 flex-1">
               <div
                 className={clsx(
@@ -433,7 +429,7 @@ export function Perfil() {
                     setFormData({ ...formData, email: e.target.value })
                   }
                   className={clsx(
-                    "w-full bg-transparent font-bold outline-none transition-all text-lg text-slate-800",
+                    "w-full bg-transparent font-bold outline-none transition-all text-lg text-slate-800 dark:text-slate-100",
                     editMode.email && `border-b-2 pb-0.5 ${theme.activeInput}`,
                   )}
                 />
@@ -451,7 +447,7 @@ export function Perfil() {
                   </button>
                   <button
                     onClick={() => handleCancel("email")}
-                    className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300"
+                    className="p-2.5 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700"
                   >
                     <X size={18} />
                   </button>
@@ -470,9 +466,9 @@ export function Perfil() {
             </div>
           </div>
 
-          {/* PIN (EXCLUSIVO PARA VENDEDOR) */}
+          {/* PIN */}
           {isVendedor && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/60 dark:bg-slate-900/50 border border-white/50 dark:border-slate-800 shadow-sm transition-colors">
               <div className="flex items-center gap-4 flex-1">
                 <div
                   className={clsx(
@@ -503,14 +499,14 @@ export function Perfil() {
                       })
                     }
                     className={clsx(
-                      "w-full bg-transparent font-mono font-bold outline-none transition-all text-lg tracking-widest text-slate-800",
+                      "w-full bg-transparent font-mono font-bold outline-none transition-all text-lg tracking-widest text-slate-800 dark:text-slate-100",
                       editMode.pin && `border-b-2 pb-0.5 ${theme.activeInput}`,
                     )}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPin(!showPin)}
-                    className="absolute right-2 top-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-2 top-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                   >
                     {showPin ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -528,7 +524,7 @@ export function Perfil() {
                     </button>
                     <button
                       onClick={() => handleCancel("pin")}
-                      className="p-2.5 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300"
+                      className="p-2.5 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700"
                     >
                       <X size={18} />
                     </button>
@@ -548,8 +544,8 @@ export function Perfil() {
             </div>
           )}
 
-          {/* ALTERAÇÃO DE SENHA (MODAL INLINE) */}
-          <div className="p-4 rounded-2xl bg-white/60 border border-white/50 shadow-sm transition-all duration-300">
+          {/* ALTERAÇÃO DE SENHA */}
+          <div className="p-4 rounded-2xl bg-white/60 dark:bg-slate-900/50 border border-white/50 dark:border-slate-800 shadow-sm transition-colors duration-300">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div
@@ -561,7 +557,7 @@ export function Perfil() {
                   <KeyRound size={20} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800 text-lg">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">
                     Alterar Senha
                   </h3>
                   <p
@@ -587,18 +583,13 @@ export function Perfil() {
               )}
             </div>
 
-            {/* Sub-formulário de Senha */}
             {editMode.senha && (
-              <div className="mt-6 space-y-4 pt-6 border-t border-slate-200/50 animate-in fade-in slide-in-from-top-4">
+              <div className="mt-6 space-y-4 pt-6 border-t border-slate-200/50 dark:border-slate-800 animate-in fade-in slide-in-from-top-4">
                 <div className="relative">
-                  <label
-                    htmlFor="current_password"
-                    className="block text-xs font-bold text-slate-500 mb-1"
-                  >
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
                     Senha Atual
                   </label>
                   <input
-                    id="current_password"
                     type={showSenha ? "text" : "password"}
                     value={passwordData.current_password}
                     onChange={(e) =>
@@ -608,21 +599,17 @@ export function Perfil() {
                       })
                     }
                     className={clsx(
-                      "w-full p-3 rounded-xl bg-white border outline-none font-bold text-slate-700",
+                      "w-full p-3 rounded-xl bg-white dark:bg-slate-900 border dark:border-slate-700 outline-none font-bold text-slate-700 dark:text-slate-200",
                       theme.activeInput,
                     )}
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="relative">
-                    <label
-                      htmlFor="new_password"
-                      className="block text-xs font-bold text-slate-500 mb-1"
-                    >
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
                       Nova Senha
                     </label>
                     <input
-                      id="new_password"
                       type={showSenha ? "text" : "password"}
                       value={passwordData.new_password}
                       onChange={(e) =>
@@ -632,20 +619,16 @@ export function Perfil() {
                         })
                       }
                       className={clsx(
-                        "w-full p-3 rounded-xl bg-white border outline-none font-bold text-slate-700",
+                        "w-full p-3 rounded-xl bg-white dark:bg-slate-900 border dark:border-slate-700 outline-none font-bold text-slate-700 dark:text-slate-200",
                         theme.activeInput,
                       )}
                     />
                   </div>
                   <div className="relative">
-                    <label
-                      htmlFor="confirm_password"
-                      className="block text-xs font-bold text-slate-500 mb-1"
-                    >
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
                       Confirmar Nova Senha
                     </label>
                     <input
-                      id="confirm_password"
                       type={showSenha ? "text" : "password"}
                       value={passwordData.confirm_password}
                       onChange={(e) =>
@@ -655,7 +638,7 @@ export function Perfil() {
                         })
                       }
                       className={clsx(
-                        "w-full p-3 rounded-xl bg-white border outline-none font-bold text-slate-700",
+                        "w-full p-3 rounded-xl bg-white dark:bg-slate-900 border dark:border-slate-700 outline-none font-bold text-slate-700 dark:text-slate-200",
                         theme.activeInput,
                       )}
                     />
@@ -665,7 +648,7 @@ export function Perfil() {
                   <button
                     type="button"
                     onClick={() => setShowSenha(!showSenha)}
-                    className="text-sm font-bold text-slate-500 flex items-center gap-2 hover:text-slate-700"
+                    className="text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2 hover:text-slate-700 dark:hover:text-slate-300"
                   >
                     {showSenha ? (
                       <>
@@ -680,7 +663,7 @@ export function Perfil() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleCancel("senha")}
-                      className="px-4 py-2 bg-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-300"
+                      className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold hover:bg-slate-300 dark:hover:bg-slate-700"
                     >
                       Cancelar
                     </button>
@@ -699,7 +682,7 @@ export function Perfil() {
         </div>
 
         {saving && (
-          <div className="px-10 py-4 bg-white/40 border-t border-white/40 flex items-center justify-center gap-2 text-slate-600 font-bold text-sm">
+          <div className="px-10 py-4 bg-white/40 dark:bg-slate-900/40 border-t border-white/40 dark:border-slate-800 flex items-center justify-center gap-2 text-slate-600 dark:text-slate-400 font-bold text-sm transition-colors">
             <Loader2 className="animate-spin" size={16} /> Salvando
             alterações...
           </div>
