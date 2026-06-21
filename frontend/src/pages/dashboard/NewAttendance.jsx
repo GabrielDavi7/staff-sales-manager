@@ -325,15 +325,18 @@ const NewAttendance = () => {
             <div className="max-w-2xl mx-auto w-full space-y-8">
               {formData.vendaFechada ? (
                 <div className="space-y-6">
-                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-3xl p-8 border-2 border-emerald-200 shadow-sm">
+                  {/* Classes dark adicionadas aqui para o container de faturamento */}
+                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 rounded-3xl p-8 border-2 border-emerald-200 dark:border-emerald-500/30 shadow-sm transition-colors">
                     <div className="flex items-baseline gap-3">
-                      <span className="text-3xl font-bold text-emerald-600">R$</span>
+                      <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                        R$
+                      </span>
                       <input
                         type="text"
                         inputMode="decimal"
                         autoFocus
                         placeholder="0,00"
-                        className="flex-1 text-5xl font-bold bg-transparent outline-none text-slate-900 placeholder-slate-300"
+                        className="flex-1 text-5xl font-bold bg-transparent outline-none text-slate-900 dark:text-emerald-50 placeholder-slate-300 dark:placeholder-emerald-700/50"
                         value={formData.valor}
                         onChange={(e) => {
                           const novoValor = normalizarValorBRL(e.target.value);
@@ -352,8 +355,8 @@ const NewAttendance = () => {
                       />
                     </div>
                     {formData.valor && (
-                      <div className="mt-4 pt-4 border-t border-emerald-200">
-                        <p className="text-sm text-emerald-600 font-medium">
+                      <div className="mt-4 pt-4 border-t border-emerald-200 dark:border-emerald-500/30">
+                        <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
                           ✓ Valor válido
                         </p>
                       </div>
