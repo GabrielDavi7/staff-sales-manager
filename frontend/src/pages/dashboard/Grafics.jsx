@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import api from "../../api/axios";
@@ -6,7 +6,6 @@ import {
   PieChart as PieChartIcon,
   BarChart3,
   TrendingUp,
-  Download,
   AlertCircle,
   Building2,
   MessageSquareX,
@@ -28,7 +27,6 @@ import {
   Legend,
 } from "recharts";
 
-// Função para formatar a data local (YYYY-MM-DD)
 const getLocalDataString = (dateObj) => {
   const tzoffset = dateObj.getTimezoneOffset() * 60000;
   return new Date(dateObj.getTime() - tzoffset).toISOString().slice(0, 10);
@@ -39,25 +37,21 @@ export function Grafics() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Estados de Filtro (Botões de Período)
   const [periodo, setPeriodo] = useState("Hoje");
   const [lojaSelecionada, setLojaSelecionada] = useState("");
   const [lojasDisponiveis, setLojasDisponiveis] = useState([]);
 
-  // Estados para o intervalo de datas
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
   const dateInputInicioRef = useRef(null);
   const dateInputFimRef = useRef(null);
 
-  // Estados de Dados
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const isAdmin = user?.cargo?.toUpperCase() === "ADMIN";
 
-  // 1. TRAVA DE SEGURANÇA: Dispositivo não acessa gráficos
   useEffect(() => {
     if (
       user?.cargo === "DISPOSITIVO" &&
@@ -67,10 +61,8 @@ export function Grafics() {
     }
   }, [user?.cargo, navigate, location.pathname]);
 
-  // 2. BUSCA A LISTA DE LOJAS (Somente para ADMIN)
   useEffect(() => {
     if (!isAdmin) return;
-
     const fetchLojas = async () => {
       try {
         const response = await api.get("/api/admin/lojas/");
@@ -80,11 +72,9 @@ export function Grafics() {
         console.error("Erro ao buscar lojas:", err);
       }
     };
-
     fetchLojas();
   }, [isAdmin]);
 
-  // 3. BUSCA DE DADOS NA API COM FILTRO DE PERÍODO
   useEffect(() => {
     if (!user || user?.cargo === "DISPOSITIVO") return;
 
@@ -96,9 +86,7 @@ export function Grafics() {
         const params = new URLSearchParams();
         const hojeStr = getLocalDataString(new Date());
 
-        // Configura as datas com base no botão clicado
         if (periodo === "Especifico") {
-          // Se o utilizador preencher ambos ou apenas um dos lados do intervalo
           if (dataInicio) params.append("data_inicio", dataInicio);
           if (dataFim) params.append("data_fim", dataFim);
         } else if (periodo === "Hoje") {
@@ -115,7 +103,6 @@ export function Grafics() {
           params.append("data_inicio", getLocalDataString(limit));
           params.append("data_fim", hojeStr);
         }
-        // Se for "Tudo", não envia datas, e o backend traz todo o histórico.
 
         let endpoint = "";
 
@@ -153,28 +140,28 @@ export function Grafics() {
 
   if (user?.cargo === "DISPOSITIVO") return null;
 
-  // --- PROCESSAMENTO DE DADOS ---
   const totalFaturamento = data?.kpis?.total_vendas_valor || 0;
 
-  const processadoHorario = (data?.grafico_vendas || []).map((gv) => {
-    const horaGrafico = gv.hora.substring(0, 2);
-    const rendaSomada = (data?.tabela || [])
-      .filter((t) => {
-        if (!t.venda_fechada) return false;
-        const horaTabela = new Date(t.data_hora)
-          .getHours()
-          .toString()
-          .padStart(2, "0");
-        return horaTabela === horaGrafico;
-      })
-      .reduce((acc, curr) => acc + (curr.valor_venda || 0), 0);
+  const processadoHorario = useMemo(() => {
+    const tabelaBase = data?.tabela || [];
+    const agrupado = {};
 
-    return {
-      hora: gv.hora,
-      atendimentos: gv.vendas,
-      renda: rendaSomada,
-    };
-  });
+    tabelaBase.forEach((venda) => {
+      if (!venda.venda_fechada || !venda.data_hora) return;
+      const horaLocal =
+        new Date(venda.data_hora).getHours().toString().padStart(2, "0") +
+        ":00";
+      if (!agrupado[horaLocal]) {
+        agrupado[horaLocal] = { hora: horaLocal, atendimentos: 0, renda: 0 };
+      }
+      agrupado[horaLocal].atendimentos += 1;
+      agrupado[horaLocal].renda += Number(venda.valor_venda || 0);
+    });
+
+    return Object.values(agrupado).sort(
+      (a, b) => parseInt(a.hora) - parseInt(b.hora),
+    );
+  }, [data]);
 
   const processadoConversao = [
     {
@@ -208,7 +195,7 @@ export function Grafics() {
     return (
       <div className="h-[70vh] flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 border-4 border-[#4D7BAB]/30 border-t-[#4D7BAB] rounded-full animate-spin"></div>
-        <p className="text-slate-500 font-medium">
+        <p className="text-slate-500 dark:text-slate-400 font-medium">
           Processando gráficos detalhados...
         </p>
       </div>
@@ -217,12 +204,11 @@ export function Grafics() {
 
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
-      {/* Overlay translúcido de carregamento */}
       {loading && data && (
-        <div className="absolute inset-0 bg-slate-50/50 backdrop-blur-[2px] z-20 rounded-3xl flex items-center justify-center">
-          <div className="bg-white p-4 rounded-full shadow-xl flex items-center gap-3">
+        <div className="absolute inset-0 bg-slate-50/50 dark:bg-slate-950/50 backdrop-blur-[2px] z-20 rounded-3xl flex items-center justify-center">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-full shadow-xl flex items-center gap-3">
             <div className="w-6 h-6 border-2 border-[#4D7BAB]/30 border-t-[#4D7BAB] rounded-full animate-spin"></div>
-            <span className="font-bold text-[#4D7BAB]">
+            <span className="font-bold text-[#4D7BAB] dark:text-blue-400">
               Atualizando Gráficos...
             </span>
           </div>
@@ -230,24 +216,24 @@ export function Grafics() {
       )}
 
       {error && (
-        <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-700 text-sm">
+        <div className="p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-700 dark:text-rose-400 text-sm">
           <AlertCircle size={18} /> {error}
         </div>
       )}
 
       {/* Cabeçalho */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-6 rounded-[2rem] shadow-xl shadow-blue-100/40 border border-blue-50">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-xl shadow-blue-100/40 dark:shadow-none border border-blue-50 dark:border-slate-800 transition-colors">
         <div className="flex items-center gap-4 shrink-0">
-          <div className="p-3 bg-[#4D7BAB]/10 rounded-2xl text-[#4D7BAB]">
+          <div className="p-3 bg-[#4D7BAB]/10 dark:bg-[#4D7BAB]/20 rounded-2xl text-[#4D7BAB] dark:text-blue-400">
             <PieChartIcon size={28} strokeWidth={2} />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">
+            <h1 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">
               Gráficos Lojas
             </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Visão:{" "}
-              <strong className="uppercase text-[#4D7BAB]">
+              <strong className="uppercase text-[#4D7BAB] dark:text-blue-400">
                 {user?.cargo}
               </strong>
             </p>
@@ -255,8 +241,7 @@ export function Grafics() {
         </div>
 
         <div className="flex flex-col xl:flex-row items-center gap-3 w-full xl:w-auto overflow-hidden">
-          {/* BOTÕES DE PERÍODO + CALENDÁRIO COMPACTOS */}
-          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 w-full xl:w-auto items-center gap-1 overflow-x-auto custom-scrollbar">
+          <div className="flex bg-slate-50 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 w-full xl:w-auto items-center gap-1 overflow-x-auto custom-scrollbar">
             {["Hoje", "7 Dias", "30 Dias", "Tudo"].map((p) => (
               <button
                 key={p}
@@ -267,31 +252,29 @@ export function Grafics() {
                 }}
                 className={`px-4 py-1.5 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none whitespace-nowrap ${
                   periodo === p
-                    ? "bg-blue-200 text-[#4D7BAB] shadow-sm"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-100 bg-transparent"
+                    ? "bg-blue-200 dark:bg-[#4D7BAB] text-[#4D7BAB] dark:text-white shadow-sm"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 bg-transparent"
                 }`}
               >
                 {p}
               </button>
             ))}
 
-            {/* Separador */}
-            <div className="w-[1px] h-5 bg-slate-200 mx-1 hidden sm:block shrink-0"></div>
+            <div className="w-[1px] h-5 bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block shrink-0"></div>
 
-            {/* Input de Calendário: DATA INICIAL */}
             <div
               onClick={() => dateInputInicioRef.current?.showPicker()}
               className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm shrink-0 ${
                 periodo === "Especifico" && dataInicio
-                  ? "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-1 ring-[#4D7BAB]/10"
-                  : "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
+                  ? "bg-blue-200 dark:bg-[#4D7BAB]/30 text-[#4D7BAB] dark:text-blue-400 border-[#4D7BAB]/40 ring-1 ring-[#4D7BAB]/10"
+                  : "bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
               <Calendar
                 size={16}
                 className={
                   periodo === "Especifico" && dataInicio
-                    ? "text-[#4D7BAB]"
+                    ? "text-[#4D7BAB] dark:text-blue-400"
                     : "text-slate-400"
                 }
               />
@@ -303,30 +286,28 @@ export function Grafics() {
                   setDataInicio(e.target.value);
                   setPeriodo("Especifico");
                 }}
-                className="bg-transparent text-xs font-bold outline-none cursor-pointer w-[110px] text-inherit"
+                className="bg-transparent text-xs font-bold outline-none cursor-pointer w-[110px] text-inherit dark:[color-scheme:dark]"
                 style={{ WebkitAppearance: "none" }}
-                title="Data Inicial"
               />
             </div>
 
-            <span className="text-slate-400 text-[10px] font-bold hidden sm:block shrink-0">
+            <span className="text-slate-400 dark:text-slate-500 text-[10px] font-bold hidden sm:block shrink-0">
               até
             </span>
 
-            {/* Input de Calendário: DATA FINAL */}
             <div
               onClick={() => dateInputFimRef.current?.showPicker()}
               className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm shrink-0 ${
                 periodo === "Especifico" && dataFim
-                  ? "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-1 ring-[#4D7BAB]/10"
-                  : "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
+                  ? "bg-blue-200 dark:bg-[#4D7BAB]/30 text-[#4D7BAB] dark:text-blue-400 border-[#4D7BAB]/40 ring-1 ring-[#4D7BAB]/10"
+                  : "bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
               <Calendar
                 size={16}
                 className={
                   periodo === "Especifico" && dataFim
-                    ? "text-[#4D7BAB]"
+                    ? "text-[#4D7BAB] dark:text-blue-400"
                     : "text-slate-400"
                 }
               />
@@ -339,14 +320,12 @@ export function Grafics() {
                   setDataFim(e.target.value);
                   setPeriodo("Especifico");
                 }}
-                className="bg-transparent text-xs font-bold outline-none cursor-pointer w-[95px] text-inherit"
+                className="bg-transparent text-xs font-bold outline-none cursor-pointer w-[95px] text-inherit dark:[color-scheme:dark]"
                 style={{ WebkitAppearance: "none" }}
-                title="Data Final"
               />
             </div>
           </div>
 
-          {/* SELETOR DE LOJAS COMPACTO (Apenas Admin) */}
           {isAdmin && (
             <div className="relative w-full sm:w-auto shrink-0">
               <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
@@ -355,7 +334,7 @@ export function Grafics() {
               <select
                 value={lojaSelecionada}
                 onChange={(e) => setLojaSelecionada(e.target.value)}
-                className="pl-8 pr-6 py-2 w-full rounded-2xl text-xs font-bold bg-slate-50 hover:bg-slate-100 border-2 border-slate-100 text-slate-600 focus:outline-none focus:border-[#4D7BAB] transition-all cursor-pointer shadow-sm appearance-none min-w-[140px]"
+                className="pl-8 pr-6 py-2 w-full rounded-2xl text-xs font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border-2 border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-300 focus:outline-none focus:border-[#4D7BAB] dark:focus:border-blue-500 transition-all cursor-pointer shadow-sm appearance-none min-w-[140px]"
               >
                 <option value="">Todas Lojas</option>
                 {lojasDisponiveis
@@ -372,23 +351,23 @@ export function Grafics() {
       </div>
 
       {/* Faturamento (Linha) */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-blue-50 shadow-2xl shadow-blue-100/30">
+      <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-blue-50 dark:border-slate-800 shadow-2xl shadow-blue-100/30 dark:shadow-none transition-colors">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl">
               <TrendingUp size={24} />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-slate-800">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
                 Evolução do Faturamento
               </h3>
             </div>
           </div>
           <div className="text-right">
-            <p className="text-sm font-bold text-slate-400 uppercase">
+            <p className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase">
               Total do Período
             </p>
-            <p className="text-3xl font-extrabold text-emerald-600">
+            <p className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">
               {new Intl.NumberFormat("pt-BR", {
                 style: "currency",
                 currency: "BRL",
@@ -406,31 +385,33 @@ export function Grafics() {
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
-                stroke="#f1f5f9"
+                stroke="currentColor"
+                className="text-slate-200 dark:text-slate-700"
               />
               <XAxis
                 dataKey="hora"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 14, fill: "#64748b" }}
+                tick={{ fontSize: 14 }}
+                stroke="currentColor"
+                className="text-slate-500 dark:text-slate-400"
                 dy={15}
               />
               <YAxis
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 14, fill: "#64748b" }}
+                tick={{ fontSize: 14 }}
                 tickFormatter={(val) => `R$${val / 1000}k`}
+                stroke="currentColor"
+                className="text-slate-500 dark:text-slate-400"
               />
               <Tooltip
-                cursor={{
-                  stroke: "#cbd5e1",
-                  strokeWidth: 2,
-                  strokeDasharray: "4 4",
-                }}
                 contentStyle={{
+                  backgroundColor: "#1e293b",
                   borderRadius: "16px",
                   border: "none",
-                  boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+                  color: "#f8fafc",
+                  boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.5)",
                 }}
                 formatter={(value) => [
                   `R$ ${value.toLocaleString("pt-BR")}`,
@@ -452,13 +433,13 @@ export function Grafics() {
 
       {/* Barras e Pizzas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-8 rounded-[2.5rem] border border-blue-50 shadow-2xl shadow-blue-100/30">
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-blue-50 dark:border-slate-800 shadow-2xl shadow-blue-100/30 dark:shadow-none transition-colors">
           <div className="flex items-center gap-3 mb-8">
-            <div className="p-3 bg-blue-50 text-[#4D7BAB] rounded-xl">
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-[#4D7BAB] dark:text-blue-400 rounded-xl">
               <BarChart3 size={24} />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-slate-800">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
                 Fluxo de Clientes
               </h3>
             </div>
@@ -472,27 +453,34 @@ export function Grafics() {
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
-                  stroke="#f1f5f9"
+                  stroke="currentColor"
+                  className="text-slate-200 dark:text-slate-700"
                 />
                 <XAxis
                   dataKey="hora"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 12, fill: "#64748b" }}
+                  tick={{ fontSize: 12 }}
+                  stroke="currentColor"
+                  className="text-slate-500 dark:text-slate-400"
                   dy={10}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 12, fill: "#64748b" }}
+                  tick={{ fontSize: 12 }}
+                  stroke="currentColor"
+                  className="text-slate-500 dark:text-slate-400"
                 />
                 <Tooltip
-                  cursor={{ fill: "#f8fafc" }}
+                  cursor={{ fill: "currentColor" }}
                   contentStyle={{
+                    backgroundColor: "#1e293b",
                     borderRadius: "16px",
                     border: "none",
-                    boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+                    color: "#f8fafc",
                   }}
+                  className="dark:text-slate-800"
                 />
                 <Bar
                   dataKey="atendimentos"
@@ -506,13 +494,13 @@ export function Grafics() {
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-[2.5rem] border border-blue-50 shadow-2xl shadow-blue-100/30 flex flex-col">
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-blue-50 dark:border-slate-800 shadow-2xl shadow-blue-100/30 dark:shadow-none flex flex-col transition-colors">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
+            <div className="p-3 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl">
               <MessageSquareX size={24} />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-slate-800">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
                 Conversão e Perdas
               </h3>
             </div>
@@ -538,23 +526,25 @@ export function Grafics() {
                   </Pie>
                   <Tooltip
                     contentStyle={{
+                      backgroundColor: "#1e293b",
                       borderRadius: "12px",
                       border: "none",
-                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                      color: "#f8fafc",
                     }}
                   />
                   <Legend
                     verticalAlign="bottom"
                     height={30}
                     iconType="circle"
-                    wrapperStyle={{ fontSize: "12px" }}
+                    wrapperStyle={{ fontSize: "12px", color: "currentColor" }}
+                    className="text-slate-600 dark:text-slate-300"
                   />
                 </PieChart>
               </ResponsiveContainer>
             </div>
 
-            <div className="h-[250px] w-full sm:w-1/2 border-t sm:border-t-0 sm:border-l border-slate-100 pt-4 sm:pt-0">
-              <h4 className="text-center text-sm font-bold text-slate-500 mb-2 uppercase">
+            <div className="h-[250px] w-full sm:w-1/2 border-t sm:border-t-0 sm:border-l border-slate-100 dark:border-slate-800 pt-4 sm:pt-0">
+              <h4 className="text-center text-sm font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase">
                 Por que não fecharam?
               </h4>
               <ResponsiveContainer width="100%" height="80%">
@@ -575,16 +565,18 @@ export function Grafics() {
                   </Pie>
                   <Tooltip
                     contentStyle={{
+                      backgroundColor: "#1e293b",
                       borderRadius: "12px",
                       border: "none",
-                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                      color: "#f8fafc",
                     }}
                   />
                   <Legend
                     verticalAlign="bottom"
                     height={20}
                     iconType="circle"
-                    wrapperStyle={{ fontSize: "11px" }}
+                    wrapperStyle={{ fontSize: "11px", color: "currentColor" }}
+                    className="text-slate-600 dark:text-slate-300"
                   />
                 </PieChart>
               </ResponsiveContainer>

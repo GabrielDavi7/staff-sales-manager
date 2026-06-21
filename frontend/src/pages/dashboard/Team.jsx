@@ -3,7 +3,6 @@ import {
   Users,
   Search,
   Trophy,
-  Target,
   Loader2,
   AlertCircle,
   Store,
@@ -15,8 +14,6 @@ import {
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import api from "../../api/axios";
-
-// Importação dos componentes de gráfico para performance real do vendedor
 import {
   BarChart,
   Bar,
@@ -28,7 +25,6 @@ import {
   Cell,
 } from "recharts";
 
-// --- FUNÇÃO AUXILIAR PARA FUSO HORÁRIO ---
 const getLocalDataString = (dateObj) => {
   const tzoffset = dateObj.getTimezoneOffset() * 60000;
   return new Date(dateObj.getTime() - tzoffset).toISOString().slice(0, 10);
@@ -39,23 +35,20 @@ export function Team() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [usuariosRaw, setUsuariosRaw] = useState([]); // Lista mestre protegida contra 403
+  const [usuariosRaw, setUsuariosRaw] = useState([]);
   const [lojas, setLojas] = useState([]);
   const [atendimentos, setAtendimentos] = useState([]);
   const [metricasMestre, setMetricasMestre] = useState([]);
 
-  // Estados de Filtro
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [filtroLoja, setFiltroLoja] = useState("");
 
-  // Estados para o intervalo de datas
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
   const dateInputInicioRef = useRef(null);
   const dateInputFimRef = useRef(null);
 
-  // Estado para controlar o período do gráfico
   const [periodo, setPeriodo] = useState("30 Dias");
 
   const cargoLogado = user?.cargo?.toUpperCase();
@@ -63,23 +56,16 @@ export function Team() {
   const isSupervisor = cargoLogado === "SUPERVISOR";
   const isVendedor = cargoLogado === "VENDEDOR";
 
-  // Trava de segurança estrutural para o Totem de Balcão (Dispositivo)
   if (cargoLogado === "DISPOSITIVO") {
     return <Navigate to="/registrarvenda" replace />;
   }
 
-  // CARREGA OS DADOS DO BANCO COM COBERTURA ANTIBLOQUEIO 403 (RBAC)
   useEffect(() => {
     const carregarDadosSuporte = async () => {
       try {
         setLoading(true);
         setError("");
 
-        // =================================================================
-        // LOOP DE PAGINAÇÃO PARA O HISTÓRICO DE ATENDIMENTOS
-        // O Admin tem muitos registros. Precisamos buscar todas as páginas
-        // para que o cálculo gráfico do Frontend não "esqueça" vendas antigas.
-        // =================================================================
         let listaAtendimentos = [];
         let urlAtendimentos = "/api/core/atendimentos/";
 
@@ -87,35 +73,27 @@ export function Team() {
           const resAtendimentos = await api.get(urlAtendimentos);
           const dados =
             resAtendimentos.data?.results || resAtendimentos.data || [];
-
           if (Array.isArray(dados)) {
             listaAtendimentos = [...listaAtendimentos, ...dados];
           } else {
             listaAtendimentos = dados;
             break;
           }
-
           if (resAtendimentos.data?.next) {
-            // Pega o caminho relativo da próxima página
             urlAtendimentos = resAtendimentos.data.next.substring(
               resAtendimentos.data.next.indexOf("/api/"),
             );
           } else {
-            urlAtendimentos = null; // Encerra o laço
+            urlAtendimentos = null;
           }
         }
-
         setAtendimentos(listaAtendimentos);
 
-        // =================================================================
-        // ESTRATÉGIA ANTIBLOQUEIO 403 PARA VENDEDORES E SUPERVISORES
-        // =================================================================
         if (isVendedor) {
           const resMetricas = await api.get("/api/core/metricas/");
           setMetricasMestre(
             resMetricas.data?.results || resMetricas.data || [],
           );
-
           setUsuariosRaw([
             {
               id: user.id,
@@ -133,21 +111,15 @@ export function Team() {
           setMetricasMestre(
             resMetricas.data?.results || resMetricas.data || [],
           );
-
           try {
-            // Tenta primeiro a rota pública de vendedores operacionais
             const resVendedores = await api.get("/api/users/vendedores/");
             const dadosProd =
               resVendedores.data?.results || resVendedores.data || [];
-
-            // Normaliza o objeto injetando cargo e ativação se vierem ausentes do Django
             const timeMapeado = dadosProd.map((v) => ({
               ...v,
               cargo: v.cargo || "VENDEDOR",
               is_active: v.is_active !== undefined ? v.is_active : true,
             }));
-
-            // Inclui o próprio supervisor na listagem lateral para autoverificação
             timeMapeado.push({
               id: user.id,
               first_name: user.first_name || "Eu",
@@ -158,22 +130,15 @@ export function Team() {
               loja: user.loja,
               is_active: true,
             });
-
             setUsuariosRaw(timeMapeado);
           } catch (uErr) {
-            console.warn(
-              "Acesso admin restrito ao Supervisor, aplicando extração via logs do core...",
-            );
-
             const mapaVendedores = {};
             const idLojaSupervisor = user.loja?.id || user.loja;
-
             listaAtendimentos.forEach((atend) => {
-              let vId = null;
-              let fName = "";
-              let lName = "";
-              let vLoja = atend.loja?.id || atend.loja || atend.loja_id;
-
+              let vId = null,
+                fName = "",
+                lName = "",
+                vLoja = atend.loja?.id || atend.loja || atend.loja_id;
               if (atend.vendedor && typeof atend.vendedor === "object") {
                 vId = atend.vendedor.id;
                 fName = atend.vendedor.first_name || "";
@@ -189,11 +154,8 @@ export function Team() {
                 else if (atend.vendedor__first_name) {
                   fName = atend.vendedor__first_name;
                   lName = atend.vendedor__last_name || "";
-                } else {
-                  fName = `Vendedor #${vId}`;
-                }
+                } else fName = `Vendedor #${vId}`;
               }
-
               if (vId && String(vLoja) === String(idLojaSupervisor)) {
                 mapaVendedores[vId] = {
                   id: vId,
@@ -207,7 +169,6 @@ export function Team() {
                 };
               }
             });
-
             mapaVendedores[user.id] = {
               id: user.id,
               first_name: user.first_name || "Eu",
@@ -218,11 +179,9 @@ export function Team() {
               loja: user.loja,
               is_active: true,
             };
-
             setUsuariosRaw(Object.values(mapaVendedores));
           }
         } else if (isAdmin) {
-          // 1. Busca as métricas e lojas normalmente
           const [resMetricas, resLojas] = await Promise.all([
             api.get("/api/admin/metricas/"),
             api.get("/api/admin/lojas/"),
@@ -231,35 +190,26 @@ export function Team() {
             resMetricas.data?.results || resMetricas.data || [],
           );
           setLojas(resLojas.data?.results || resLojas.data || []);
-
-          // 2. CORREÇÃO: LOOP DE PAGINAÇÃO PARA USUÁRIOS
-          let listaUsuarios = [];
-          let urlUsuarios = "/api/admin/usuarios/";
-
+          let listaUsuarios = [],
+            urlUsuarios = "/api/admin/usuarios/";
           while (urlUsuarios) {
             const resUsuarios = await api.get(urlUsuarios);
             const dados = resUsuarios.data?.results || resUsuarios.data || [];
-
-            if (Array.isArray(dados)) {
+            if (Array.isArray(dados))
               listaUsuarios = [...listaUsuarios, ...dados];
-            } else {
+            else {
               listaUsuarios = dados;
               break;
             }
-
-            if (resUsuarios.data?.next) {
+            if (resUsuarios.data?.next)
               urlUsuarios = resUsuarios.data.next.substring(
                 resUsuarios.data.next.indexOf("/api/"),
               );
-            } else {
-              urlUsuarios = null;
-            }
+            else urlUsuarios = null;
           }
-
           setUsuariosRaw(listaUsuarios);
         }
       } catch (err) {
-        console.error("Erro ao processar painel de equipa:", err);
         setError(
           "Não foi possível sincronizar os indicadores de performance com o servidor.",
         );
@@ -267,51 +217,37 @@ export function Team() {
         setLoading(false);
       }
     };
-
     carregarDadosSuporte();
   }, [isAdmin, isSupervisor, isVendedor, user]);
 
-  // =================================================================
-  // REGRAS DE VISUALIZAÇÃO E PRIVACIDADE LATERAL (RBAC)
-  // =================================================================
   const vendedoresFiltrados = usuariosRaw.filter((u) => {
-    // Caso as propriedades is_active ou ativo não venham descritas, assume true
     const contaAtiva =
       u.is_active === true ||
       u.ativo === true ||
       (u.is_active === undefined && u.ativo === undefined);
     if (!contaAtiva) return false;
-
     if (isVendedor) return true;
-
     if (isSupervisor) {
       const cargoValido =
         u.cargo?.toUpperCase() === "VENDEDOR" ||
         u.cargo?.toUpperCase() === "SUPERVISOR";
       if (!cargoValido) return false;
-
       const idLojaSupervisor = user?.loja?.id || user?.loja;
       const idLojaVendedor = u.loja?.id || u.loja || u.loja_id;
-
-      // Se o endpoint filtrado omitir o ID da loja por redundância, exibe o vendedor na tela
       if (!idLojaVendedor) return true;
-
       return String(idLojaVendedor) === String(idLojaSupervisor);
     }
-
     if (isAdmin) {
       const cargoValido =
         u.cargo?.toUpperCase() === "VENDEDOR" ||
         u.cargo?.toUpperCase() === "SUPERVISOR";
       if (!cargoValido) return false;
-
       if (filtroLoja) {
         const idLojaVendedor = u.loja?.id || u.loja;
         return String(idLojaVendedor) === String(filtroLoja);
       }
       return true;
     }
-
     return false;
   });
 
@@ -322,62 +258,42 @@ export function Team() {
   );
 
   useEffect(() => {
-    if (filteredTeam.length > 0 && !selectedUser) {
+    if (filteredTeam.length > 0 && !selectedUser)
       setSelectedUser(filteredTeam[0]);
-    }
   }, [filteredTeam, selectedUser]);
 
   useEffect(() => {
-    if (selectedUser && !filteredTeam.some((v) => v.id === selectedUser.id)) {
+    if (selectedUser && !filteredTeam.some((v) => v.id === selectedUser.id))
       setSelectedUser(filteredTeam[0] || null);
-    }
   }, [filtroLoja, filteredTeam, selectedUser]);
 
-  // =================================================================
-  // CÁLCULO DE MÉTRICAS INDIVIDUAIS COM FILTRO DE TEMPO
-  // =================================================================
   const obterMetricasVendedor = (vendedorId) => {
-    if (!vendedorId || atendimentos.length === 0) {
+    if (!vendedorId || atendimentos.length === 0)
       return {
         totalFaturado: 0,
         taxaConversao: 0,
         totalAtendimentos: 0,
         dadosGrafico: [],
       };
-    }
-
     let historicoVendedor = atendimentos.filter(
       (a) => String(a.vendedor?.id || a.vendedor) === String(vendedorId),
     );
 
-    // APLICA O FILTRO DE PERÍODO
     if (periodo === "Especifico" && (dataInicio || dataFim)) {
       historicoVendedor = historicoVendedor.filter((a) => {
         if (!a.data_hora) return false;
-        const dataVenda = new Date(a.data_hora);
-        const vendaStr = getLocalDataString(dataVenda);
-
-        // Se o utilizador preencheu ambas as datas (Intervalo)
-        if (dataInicio && dataFim) {
+        const vendaStr = getLocalDataString(new Date(a.data_hora));
+        if (dataInicio && dataFim)
           return vendaStr >= dataInicio && vendaStr <= dataFim;
-        }
-        // Se preencheu apenas a data de Início (Desta data em diante)
-        if (dataInicio && !dataFim) {
-          return vendaStr >= dataInicio;
-        }
-        // Se preencheu apenas a data de Fim (Até esta data)
-        if (!dataInicio && dataFim) {
-          return vendaStr <= dataFim;
-        }
+        if (dataInicio && !dataFim) return vendaStr >= dataInicio;
+        if (!dataInicio && dataFim) return vendaStr <= dataFim;
         return true;
       });
     } else if (periodo === "Hoje") {
       const hojeStr = getLocalDataString(new Date());
       historicoVendedor = historicoVendedor.filter((a) => {
         if (!a.data_hora) return false;
-        const dataVenda = new Date(a.data_hora);
-        const vendaStr = getLocalDataString(dataVenda);
-        return vendaStr === hojeStr;
+        return getLocalDataString(new Date(a.data_hora)) === hojeStr;
       });
     } else if (periodo === "7 Dias" || periodo === "30 Dias") {
       const dias = periodo === "7 Dias" ? 7 : 30;
@@ -388,18 +304,15 @@ export function Team() {
         (a) => new Date(a.data_hora) >= limitDate,
       );
     }
-    // Se for "Tudo", não filtra nada e calcula todo o histórico
 
     const totalAtendimentos = historicoVendedor.length;
     const vendasConcluidas = historicoVendedor.filter(
       (a) => a.venda_fechada === true,
     );
-
     const totalFaturado = vendasConcluidas.reduce(
       (sum, a) => sum + parseFloat(a.valor_venda || a.valor || 0),
       0,
     );
-
     const taxaConversao =
       totalAtendimentos > 0
         ? ((vendasConcluidas.length / totalAtendimentos) * 100).toFixed(1)
@@ -431,7 +344,6 @@ export function Team() {
     const dadosGrafico = Object.keys(contagemMetricas)
       .map((key) => ({ name: key, quantity: contagemMetricas[key] }))
       .filter((d) => d.quantity > 0);
-
     return { totalFaturado, taxaConversao, totalAtendimentos, dadosGrafico };
   };
 
@@ -439,17 +351,14 @@ export function Team() {
     ? obterMetricasVendedor(selectedUser.id)
     : null;
 
-  const getSubtituloDinamico = () => {
-    if (isAdmin) return "Painel de controlo analítico global da rede";
-    if (isSupervisor) return "Desempenho comercial focado na sua filial física";
-    return "Acompanhamento em tempo real dos seus resultados comerciais";
-  };
-
   if (loading && usuariosRaw.length === 0) {
     return (
       <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="animate-spin text-[#4D7BAB]" size={48} />
-        <p className="text-slate-500 font-medium">
+        <Loader2
+          className="animate-spin text-[#4D7BAB] dark:text-blue-500"
+          size={48}
+        />
+        <p className="text-slate-500 dark:text-slate-400 font-medium">
           A isolar níveis de acesso e computar gráficos...
         </p>
       </div>
@@ -459,59 +368,57 @@ export function Team() {
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-6 animate-in fade-in duration-500">
       {/* Cabeçalho */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-6 rounded-[2rem] shadow-xl border border-blue-50">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-xl border border-blue-50 dark:border-slate-800 transition-colors">
         <div className="flex items-center gap-4">
-          <div className="p-4 bg-[#4D7BAB]/10 rounded-2xl text-[#4D7BAB]">
+          <div className="p-4 bg-[#4D7BAB]/10 dark:bg-[#4D7BAB]/20 rounded-2xl text-[#4D7BAB] dark:text-blue-400">
             <Users size={32} />
           </div>
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
-              {isVendedor ? "Meus Indicadores" : "Equipa Comercial"}
+            <h1 className="text-3xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">
+              {isVendedor ? "Meus Indicadores" : "Equipe Comercial"}
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              {getSubtituloDinamico()}
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {isAdmin
+                ? "Painel de controle analítico global"
+                : isSupervisor
+                  ? "Desempenho da sua filial física"
+                  : "Acompanhamento de resultados comerciais"}
             </p>
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
           {/* BOTÕES DE PERÍODO */}
-          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 w-full sm:w-auto items-center gap-1 overflow-x-auto">
+          <div className="flex bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl p-1 w-full sm:w-auto items-center gap-1 overflow-x-auto">
             {["Hoje", "7 Dias", "30 Dias", "Tudo"].map((p) => (
               <button
                 key={p}
                 onClick={() => {
                   setPeriodo(p);
-                  setDataInicio(""); // Limpa o calendário inicial
-                  setDataFim(""); // Limpa o calendário final
+                  setDataInicio("");
+                  setDataFim("");
                 }}
                 className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer border-none outline-none whitespace-nowrap ${
                   periodo === p
-                    ? "bg-blue-200 text-[#4D7BAB] shadow-sm"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-100 bg-transparent"
+                    ? "bg-white dark:bg-[#4D7BAB] text-[#4D7BAB] dark:text-white shadow-sm border border-slate-100 dark:border-transparent"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700"
                 }`}
               >
                 {p}
               </button>
             ))}
 
-            {/* Separador */}
-            <div className="w-[1px] h-6 bg-slate-200 mx-2 hidden sm:block"></div>
+            <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-2 hidden sm:block"></div>
 
-            {/* Input de Calendário: DATA INICIAL */}
             <div
               onClick={() => dateInputInicioRef.current?.showPicker()}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm ${
-                periodo === "Especifico" && dataInicio
-                  ? "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-2 ring-[#4D7BAB]/10"
-                  : "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
-              }`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm ${periodo === "Especifico" && dataInicio ? "bg-blue-100 dark:bg-[#4D7BAB]/30 text-[#4D7BAB] dark:text-blue-400 border-[#4D7BAB] dark:border-[#4D7BAB]" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"}`}
             >
               <Calendar
                 size={16}
                 className={
                   periodo === "Especifico" && dataInicio
-                    ? "text-[#4D7BAB]"
+                    ? "text-[#4D7BAB] dark:text-blue-400"
                     : "text-slate-400"
                 }
               />
@@ -523,30 +430,24 @@ export function Team() {
                   setDataInicio(e.target.value);
                   setPeriodo("Especifico");
                 }}
-                className="bg-transparent text-sm font-bold outline-none cursor-pointer w-full text-inherit"
+                className="bg-transparent text-sm font-bold outline-none cursor-pointer w-full text-inherit dark:[color-scheme:dark]"
                 style={{ WebkitAppearance: "none" }}
-                title="Data Inicial"
               />
             </div>
 
-            <span className="text-slate-400 text-xs font-bold hidden sm:block">
+            <span className="text-slate-400 dark:text-slate-500 text-xs font-bold hidden sm:block">
               até
             </span>
 
-            {/* Input de Calendário: DATA FINAL */}
             <div
               onClick={() => dateInputFimRef.current?.showPicker()}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm ${
-                periodo === "Especifico" && dataFim
-                  ? "bg-blue-200 text-[#4D7BAB] border-[#4D7BAB]/40 ring-2 ring-[#4D7BAB]/10"
-                  : "bg-slate-200 text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700"
-              }`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all cursor-pointer border shadow-sm ${periodo === "Especifico" && dataFim ? "bg-blue-100 dark:bg-[#4D7BAB]/30 text-[#4D7BAB] dark:text-blue-400 border-[#4D7BAB] dark:border-[#4D7BAB]" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"}`}
             >
               <Calendar
                 size={16}
                 className={
                   periodo === "Especifico" && dataFim
-                    ? "text-[#4D7BAB]"
+                    ? "text-[#4D7BAB] dark:text-blue-400"
                     : "text-slate-400"
                 }
               />
@@ -554,14 +455,13 @@ export function Team() {
                 ref={dateInputFimRef}
                 type="date"
                 value={dataFim}
-                min={dataInicio} // Impede que o utilizador escolha uma data final anterior à inicial
+                min={dataInicio}
                 onChange={(e) => {
                   setDataFim(e.target.value);
                   setPeriodo("Especifico");
                 }}
-                className="bg-transparent text-sm font-bold outline-none cursor-pointer w-full text-inherit"
+                className="bg-transparent text-sm font-bold outline-none cursor-pointer w-full text-inherit dark:[color-scheme:dark]"
                 style={{ WebkitAppearance: "none" }}
-                title="Data Final"
               />
             </div>
           </div>
@@ -569,20 +469,22 @@ export function Team() {
       </div>
 
       {error && (
-        <div className="p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl flex items-center gap-2">
+        <div className="p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center gap-2">
           <AlertCircle size={20} /> {error}
         </div>
       )}
 
       <div className="flex flex-col lg:flex-row gap-6">
         {/* COLUNA ESQUERDA: Lista Lateral */}
-        <div className="w-full lg:w-1/3 bg-white p-6 rounded-[2rem] shadow-xl border border-blue-50 flex flex-col h-[650px]">
-          {/* FILTRO DE LOJAS (Reposicionado) */}
+        <div className="w-full lg:w-1/3 bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-xl border border-blue-50 dark:border-slate-800 flex flex-col h-[650px] transition-colors">
           {isAdmin && (
-            <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200 w-full mb-4">
-              <Store size={20} className="text-[#4D7BAB] ml-2 shrink-0" />
+            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 w-full mb-4">
+              <Store
+                size={20}
+                className="text-[#4D7BAB] dark:text-blue-400 ml-2 shrink-0"
+              />
               <select
-                className="outline-none bg-transparent font-bold text-slate-600 pr-2 w-full cursor-pointer border-none truncate"
+                className="outline-none bg-transparent font-bold text-slate-600 dark:text-slate-300 pr-2 w-full cursor-pointer border-none truncate"
                 value={filtroLoja}
                 onChange={(e) => setFiltroLoja(e.target.value)}
               >
@@ -598,14 +500,12 @@ export function Team() {
             </div>
           )}
 
-          {/* AVISO SUPERVISOR (Reposicionado) */}
           {isSupervisor && user?.loja && (
-            <div className="flex items-center justify-center gap-2 px-5 py-3 bg-blue-50 text-[#4D7BAB] rounded-2xl font-bold text-sm border border-blue-100 w-full mb-4">
+            <div className="flex items-center justify-center gap-2 px-5 py-3 bg-blue-50 dark:bg-blue-900/20 text-[#4D7BAB] dark:text-blue-400 rounded-2xl font-bold text-sm border border-blue-100 dark:border-blue-800 w-full mb-4">
               <Store size={18} /> Filial Protegida
             </div>
           )}
 
-          {/* CAMPO DE PESQUISA */}
           <div className="relative mb-6">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -615,48 +515,46 @@ export function Team() {
               type="text"
               disabled={isVendedor}
               placeholder={
-                isVendedor
-                  ? "Painel Individual Ativado"
-                  : "Procurar colaborador..."
+                isVendedor ? "Painel Individual" : "Procurar colaborador..."
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-[#4D7BAB] transition-all font-medium text-slate-700 disabled:opacity-60"
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl outline-none focus:border-[#4D7BAB] dark:focus:border-blue-500 transition-all font-medium disabled:opacity-60"
             />
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
             {filteredTeam.length === 0 ? (
               <p className="text-center text-slate-400 mt-10 font-medium text-sm">
-                Nenhum colaborador localizado nesta visualização.
+                Nenhum colaborador localizado.
               </p>
             ) : (
               filteredTeam.map((v) => {
-                const correspondenteLoja = lojas.find(
-                  (l) => String(l.id) === String(v.loja?.id || v.loja),
-                );
                 const nomeDaLoja =
-                  v.loja_nome || correspondenteLoja?.nome || "A Minha Unidade";
-
+                  v.loja_nome ||
+                  lojas.find(
+                    (l) => String(l.id) === String(v.loja?.id || v.loja),
+                  )?.nome ||
+                  "A Minha Unidade";
                 return (
                   <button
                     key={v.id}
                     type="button"
                     onClick={() => setSelectedUser(v)}
-                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left ${selectedUser?.id === v.id ? "border-[#4D7BAB] bg-blue-50/50 shadow-md shadow-blue-100/50" : "border-transparent hover:bg-slate-50"}`}
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left ${selectedUser?.id === v.id ? "border-[#4D7BAB] bg-blue-50/50 dark:bg-[#4D7BAB]/10 dark:border-[#4D7BAB]/50 shadow-md" : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800"}`}
                   >
                     <div
-                      className={`w-11 h-11 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-base ${selectedUser?.id === v.id ? "bg-[#4D7BAB] text-white" : "bg-slate-100 text-[#4D7BAB]"}`}
+                      className={`w-11 h-11 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-base ${selectedUser?.id === v.id ? "bg-[#4D7BAB] text-white" : "bg-slate-100 dark:bg-slate-800 text-[#4D7BAB] dark:text-blue-400"}`}
                     >
                       {v.first_name?.[0].toUpperCase()}
                     </div>
                     <div className="overflow-hidden w-full">
                       <span
-                        className={`block font-bold truncate text-sm ${selectedUser?.id === v.id ? "text-[#4D7BAB]" : "text-slate-700"}`}
+                        className={`block font-bold truncate text-sm ${selectedUser?.id === v.id ? "text-[#4D7BAB] dark:text-blue-400" : "text-slate-700 dark:text-slate-200"}`}
                       >
                         {v.first_name} {v.last_name || ""}
                       </span>
-                      <span className="text-[11px] font-semibold text-slate-400 block truncate capitalize">
+                      <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 block truncate capitalize">
                         {v.cargo?.toLowerCase()} • {nomeDaLoja}
                       </span>
                     </div>
@@ -668,66 +566,65 @@ export function Team() {
         </div>
 
         {/* COLUNA DIREITA: Painel Gráfico */}
-        <div className="w-full lg:w-2/3 bg-white p-8 rounded-[2.5rem] shadow-xl border border-blue-50 h-[650px] flex flex-col overflow-hidden">
+        <div className="w-full lg:w-2/3 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-xl border border-blue-50 dark:border-slate-800 h-[650px] flex flex-col overflow-hidden transition-colors">
           {selectedUser && performanceAtual ? (
             <>
-              <div className="flex items-center justify-between gap-5 mb-6 pb-5 border-b border-slate-100">
+              <div className="flex items-center justify-between gap-5 mb-6 pb-5 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-5">
                   <div className="w-16 h-16 rounded-2xl bg-[#4D7BAB] text-white flex items-center justify-center font-black text-2xl flex-shrink-0">
                     {selectedUser.first_name?.[0].toUpperCase()}
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">
+                    <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase">
                       {selectedUser.first_name} {selectedUser.last_name || ""}
                     </h2>
-                    <p className="text-slate-400 text-sm font-semibold">
-                      Utilizador: @{selectedUser.username} •{" "}
-                      {selectedUser.email || "Sem e-mail registado"}
+                    <p className="text-slate-400 dark:text-slate-500 text-sm font-semibold">
+                      @{selectedUser.username} •{" "}
+                      {selectedUser.email || "Sem e-mail"}
                     </p>
                   </div>
                 </div>
-                {/* Indica o período selecionado para o utilizador saber o que está a ver */}
                 <div className="hidden sm:block text-right">
-                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400 block">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 block">
                     Período
                   </span>
-                  <span className="text-sm font-bold text-[#4D7BAB]">
+                  <span className="text-sm font-bold text-[#4D7BAB] dark:text-blue-400">
                     {periodo}
                   </span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                <div className="p-5 bg-emerald-50/40 rounded-2xl border border-emerald-100 shadow-sm">
-                  <span className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1.5 mb-1.5 tracking-wider">
+                <div className="p-5 bg-emerald-50/40 dark:bg-emerald-500/10 rounded-2xl border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
+                  <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1.5 mb-1.5 tracking-wider">
                     <TrendingUp size={14} /> Total Faturado
                   </span>
-                  <p className="text-xl font-black text-emerald-700">
+                  <p className="text-xl font-black text-emerald-700 dark:text-emerald-300">
                     R$ {performanceAtual.totalFaturado.toFixed(2)}
                   </p>
                 </div>
-                <div className="p-5 bg-blue-50/40 rounded-2xl border border-blue-100 shadow-sm">
-                  <span className="text-[10px] font-black text-[#4D7BAB] uppercase flex items-center gap-1.5 mb-1.5 tracking-wider">
+                <div className="p-5 bg-blue-50/40 dark:bg-blue-500/10 rounded-2xl border border-blue-100 dark:border-blue-500/20 shadow-sm">
+                  <span className="text-[10px] font-black text-[#4D7BAB] dark:text-blue-400 uppercase flex items-center gap-1.5 mb-1.5 tracking-wider">
                     <Percent size={14} /> Conversão Comercial
                   </span>
-                  <p className="text-xl font-black text-blue-700">
+                  <p className="text-xl font-black text-blue-700 dark:text-blue-300">
                     {performanceAtual.taxaConversao}%
                   </p>
                 </div>
-                <div className="p-5 bg-purple-50/40 rounded-2xl border border-purple-100 shadow-sm">
-                  <span className="text-[10px] font-black text-purple-600 uppercase flex items-center gap-1.5 mb-1.5 tracking-wider">
+                <div className="p-5 bg-purple-50/40 dark:bg-purple-500/10 rounded-2xl border border-purple-100 dark:border-purple-500/20 shadow-sm">
+                  <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase flex items-center gap-1.5 mb-1.5 tracking-wider">
                     <Activity size={14} /> Atendimentos
                   </span>
-                  <p className="text-xl font-black text-purple-700">
+                  <p className="text-xl font-black text-purple-700 dark:text-purple-300">
                     {performanceAtual.totalAtendimentos} logs
                   </p>
                 </div>
               </div>
 
-              <div className="flex-1 flex flex-col bg-slate-50/50 border border-slate-100 rounded-3xl p-5 overflow-hidden">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+              <div className="flex-1 flex flex-col bg-slate-50/50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 rounded-3xl p-5 overflow-hidden">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-4 flex items-center gap-2">
                   <Trophy size={14} className="text-amber-500" /> Histograma
-                  Analítico de Resultados
+                  Analítico
                 </h3>
                 {performanceAtual.dadosGrafico.length > 0 ? (
                   <div className="w-full h-full min-h-[220px]">
@@ -736,22 +633,28 @@ export function Team() {
                         data={performanceAtual.dadosGrafico}
                         margin={{ top: 10, right: 10, left: -25, bottom: 5 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="currentColor"
+                          className="text-slate-200 dark:text-slate-700"
+                        />
                         <XAxis
                           dataKey="name"
-                          stroke="#94a3b8"
+                          stroke="currentColor"
+                          className="text-slate-400"
                           fontSize={11}
                           tickLine={false}
                         />
                         <YAxis
-                          stroke="#94a3b8"
+                          stroke="currentColor"
+                          className="text-slate-400"
                           fontSize={11}
                           tickLine={false}
                           allowDecimals={false}
                         />
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: "#003847",
+                            backgroundColor: "#1e293b",
                             borderRadius: "1rem",
                             border: "none",
                             color: "#fff",
@@ -779,19 +682,18 @@ export function Team() {
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-sm italic py-10">
-                    Não existem registos de atendimento para o período
-                    selecionado.
+                  <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 text-sm italic py-10">
+                    Não existem registos de atendimento para o período.
                   </div>
                 )}
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
               <Users
                 size={64}
                 strokeWidth={1}
-                className="mb-4 text-slate-200"
+                className="mb-4 text-slate-200 dark:text-slate-700"
               />
               <p className="font-medium">
                 Nenhum colaborador selecionado ou registado.

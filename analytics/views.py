@@ -6,7 +6,8 @@ from core.models import Relatorio
 from .services import AnalyticsService
 from django.db.models import Count, Sum
 from users.permissions import IsVendedor, IsSupervisorOrAdmin, IsAdmin
-
+from django.http import HttpResponse
+from django.utils.text import slugify
 class MeuDesempenhoView(APIView):
     """
     Retorna o desempenho individual do vendedor logado.
@@ -120,3 +121,159 @@ class VisaoGeralView(APIView):
         dados_dashboard['comparativo_lojas'] = comparativo_formatado
 
         return Response(dados_dashboard)
+    
+
+#==========================#========================== analise essa parte para baixo ==========================#==========================
+import csv
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from django.utils.dateparse import parse_date
+from django.http import HttpResponse
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+# Presumo que o Relatorio já está importado lá em cima: from core.models import Relatorio
+
+class ExportarDadosView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, formato, *args, **kwargs):
+        # 1. Capturar os parâmetros obrigatórios
+        loja_id = request.query_params.get('loja_id')
+        data_inicio = request.query_params.get('data_inicio')
+        data_fim = request.query_params.get('data_fim')
+
+        if not loja_id or not data_inicio or not data_fim:
+            return HttpResponse("Loja e período são obrigatórios.", status=400)
+
+        # 2. PRIMEIRO: Filtrar os dados no Banco de Dados (Criar o queryset)
+        queryset = Relatorio.objects.filter(
+            vendedor__loja_id=loja_id,
+            data_hora__date__gte=parse_date(data_inicio),
+            data_hora__date__lte=parse_date(data_fim)
+        ).order_by('data_hora')
+
+        # 3. DEPOIS: Descobrir o nome da loja a partir do queryset para usar no nome do arquivo
+        primeiro_registro = queryset.first()
+        if primeiro_registro and primeiro_registro.vendedor and primeiro_registro.vendedor.loja:
+            nome_loja_slug = slugify(primeiro_registro.vendedor.loja.nome).replace('-', '_')
+        else:
+            nome_loja_slug = f"loja_{loja_id}"
+
+        # 4. Definir os cabeçalhos das colunas
+        cabecalhos = [
+            "Horário", 
+            "Colaborador", 
+            "Loja", 
+            "Cliente", 
+            "Status", 
+            "Valor Venda (R$)", 
+            "Motivo / Métrica", 
+            "Observações"
+        ]
+
+        # === EXPORTAÇÃO PARA CSV ===
+        if formato.lower() == 'csv':
+            response = HttpResponse(content_type='text/csv; charset=utf-8')
+            response['Content-Disposition'] = f'attachment; filename="relatorio_{nome_loja_slug}_{data_inicio}_a_{data_fim}.csv"'
+            
+            # Escrever o BOM para o Excel abrir o CSV com acentos corretos em PT-BR
+            response.write('\ufeff'.encode('utf8'))
+            
+            writer = csv.writer(response, delimiter=';')
+            writer.writerow(cabecalhos)
+
+            for item in queryset:
+                status = "Concretizada" if item.venda_fechada else "Não Concretizada"
+                valor = f"{item.valor_venda:.2f}" if item.venda_fechada and item.valor_venda else "-"
+                vendedor_nome = f"{item.vendedor.first_name} {item.vendedor.last_name}" if item.vendedor else "N/A"
+                loja_nome = item.vendedor.loja.nome if item.vendedor and item.vendedor.loja else "Sem loja"
+                motivo = item.metrica.nome if not item.venda_fechada and item.metrica else "-"
+                
+                writer.writerow([
+                    item.data_hora.strftime('%d/%m/%Y %H:%M') if item.data_hora else "-",
+                    vendedor_nome,
+                    loja_nome,
+                    item.cliente_nome or "Não informado",
+                    status,
+                    valor,
+                    motivo,
+                    item.observacoes or ""
+                ])
+            return response
+
+        # === EXPORTAÇÃO PARA EXCEL (XLSX) ===
+        elif formato.lower() == 'xlsx':
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Relatório de Vendas"
+
+            # Aplicar estilos estéticos para o cabeçalho
+            fonte_cabecalho = Font(name="Arial", size=11, bold=True, color="FFFFFF")
+            preenchimento_cabecalho = PatternFill(start_color="4D7BAB", end_color="4D7BAB", fill_type="solid")
+            alinhamento_centro = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            border_fina = Border(
+                left=Side(style='thin', color='DDDDDD'),
+                right=Side(style='thin', color='DDDDDD'),
+                top=Side(style='thin', color='DDDDDD'),
+                bottom=Side(style='thin', color='DDDDDD')
+            )
+
+            # Escrever cabeçalhos estilizados
+            ws.append(cabecalhos)
+            for cell in ws[1]:
+                cell.font = fonte_cabecalho
+                cell.fill = preenchimento_cabecalho
+                cell.alignment = alinhamento_centro
+                cell.border = border_fina
+            
+            ws.row_dimensions[1].height = 28
+
+            # Inserir as linhas de dados
+            font_dados = Font(name="Arial", size=10)
+            for item in queryset:
+                status = "Concretizada" if item.venda_fechada else "Não Concretizada"
+                valor = float(item.valor_venda) if item.venda_fechada and item.valor_venda else 0.0
+                vendedor_nome = f"{item.vendedor.first_name} {item.vendedor.last_name}" if item.vendedor else "N/A"
+                loja_nome = item.vendedor.loja.nome if item.vendedor and item.vendedor.loja else "Sem loja"
+                motivo = item.metrica.nome if not item.venda_fechada and item.metrica else "-"
+                
+                linha = [
+                    item.data_hora.strftime('%d/%m/%Y %H:%M') if item.data_hora else "-",
+                    vendedor_nome,
+                    loja_nome,
+                    item.cliente_nome or "Não informado",
+                    status,
+                    valor,
+                    motivo,
+                    item.observacoes or ""
+                ]
+                ws.append(linha)
+
+            # Estilizar as células de dados e aplicar formatação de moeda
+            for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+                for cell in row:
+                    cell.font = font_dados
+                    cell.border = border_fina
+                    # Formatação específica para a coluna F (Valor Venda)
+                    if cell.column == 6: 
+                        cell.number_format = 'R$ #,##0.00'
+                        cell.alignment = Alignment(horizontal="right")
+                    # Centralizar Horário e Status
+                    elif cell.column in [1, 5]: 
+                        cell.alignment = Alignment(horizontal="center")
+                    else:
+                        cell.alignment = Alignment(horizontal="left")
+
+            # Auto-ajuste de largura das colunas
+            for col in ws.columns:
+                max_len = max(len(str(cell.value or '')) for cell in col)
+                col_letter = col[0].column_letter
+                ws.column_dimensions[col_letter].width = max(max_len + 3, 15)
+
+            # Preparar a resposta http para download do arquivo Excel
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="relatorio_{nome_loja_slug}_{data_inicio}_a_{data_fim}.xlsx"'
+            wb.save(response)
+            return response
+
+        return HttpResponse("Formato inválido. Use 'csv' ou 'xlsx'.", status=400)

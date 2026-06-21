@@ -25,11 +25,13 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setError("");
     setIsLoading(true);
 
-    // Adicionado o rememberMe como argumento para o AuthContext
-    const result = await login(username, password, rememberMe);
+    const normalizedUsername = username.trim().toLowerCase();
+
+    const result = await login(normalizedUsername, password, rememberMe);
 
     if (result.success) {
       const userRole = result.user?.cargo;
@@ -42,6 +44,7 @@ const Login = () => {
     } else {
       setError(result.error || "Usuário ou senha incorretos.");
     }
+
     setIsLoading(false);
   };
 
@@ -75,7 +78,7 @@ const Login = () => {
 
           <div className="relative z-10 pt-10 text-xs text-blue-200/50 flex items-center gap-2 border-t border-white/5 w-full justify-center">
             <ShieldCheck size={14} className="text-[#D4AF37]/70" /> Plataforma
-            versão 1.3.0 - 20/06/2026
+            versão 1.5.0 - 26/06/2026 //add exportação
           </div>
         </div>
 
@@ -112,7 +115,7 @@ const Login = () => {
                 htmlFor="username"
                 className="text-sm font-semibold text-blue-100/90 ml-1 tracking-wide"
               >
-                E-mail ou Usuário
+                E-mail do Usuário
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-blue-300/60 group-focus-within:text-[#D4AF37] transition-colors">
