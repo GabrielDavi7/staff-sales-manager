@@ -38,6 +38,63 @@ const NewAttendance = () => {
   const cargoLogado = user?.cargo?.toUpperCase();
   const isDispositivo = cargoLogado === "DISPOSITIVO";
 
+  /**
+   * Normaliza entrada de valor em BRL (Real Brasileiro)
+   * Aceita: "1200,45" → armazena como "1200,45" (exibição), converte para 1200.45 (API)
+   * Rejeita: "1.200,45", "1200.45", "1,200.45" (ponto NÃO é permitido)
+   *
+   * Regras:
+   * - Apenas dígitos e vírgula (,)
+   * - Máximo 2 casas decimais
+   * - Ponto (.) é rejeitado imediatamente
+   *
+   * @param {string} valor - Entrada do usuário
+   * @returns {string} - Valor normalizado (com vírgula) ou string vazia se inválido
+   */
+  const normalizarValorBRL = (valor) => {
+    if (!valor) return "";
+
+    let cleaned = valor.trim();
+
+    // ❌ REJEITA qualquer ponto (.) - não é permitido
+    if (cleaned.includes(".")) {
+      return "";
+    }
+
+    // ❌ REJEITA caracteres inválidos - aceita apenas dígitos e vírgula
+    if (!/^[\d,]*$/.test(cleaned)) {
+      return "";
+    }
+
+    // Se tem vírgula, valida decimais
+    if (cleaned.includes(",")) {
+      const partes = cleaned.split(",");
+
+      // ❌ REJEITA múltiplas vírgulas
+      if (partes.length > 2) return "";
+
+      // ❌ REJEITA mais de 2 casas decimais
+      if (partes[1]?.length > 2) return "";
+
+      return cleaned; // Mantém no formato "1200,45"
+    }
+
+    // Sem vírgula = valor inteiro
+    return cleaned; // "1200"
+  };
+
+  /**
+   * Converte valor em BRL (com vírgula) para formato decimal (com ponto)
+   * Usado apenas na API/Banco de dados
+   * @param {string} valor - "1200,45"
+   * @returns {number} - 1200.45
+   */
+  const converterParaDecimalAPI = (valor) => {
+    if (!valor) return 0;
+    return parseFloat(valor.replace(",", "."));
+  };
+
+  // TRAVA DE SEGURANÇA: Impede que o Supervisor acesse a rota pela URL direta
   if (cargoLogado === "SUPERVISOR") {
     return <Navigate to="/dashboard" replace />;
   }
@@ -86,17 +143,22 @@ const NewAttendance = () => {
   const handleFinish = async () => {
     setError("");
 
+    // VALIDAÇÃO: Se venda fechada, exige valor válido
     if (formData.vendaFechada) {
-      if (!formData.valor || Number(formData.valor) <= 0) {
+      const valorDecimal = converterParaDecimalAPI(formData.valor);
+      if (!formData.valor || valorDecimal <= 0) {
         setError("O valor da venda deve ser maior que zero.");
         return;
       }
     }
 
+    // VALIDAÇÃO: Se não fechou venda, exige motivo
     if (formData.vendaFechada === false && !formData.motivoId) {
       setError("Selecione o motivo da perda.");
       return;
     }
+
+    // VALIDAÇÃO: Se dispositivo, exige PIN
     if (isDispositivo && !formData.pin) {
       setError("O PIN é obrigatório.");
       return;
@@ -117,7 +179,10 @@ const NewAttendance = () => {
       const payload = {
         vendedor: Number(formData.vendedorId),
         venda_fechada: formData.vendaFechada,
-        valor_venda: formData.vendaFechada ? parseFloat(formData.valor) : 0,
+        // Converte "1200,45" → 1200.45 para a API
+        valor_venda: formData.vendaFechada
+          ? converterParaDecimalAPI(formData.valor)
+          : 0,
         metrica: !formData.vendaFechada ? Number(formData.motivoId) : null,
         cliente_nome: formData.clienteNome || "Não informado",
         observacoes: formData.observacoes || "",
@@ -259,28 +324,41 @@ const NewAttendance = () => {
           {step === 3 && (
             <div className="max-w-2xl mx-auto w-full space-y-8">
               {formData.vendaFechada ? (
-                <div className="space-y-4">
-                  <label className="text-xl font-bold text-slate-700 dark:text-slate-200">
-                    Valor da Venda:
-                  </label>
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    autoFocus
-                    placeholder="Ex: 150.00"
-                    className="w-full text-4xl p-6 bg-transparent border-2 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-2xl outline-none focus:border-[#4D7BAB] dark:focus:border-blue-500"
-                    value={formData.valor}
-                    onKeyDown={(e) => {
-                      if (e.key === "-" || e.key === "e") e.preventDefault();
-                    }}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === "" || Number(val) >= 0) {
-                        setFormData({ ...formData, valor: val });
-                      }
-                    }}
-                  />
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-3xl p-8 border-2 border-emerald-200 shadow-sm">
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-3xl font-bold text-emerald-600">R$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        autoFocus
+                        placeholder="0,00"
+                        className="flex-1 text-5xl font-bold bg-transparent outline-none text-slate-900 placeholder-slate-300"
+                        value={formData.valor}
+                        onChange={(e) => {
+                          const novoValor = normalizarValorBRL(e.target.value);
+                          setFormData({ ...formData, valor: novoValor });
+                        }}
+                        onKeyDown={(e) => {
+                          if (
+                            e.key === "." ||
+                            e.key === "-" ||
+                            e.key === "e" ||
+                            e.key === "E"
+                          ) {
+                            e.preventDefault();
+                          }
+                        }}
+                      />
+                    </div>
+                    {formData.valor && (
+                      <div className="mt-4 pt-4 border-t border-emerald-200">
+                        <p className="text-sm text-emerald-600 font-medium">
+                          ✓ Valor válido
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">

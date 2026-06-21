@@ -101,6 +101,164 @@ describe("Página de Registro de Atendimento", () => {
     expect(screen.getAllByText(/Valor/i).length).toBeGreaterThan(0);
   });
 
+  // ===== NOVOS TESTES PARA VALIDAÇÃO DE VALOR EM BRL =====
+
+  it("Validação BRL: Aceita formato correto (1200,45)", async () => {
+    useAuth.mockReturnValue({ user: { cargo: "VENDEDOR" }, loading: false });
+    const { container } = render(
+      <BrowserRouter>
+        <NewAttendance />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getAllByText(/Venda Fechada/i).length).toBeGreaterThan(0),
+    );
+
+    const botoesVendaFechada = screen.getAllByRole("button", {
+      name: /Venda Fechada/i,
+    });
+    fireEvent.click(botoesVendaFechada[0]);
+
+    const inputValor = container.querySelector("input[type='text']");
+    expect(inputValor).toBeTruthy();
+
+    fireEvent.change(inputValor, { target: { value: "1200,45" } });
+    await waitFor(() => {
+      expect(inputValor.value).toBe("1200,45");
+    });
+  });
+
+  it("Validação BRL: Rejeita ponto (1.200,45)", async () => {
+    useAuth.mockReturnValue({ user: { cargo: "VENDEDOR" }, loading: false });
+    const { container } = render(
+      <BrowserRouter>
+        <NewAttendance />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getAllByText(/Venda Fechada/i).length).toBeGreaterThan(0),
+    );
+
+    const botoesVendaFechada = screen.getAllByRole("button", {
+      name: /Venda Fechada/i,
+    });
+    fireEvent.click(botoesVendaFechada[0]);
+
+    const inputValor = container.querySelector("input[type='text']");
+
+    // Tenta inserir com ponto (separador de milhar)
+    fireEvent.change(inputValor, { target: { value: "1.200,45" } });
+    await waitFor(() => {
+      // Campo deve estar vazio pois a normalização rejeita ponto
+      expect(inputValor.value).toBe("");
+    });
+  });
+
+  it("Validação BRL: Rejeita formato gringo (1200.45)", async () => {
+    useAuth.mockReturnValue({ user: { cargo: "VENDEDOR" }, loading: false });
+    const { container } = render(
+      <BrowserRouter>
+        <NewAttendance />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getAllByText(/Venda Fechada/i).length).toBeGreaterThan(0),
+    );
+
+    const botoesVendaFechada = screen.getAllByRole("button", {
+      name: /Venda Fechada/i,
+    });
+    fireEvent.click(botoesVendaFechada[0]);
+
+    const inputValor = container.querySelector("input[type='text']");
+
+    fireEvent.change(inputValor, { target: { value: "1200.45" } });
+    await waitFor(() => {
+      // Campo deve estar vazio pois contém ponto
+      expect(inputValor.value).toBe("");
+    });
+  });
+
+  it("Validação BRL: Aceita inteiro sem decimais (1200)", async () => {
+    useAuth.mockReturnValue({ user: { cargo: "VENDEDOR" }, loading: false });
+    const { container } = render(
+      <BrowserRouter>
+        <NewAttendance />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getAllByText(/Venda Fechada/i).length).toBeGreaterThan(0),
+    );
+
+    const botoesVendaFechada = screen.getAllByRole("button", {
+      name: /Venda Fechada/i,
+    });
+    fireEvent.click(botoesVendaFechada[0]);
+
+    const inputValor = container.querySelector("input[type='text']");
+
+    fireEvent.change(inputValor, { target: { value: "1200" } });
+    await waitFor(() => {
+      expect(inputValor.value).toBe("1200");
+    });
+  });
+
+  it("Validação BRL: Rejeita mais de 2 casas decimais (1200,456)", async () => {
+    useAuth.mockReturnValue({ user: { cargo: "VENDEDOR" }, loading: false });
+    const { container } = render(
+      <BrowserRouter>
+        <NewAttendance />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getAllByText(/Venda Fechada/i).length).toBeGreaterThan(0),
+    );
+
+    const botoesVendaFechada = screen.getAllByRole("button", {
+      name: /Venda Fechada/i,
+    });
+    fireEvent.click(botoesVendaFechada[0]);
+
+    const inputValor = container.querySelector("input[type='text']");
+
+    fireEvent.change(inputValor, { target: { value: "1200,456" } });
+    await waitFor(() => {
+      // Campo deve estar vazio pois tem 3 casas decimais
+      expect(inputValor.value).toBe("");
+    });
+  });
+
+  it("Validação BRL: Rejeita múltiplas vírgulas (1,200,45)", async () => {
+    useAuth.mockReturnValue({ user: { cargo: "VENDEDOR" }, loading: false });
+    const { container } = render(
+      <BrowserRouter>
+        <NewAttendance />
+      </BrowserRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getAllByText(/Venda Fechada/i).length).toBeGreaterThan(0),
+    );
+
+    const botoesVendaFechada = screen.getAllByRole("button", {
+      name: /Venda Fechada/i,
+    });
+    fireEvent.click(botoesVendaFechada[0]);
+
+    const inputValor = container.querySelector("input[type='text']");
+
+    fireEvent.change(inputValor, { target: { value: "1,200,45" } });
+    await waitFor(() => {
+      // Campo deve estar vazio pois tem múltiplas vírgulas
+      expect(inputValor.value).toBe("");
+    });
+  });
+
   it("Fluxo de Erro: Deve exibir erro se tentar finalizar venda sem valor", async () => {
     useAuth.mockReturnValue({ user: { cargo: "VENDEDOR" }, loading: false });
     render(
@@ -147,10 +305,10 @@ describe("Página de Registro de Atendimento", () => {
     });
     fireEvent.click(botoesVendaFechada[0]);
 
-    // Preenche um valor
-    const inputValor = container.querySelector("input");
+    // Preenche um valor no formato correto (BRL)
+    const inputValor = container.querySelector("input[type='text']");
     if (inputValor) {
-      fireEvent.change(inputValor, { target: { value: "150" } });
+      fireEvent.change(inputValor, { target: { value: "150,00" } });
     }
 
     const botoesConfirmar = screen.getAllByRole("button", {
