@@ -782,27 +782,43 @@ export function Grafics() {
             <div className="h-[400px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  layout="vertical"
+                  layout="horizontal" // 1. Mude de 'vertical' para 'horizontal'
                   data={processadoRanking}
-                  margin={{ top: 0, right: 30, left: 40, bottom: 0 }}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
                 >
                   <CartesianGrid
                     strokeDasharray="3 3"
-                    horizontal={false}
+                    vertical={false}
                     stroke="currentColor"
                     className="text-slate-200 dark:text-slate-700"
                   />
-                  <XAxis type="number" hide={true} />
-                  <YAxis
+
+                  {/* 2. O XAxis agora recebe os nomes dos colaboradores */}
+                  <XAxis
                     dataKey="name"
                     type="category"
                     axisLine={false}
                     tickLine={false}
-                    width={150}
-                    tick={{ fontSize: 13, fontWeight: "bold" }}
+                    tick={{ fontSize: 11, fontWeight: "bold" }}
                     stroke="currentColor"
                     className="text-slate-600 dark:text-slate-300"
+                    interval={0} // Garante que todos os nomes apareçam
+                    angle={-45} // Inclina o texto para não sobrepor
+                    textAnchor="end"
+                    height={60}
                   />
+
+                  {/* 3. O YAxis agora recebe os valores numéricos */}
+                  <YAxis
+                    type="number"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12 }}
+                    stroke="currentColor"
+                    className="text-slate-500 dark:text-slate-400"
+                    tickFormatter={(val) => `R$${val / 1000}k`}
+                  />
+
                   <Tooltip
                     cursor={{ fill: "currentColor" }}
                     className="dark:text-slate-800"
@@ -817,11 +833,12 @@ export function Grafics() {
                       "Faturamento",
                     ]}
                   />
+
                   <Bar
                     dataKey="faturamento"
                     fill="#4D7BAB"
-                    radius={[0, 8, 8, 0]}
-                    barSize={24}
+                    radius={[8, 8, 0, 0]} // Arredonda o topo das barras verticais
+                    barSize={40}
                   />
                 </BarChart>
               </ResponsiveContainer>
