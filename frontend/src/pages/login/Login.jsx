@@ -56,7 +56,6 @@ const Login = () => {
       <div className="max-w-5xl w-full bg-white/5 backdrop-blur-xl rounded-[2.5rem] shadow-3xl border border-white/10 overflow-hidden flex flex-col md:flex-row relative z-10 animate-in fade-in zoom-in-95 duration-700 ease-out">
         <div className="md:w-1/2 p-12 lg:p-16 flex flex-col justify-between items-center text-center relative overflow-hidden bg-[#010528]/60 border-r border-white/5">
           <div className="absolute inset-0 opacity-[0.03] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48ZyBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTAgMGg0MHY0MEgwVjB6bTIwIDIwaDIwdjIwSDIWMjB6TTAgMjBoMjB2MjBIMFYyMHoyMCAwaDIwdjIwSDIwVjB6Ii8+PC9nPjwvZz48L3N2Zz4=')]"></div>
-
           <div className="relative z-10 flex flex-col items-center flex-1 justify-center space-y-8">
             <div className="p-6 bg-[#D4AF37]/10 backdrop-blur-sm rounded-full border border-[#D4AF37]/20 shadow-inner-gold">
               <Diamond
@@ -75,10 +74,9 @@ const Login = () => {
               </p>
             </div>
           </div>
-
           <div className="relative z-10 pt-10 text-xs text-blue-200/50 flex items-center gap-2 border-t border-white/5 w-full justify-center">
             <ShieldCheck size={14} className="text-[#D4AF37]/70" /> Plataforma
-            versão 1.5.0 - 26/06/2026 //add exportação
+            versão 1.6.0 - 26/06/2026
           </div>
         </div>
 
