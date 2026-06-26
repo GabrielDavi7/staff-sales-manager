@@ -504,21 +504,30 @@ export function Team() {
         {/* COLUNA ESQUERDA: Lista Lateral */}
         <div className="w-full lg:w-1/3 bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-xl border border-blue-50 dark:border-slate-800 flex flex-col h-[650px] transition-colors">
           {isAdmin && (
-            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 w-full mb-4">
+            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 w-full mb-4 focus-within:border-[#4D7BAB] dark:focus-within:border-blue-500 transition-colors">
               <Store
                 size={20}
                 className="text-[#4D7BAB] dark:text-blue-400 ml-2 shrink-0"
               />
               <select
-                className="outline-none bg-transparent font-bold text-slate-600 dark:text-slate-300 pr-2 w-full cursor-pointer border-none truncate"
+                className="outline-none bg-transparent font-bold text-slate-600 dark:text-slate-300 pr-2 w-full cursor-pointer border-none truncate dark:[color-scheme:dark]"
                 value={filtroLoja}
                 onChange={(e) => setFiltroLoja(e.target.value)}
               >
-                <option value="">Todas as Lojas</option>
+                <option
+                  value=""
+                  className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold"
+                >
+                  Todas as Lojas
+                </option>
                 {lojas
                   .filter((l) => l.ativo === true)
                   .map((loja) => (
-                    <option key={loja.id} value={loja.id}>
+                    <option
+                      key={loja.id}
+                      value={loja.id}
+                      className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold"
+                    >
                       {loja.nome}
                     </option>
                   ))}
