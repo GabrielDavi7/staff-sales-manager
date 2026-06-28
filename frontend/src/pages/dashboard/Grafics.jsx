@@ -10,6 +10,8 @@ import {
   Building2,
   MessageSquareX,
   Calendar,
+  Trophy,
+  GitCompare,
 } from "lucide-react";
 import {
   BarChart,
@@ -32,6 +34,22 @@ const getLocalDataString = (dateObj) => {
   return new Date(dateObj.getTime() - tzoffset).toISOString().slice(0, 10);
 };
 
+// Paleta de cores para o gráfico dinâmico de múltiplas lojas
+const CORES_LOJAS = [
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#8b5cf6",
+  "#ec4899",
+  "#f43f5e",
+  "#14b8a6",
+  "#6366f1",
+  "#84cc16",
+  "#eab308",
+  "#d946ef",
+  "#0ea5e9",
+];
+
 export function Grafics() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -50,7 +68,10 @@ export function Grafics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const isAdmin = user?.cargo?.toUpperCase() === "ADMIN";
+  const cargoLogado = user?.cargo?.toUpperCase();
+  const isAdmin = cargoLogado === "ADMIN";
+  const isSupervisor = cargoLogado === "SUPERVISOR";
+  const isVendedor = cargoLogado === "VENDEDOR";
 
   useEffect(() => {
     if (
@@ -106,9 +127,9 @@ export function Grafics() {
 
         let endpoint = "";
 
-        if (user?.cargo === "VENDEDOR") {
+        if (isVendedor) {
           endpoint = "/api/analytics/meu-desempenho/";
-        } else if (user?.cargo === "SUPERVISOR") {
+        } else if (isSupervisor) {
           const idLojaSupervisor = user.loja?.id || user.loja;
           endpoint = "/api/analytics/loja/";
           if (idLojaSupervisor) params.append("loja_id", idLojaSupervisor);
@@ -130,10 +151,11 @@ export function Grafics() {
     fetchAnalytics();
   }, [
     user,
-    user?.cargo,
+    isVendedor,
+    isSupervisor,
+    isAdmin,
     periodo,
     lojaSelecionada,
-    isAdmin,
     dataInicio,
     dataFim,
   ]);
@@ -142,6 +164,7 @@ export function Grafics() {
 
   const totalFaturamento = data?.kpis?.total_vendas_valor || 0;
 
+  // 1. Processamento Global (Linha de faturamento e Barras de fluxo)
   const processadoHorario = useMemo(() => {
     const tabelaBase = data?.tabela || [];
     const agrupado = {};
@@ -163,6 +186,60 @@ export function Grafics() {
     );
   }, [data]);
 
+  // 2. Processamento: Comparativo entre Lojas por Hora (Apenas Admin)
+  const processadoLojasHorario = useMemo(() => {
+    if (!isAdmin) return { dados: [], lojasUnicas: [] };
+    const tabelaBase = data?.tabela || [];
+    const agrupado = {};
+    const setLojas = new Set();
+
+    tabelaBase.forEach((venda) => {
+      if (!venda.venda_fechada || !venda.data_hora) return;
+      const horaLocal =
+        new Date(venda.data_hora).getHours().toString().padStart(2, "0") +
+        ":00";
+      const nomeLoja = venda.vendedor__loja__nome || "Sem Loja";
+
+      setLojas.add(nomeLoja);
+
+      if (!agrupado[horaLocal]) {
+        agrupado[horaLocal] = { hora: horaLocal };
+      }
+      agrupado[horaLocal][nomeLoja] =
+        (agrupado[horaLocal][nomeLoja] || 0) + Number(venda.valor_venda || 0);
+    });
+
+    const dados = Object.values(agrupado).sort(
+      (a, b) => parseInt(a.hora) - parseInt(b.hora),
+    );
+    return { dados, lojasUnicas: Array.from(setLojas) };
+  }, [data, isAdmin]);
+
+  // 3. Processamento: Ranking de Colaboradores (Admin e Supervisor)
+  const processadoRanking = useMemo(() => {
+    if (isVendedor) return [];
+    const tabelaBase = data?.tabela || [];
+    const mapVendedores = {};
+
+    tabelaBase.forEach((venda) => {
+      if (!venda.venda_fechada) return;
+      const nome =
+        `${venda.vendedor__first_name || ""} ${venda.vendedor__last_name || ""}`.trim() ||
+        "Colaborador N/A";
+
+      if (!mapVendedores[nome]) {
+        mapVendedores[nome] = 0;
+      }
+      mapVendedores[nome] += Number(venda.valor_venda || 0);
+    });
+
+    return Object.keys(mapVendedores)
+      .map((nome) => ({ name: nome, faturamento: mapVendedores[nome] }))
+      .sort((a, b) => b.faturamento - a.faturamento)
+      .slice(0, 10); // Mostra o Top 10
+  }, [data, isVendedor]);
+
+  // Processamento de Pizzas
   const processadoConversao = [
     {
       name: "Vendas Fechadas",
@@ -229,7 +306,7 @@ export function Grafics() {
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">
-              Gráficos Lojas
+              Gráficos de Performance
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Visão:{" "}
@@ -334,13 +411,19 @@ export function Grafics() {
               <select
                 value={lojaSelecionada}
                 onChange={(e) => setLojaSelecionada(e.target.value)}
-                className="pl-8 pr-6 py-2 w-full rounded-2xl text-xs font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border-2 border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-300 focus:outline-none focus:border-[#4D7BAB] dark:focus:border-blue-500 transition-all cursor-pointer shadow-sm appearance-none min-w-[140px]"
+                className="pl-8 pr-6 py-2 w-full rounded-2xl text-xs font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border-2 border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-300 focus:outline-none focus:border-[#4D7BAB] dark:focus:border-blue-500 transition-all cursor-pointer shadow-sm appearance-none min-w-[140px] dark:[color-scheme:dark]"
               >
-                <option value="">Todas Lojas</option>
+                <option value="" className="bg-white dark:bg-slate-800">
+                  Todas Lojas
+                </option>
                 {lojasDisponiveis
                   .filter((loja) => loja.ativo === true)
                   .map((loja) => (
-                    <option key={loja.id} value={loja.id}>
+                    <option
+                      key={loja.id}
+                      value={loja.id}
+                      className="bg-white dark:bg-slate-800"
+                    >
                       {loja.nome}
                     </option>
                   ))}
@@ -350,7 +433,7 @@ export function Grafics() {
         </div>
       </div>
 
-      {/* Faturamento (Linha) */}
+      {/* BLOCO 1: Faturamento Global */}
       <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-blue-50 dark:border-slate-800 shadow-2xl shadow-blue-100/30 dark:shadow-none transition-colors">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
@@ -359,7 +442,7 @@ export function Grafics() {
             </div>
             <div>
               <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-                Evolução do Faturamento
+                Evolução Global do Faturamento
               </h3>
             </div>
           </div>
@@ -414,13 +497,14 @@ export function Grafics() {
                   boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.5)",
                 }}
                 formatter={(value) => [
-                  `R$ ${value.toLocaleString("pt-BR")}`,
+                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
                   "Faturamento",
                 ]}
               />
               <Line
                 type="monotone"
                 dataKey="renda"
+                name="Faturamento"
                 stroke="#10b981"
                 strokeWidth={5}
                 dot={{ r: 6, fill: "#10b981", strokeWidth: 3, stroke: "#fff" }}
@@ -431,7 +515,7 @@ export function Grafics() {
         </div>
       </div>
 
-      {/* Barras e Pizzas */}
+      {/* BLOCO 2: Barras de Atendimento e Pizzas de Motivos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-blue-50 dark:border-slate-800 shadow-2xl shadow-blue-100/30 dark:shadow-none transition-colors">
           <div className="flex items-center gap-3 mb-8">
@@ -440,7 +524,7 @@ export function Grafics() {
             </div>
             <div>
               <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-                Fluxo de Clientes
+                Fluxo de Clientes (Atendimentos)
               </h3>
             </div>
           </div>
@@ -584,6 +668,188 @@ export function Grafics() {
           </div>
         </div>
       </div>
+
+      {/* BLOCO 3: Comparativo de Lojas (APENAS ADMIN) */}
+      {isAdmin && (
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-blue-50 dark:border-slate-800 shadow-2xl shadow-blue-100/30 dark:shadow-none transition-colors">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-[#4D7BAB] dark:text-blue-400 rounded-xl">
+              <GitCompare size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                Comparativo entre Lojas por Hora
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Volume de faturamento por unidade
+              </p>
+            </div>
+          </div>
+
+          {processadoLojasHorario.dados.length > 0 ? (
+            <div className="h-[400px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={processadoLojasHorario.dados}
+                  margin={{ top: 10, right: 30, left: 20, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="currentColor"
+                    className="text-slate-200 dark:text-slate-700"
+                  />
+                  <XAxis
+                    dataKey="hora"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 14 }}
+                    stroke="currentColor"
+                    className="text-slate-500 dark:text-slate-400"
+                    dy={15}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 14 }}
+                    tickFormatter={(val) => `R$${val / 1000}k`}
+                    stroke="currentColor"
+                    className="text-slate-500 dark:text-slate-400"
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#1e293b",
+                      borderRadius: "16px",
+                      border: "none",
+                      color: "#f8fafc",
+                    }}
+                    formatter={(value, name) => [
+                      `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+                      name,
+                    ]}
+                  />
+                  <Legend
+                    iconType="circle"
+                    wrapperStyle={{ paddingTop: "20px", fontSize: "14px" }}
+                    className="text-slate-600 dark:text-slate-300"
+                  />
+
+                  {processadoLojasHorario.lojasUnicas.map((loja, index) => (
+                    <Line
+                      key={loja}
+                      type="monotone"
+                      dataKey={loja}
+                      name={loja}
+                      stroke={CORES_LOJAS[index % CORES_LOJAS.length]}
+                      strokeWidth={4}
+                      dot={false}
+                      activeDot={{ r: 8, strokeWidth: 0 }}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-[400px] flex items-center justify-center text-slate-400 text-sm italic">
+              Sem dados para comparar.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* BLOCO 4: Ranking de Colaboradores (ADMIN E SUPERVISOR) */}
+      {(isAdmin || isSupervisor) && (
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-blue-50 dark:border-slate-800 shadow-2xl shadow-blue-100/30 dark:shadow-none transition-colors">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="p-3 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl">
+              <Trophy size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                Ranking de Faturamento (Top 10)
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {isAdmin
+                  ? lojaSelecionada
+                    ? "Colaboradores da loja selecionada"
+                    : "Melhores resultados da rede toda"
+                  : "Colaboradores da sua filial"}
+              </p>
+            </div>
+          </div>
+
+          {processadoRanking.length > 0 ? (
+            <div className="h-[400px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  layout="horizontal" // 1. Mude de 'vertical' para 'horizontal'
+                  data={processadoRanking}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="currentColor"
+                    className="text-slate-200 dark:text-slate-700"
+                  />
+
+                  {/* 2. O XAxis agora recebe os nomes dos colaboradores */}
+                  <XAxis
+                    dataKey="name"
+                    type="category"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fontWeight: "bold" }}
+                    stroke="currentColor"
+                    className="text-slate-600 dark:text-slate-300"
+                    interval={0} // Garante que todos os nomes apareçam
+                    angle={-45} // Inclina o texto para não sobrepor
+                    textAnchor="end"
+                    height={60}
+                  />
+
+                  {/* 3. O YAxis agora recebe os valores numéricos */}
+                  <YAxis
+                    type="number"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12 }}
+                    stroke="currentColor"
+                    className="text-slate-500 dark:text-slate-400"
+                    tickFormatter={(val) => `R$${val / 1000}k`}
+                  />
+
+                  <Tooltip
+                    cursor={{ fill: "currentColor" }}
+                    className="dark:text-slate-800"
+                    contentStyle={{
+                      backgroundColor: "#1e293b",
+                      borderRadius: "16px",
+                      border: "none",
+                      color: "#f8fafc",
+                    }}
+                    formatter={(value) => [
+                      `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+                      "Faturamento",
+                    ]}
+                  />
+
+                  <Bar
+                    dataKey="faturamento"
+                    fill="#4D7BAB"
+                    radius={[8, 8, 0, 0]} // Arredonda o topo das barras verticais
+                    barSize={40}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-[400px] flex items-center justify-center text-slate-400 text-sm italic">
+              Sem dados de vendas para gerar ranking.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

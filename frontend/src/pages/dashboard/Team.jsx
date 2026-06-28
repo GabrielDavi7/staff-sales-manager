@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Users,
   Search,
@@ -69,6 +69,7 @@ export function Team() {
         let listaAtendimentos = [];
         let urlAtendimentos = "/api/core/atendimentos/";
 
+        // Enquanto existirem páginas de atendimentos (Cuidado com bases muito grandes)
         while (urlAtendimentos) {
           const resAtendimentos = await api.get(urlAtendimentos);
           const dados =
@@ -220,42 +221,59 @@ export function Team() {
     carregarDadosSuporte();
   }, [isAdmin, isSupervisor, isVendedor, user]);
 
-  const vendedoresFiltrados = usuariosRaw.filter((u) => {
-    const contaAtiva =
-      u.is_active === true ||
-      u.ativo === true ||
-      (u.is_active === undefined && u.ativo === undefined);
-    if (!contaAtiva) return false;
-    if (isVendedor) return true;
-    if (isSupervisor) {
-      const cargoValido =
-        u.cargo?.toUpperCase() === "VENDEDOR" ||
-        u.cargo?.toUpperCase() === "SUPERVISOR";
-      if (!cargoValido) return false;
-      const idLojaSupervisor = user?.loja?.id || user?.loja;
-      const idLojaVendedor = u.loja?.id || u.loja || u.loja_id;
-      if (!idLojaVendedor) return true;
-      return String(idLojaVendedor) === String(idLojaSupervisor);
-    }
-    if (isAdmin) {
-      const cargoValido =
-        u.cargo?.toUpperCase() === "VENDEDOR" ||
-        u.cargo?.toUpperCase() === "SUPERVISOR";
-      if (!cargoValido) return false;
-      if (filtroLoja) {
-        const idLojaVendedor = u.loja?.id || u.loja;
-        return String(idLojaVendedor) === String(filtroLoja);
-      }
-      return true;
-    }
-    return false;
-  });
+  // OPTIMIZATION 1: Dicionário rápido de lojas (O(1) lookup)
+  const mapaLojas = useMemo(() => {
+    const mapa = {};
+    lojas.forEach((l) => {
+      mapa[l.id] = l.nome;
+    });
+    return mapa;
+  }, [lojas]);
 
-  const filteredTeam = vendedoresFiltrados.filter((v) =>
-    `${v.first_name || ""} ${v.last_name || ""}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
-  );
+  // OPTIMIZATION 2: Memoização do array de vendedores ativos filtrado
+  const vendedoresFiltrados = useMemo(() => {
+    return usuariosRaw.filter((u) => {
+      const contaAtiva =
+        u.is_active === true ||
+        u.ativo === true ||
+        (u.is_active === undefined && u.ativo === undefined);
+      if (!contaAtiva) return false;
+      if (isVendedor) return true;
+      if (isSupervisor) {
+        const cargoValido =
+          u.cargo?.toUpperCase() === "VENDEDOR" ||
+          u.cargo?.toUpperCase() === "SUPERVISOR";
+        if (!cargoValido) return false;
+        const idLojaSupervisor = user?.loja?.id || user?.loja;
+        const idLojaVendedor = u.loja?.id || u.loja || u.loja_id;
+        if (!idLojaVendedor) return true;
+        return String(idLojaVendedor) === String(idLojaSupervisor);
+      }
+      if (isAdmin) {
+        const cargoValido =
+          u.cargo?.toUpperCase() === "VENDEDOR" ||
+          u.cargo?.toUpperCase() === "SUPERVISOR";
+        if (!cargoValido) return false;
+        if (filtroLoja) {
+          const idLojaVendedor = u.loja?.id || u.loja;
+          return String(idLojaVendedor) === String(filtroLoja);
+        }
+        return true;
+      }
+      return false;
+    });
+  }, [usuariosRaw, isVendedor, isSupervisor, isAdmin, user, filtroLoja]);
+
+  // OPTIMIZATION 3: Memoização da busca de texto
+  const filteredTeam = useMemo(() => {
+    if (!search) return vendedoresFiltrados;
+    const lowerSearch = search.toLowerCase();
+    return vendedoresFiltrados.filter((v) =>
+      `${v.first_name || ""} ${v.last_name || ""}`
+        .toLowerCase()
+        .includes(lowerSearch),
+    );
+  }, [vendedoresFiltrados, search]);
 
   useEffect(() => {
     if (filteredTeam.length > 0 && !selectedUser)
@@ -267,22 +285,26 @@ export function Team() {
       setSelectedUser(filteredTeam[0] || null);
   }, [filtroLoja, filteredTeam, selectedUser]);
 
-  const obterMetricasVendedor = (vendedorId) => {
-    if (!vendedorId || atendimentos.length === 0)
+  // OPTIMIZATION 4: Isolamento total do cálculo pesado de Performance
+  const performanceAtual = useMemo(() => {
+    if (!selectedUser || atendimentos.length === 0) {
       return {
         totalFaturado: 0,
         taxaConversao: 0,
         totalAtendimentos: 0,
         dadosGrafico: [],
       };
+    }
+
     let historicoVendedor = atendimentos.filter(
-      (a) => String(a.vendedor?.id || a.vendedor) === String(vendedorId),
+      (a) => String(a.vendedor?.id || a.vendedor) === String(selectedUser.id),
     );
 
     if (periodo === "Especifico" && (dataInicio || dataFim)) {
       historicoVendedor = historicoVendedor.filter((a) => {
         if (!a.data_hora) return false;
-        const vendaStr = getLocalDataString(new Date(a.data_hora));
+        // Melhoria: Corta a string em vez de instanciar new Date
+        const vendaStr = a.data_hora.substring(0, 10);
         if (dataInicio && dataFim)
           return vendaStr >= dataInicio && vendaStr <= dataFim;
         if (dataInicio && !dataFim) return vendaStr >= dataInicio;
@@ -293,7 +315,7 @@ export function Team() {
       const hojeStr = getLocalDataString(new Date());
       historicoVendedor = historicoVendedor.filter((a) => {
         if (!a.data_hora) return false;
-        return getLocalDataString(new Date(a.data_hora)) === hojeStr;
+        return a.data_hora.substring(0, 10) === hojeStr;
       });
     } else if (periodo === "7 Dias" || periodo === "30 Dias") {
       const dias = periodo === "7 Dias" ? 7 : 30;
@@ -344,12 +366,16 @@ export function Team() {
     const dadosGrafico = Object.keys(contagemMetricas)
       .map((key) => ({ name: key, quantity: contagemMetricas[key] }))
       .filter((d) => d.quantity > 0);
-    return { totalFaturado, taxaConversao, totalAtendimentos, dadosGrafico };
-  };
 
-  const performanceAtual = selectedUser
-    ? obterMetricasVendedor(selectedUser.id)
-    : null;
+    return { totalFaturado, taxaConversao, totalAtendimentos, dadosGrafico };
+  }, [
+    selectedUser,
+    atendimentos,
+    periodo,
+    dataInicio,
+    dataFim,
+    metricasMestre,
+  ]);
 
   if (loading && usuariosRaw.length === 0) {
     return (
@@ -478,21 +504,30 @@ export function Team() {
         {/* COLUNA ESQUERDA: Lista Lateral */}
         <div className="w-full lg:w-1/3 bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-xl border border-blue-50 dark:border-slate-800 flex flex-col h-[650px] transition-colors">
           {isAdmin && (
-            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 w-full mb-4">
+            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 w-full mb-4 focus-within:border-[#4D7BAB] dark:focus-within:border-blue-500 transition-colors">
               <Store
                 size={20}
                 className="text-[#4D7BAB] dark:text-blue-400 ml-2 shrink-0"
               />
               <select
-                className="outline-none bg-transparent font-bold text-slate-600 dark:text-slate-300 pr-2 w-full cursor-pointer border-none truncate"
+                className="outline-none bg-transparent font-bold text-slate-600 dark:text-slate-300 pr-2 w-full cursor-pointer border-none truncate dark:[color-scheme:dark]"
                 value={filtroLoja}
                 onChange={(e) => setFiltroLoja(e.target.value)}
               >
-                <option value="">Todas as Lojas</option>
+                <option
+                  value=""
+                  className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold"
+                >
+                  Todas as Lojas
+                </option>
                 {lojas
                   .filter((l) => l.ativo === true)
                   .map((loja) => (
-                    <option key={loja.id} value={loja.id}>
+                    <option
+                      key={loja.id}
+                      value={loja.id}
+                      className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold"
+                    >
                       {loja.nome}
                     </option>
                   ))}
@@ -530,12 +565,12 @@ export function Team() {
               </p>
             ) : (
               filteredTeam.map((v) => {
+                // Utilização do mapa memoizado no lugar do lento .find()
                 const nomeDaLoja =
                   v.loja_nome ||
-                  lojas.find(
-                    (l) => String(l.id) === String(v.loja?.id || v.loja),
-                  )?.nome ||
+                  mapaLojas[v.loja?.id || v.loja] ||
                   "A Minha Unidade";
+
                 return (
                   <button
                     key={v.id}
