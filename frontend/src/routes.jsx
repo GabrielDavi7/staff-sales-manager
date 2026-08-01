@@ -9,11 +9,16 @@ import Grafics from "./pages/dashboard/Grafics";
 import Team from "./pages/dashboard/Team";
 import AdminPainel from "./pages/admin/AdminPainel";
 import Perfil from "./pages/dashboard/perfil"; // Import corrigido para Maiúsculo
+import LandingPage from "./pages/landing/LandingPage";
 
 export const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />,
+  },
+  {
+    path: "/landing",
+    element: <LandingPage />,
   },
   {
     path: "/",
