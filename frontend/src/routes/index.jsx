@@ -1,10 +1,11 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 
 import LoginPage from "../pages/login/Login";
-import { PrivateRoute } from "./PrivateRoute";
+import LandingPage from "../pages/landing/LandingPage";
+import PrivateRoute from "./PrivateRoute";
 
 import NewAttendance from "../pages/dashboard/NewAttendance";
-import Team from "../pages/team/Team";
+import Team from "../pages/dashboard/Team";
 import Grafics from "../pages/dashboard/Grafics";
 import AdminPainel from "../pages/admin/AdminPainel";
 import Perfil from "../pages/dashboard/perfil"; // Import do Perfil adicionado e corrigido
@@ -70,6 +71,10 @@ const InitialRedirect = () => {
 };
 
 export const router = createBrowserRouter([
+  {
+    path: "/landing",
+    element: <LandingPage />,
+  },
   {
     path: "/login",
     element: <LoginPage />,

@@ -38,3 +38,6 @@ staticfiles/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Arquivos gerados por IA
+.reasonix/
