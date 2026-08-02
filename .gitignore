@@ -38,3 +38,5 @@ staticfiles/
 .idea/
 .DS_Store
 Thumbs.db
+
+.reasonix/
