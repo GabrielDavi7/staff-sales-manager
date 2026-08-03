@@ -1,121 +1,141 @@
+import { Check } from "lucide-react";
+
 const plans = [
   {
-    name: 'Basic',
-    price: 'R$ 79',
-    period: '/mês',
-    description: 'Para pequenos negócios que querem profissionalizar a gestão.',
+    name: "Basic",
+    price: "A definir",
+    period: "",
+    description: "Para pequenos negócios que querem profissionalizar a gestão.",
     features: [
-      '1 loja',
-      'Até 10 vendedores',
-      'Métricas ilimitadas',
-      'Dashboard + exportação CSV',
-      'Dispositivo com PIN',
-      'Suporte prioritário',
+      "1 loja",
+      "Até 10 vendedores",
+      "Métricas ilimitadas",
+      "Dashboard + exportação CSV",
+      "Dispositivo com PIN",
+      "Suporte prioritário",
     ],
     highlighted: false,
-    cta: 'Assinar Basic',
+    cta: "Tenho Interesse",
   },
   {
-    name: 'Plus',
-    price: 'R$ 109',
-    period: '/mês',
-    description: 'Para quem está crescendo e precisa gerenciar mais de uma unidade.',
+    name: "Plus",
+    price: "A definir",
+    period: "",
+    description:
+      "Para quem está crescendo e precisa gerenciar mais de uma unidade.",
     features: [
-      'Até 3 lojas',
-      'Vendedores ilimitados',
-      'Métricas ilimitadas',
-      'Dashboard consolidado',
-      'Exportação CSV',
-      'Dispositivo por loja',
-      'Suporte via WhatsApp',
+      "Até 3 lojas",
+      "Vendedores ilimitados",
+      "Métricas ilimitadas",
+      "Dashboard consolidado",
+      "Exportação CSV",
+      "Dispositivo por loja",
+      "Suporte via WhatsApp",
     ],
     highlighted: true,
-    cta: 'Assinar Plus',
+    cta: "Tenho Interesse",
   },
   {
-    name: 'Pro',
-    price: 'R$ 149',
-    period: '/mês',
-    description: 'Para redes com múltiplas lojas e equipes.',
+    name: "Pro",
+    price: "A definir",
+    period: "",
+    description:
+      "Para redes com múltiplas lojas e equipes comerciais completas.",
     features: [
-      'Até 5 lojas',
-      'Vendedores ilimitados',
-      'Métricas ilimitadas',
-      'Dashboard consolidado',
-      'Exportação CSV + Excel',
-      'Dispositivo por loja',
-      'Suporte via WhatsApp',
+      "Até 5 lojas",
+      "Vendedores ilimitados",
+      "Métricas ilimitadas",
+      "Dashboard consolidado",
+      "Exportação CSV + Excel",
+      "Dispositivo por loja",
+      "Suporte via WhatsApp",
     ],
     highlighted: false,
-    cta: 'Assinar Pro',
+    cta: "Tenho Interesse",
   },
   {
-    name: 'Enterprise',
-    price: 'Sob consulta',
-    period: '',
-    description: 'Solução personalizada para grandes redes e franquias.',
+    name: "Enterprise",
+    price: "Sob consulta",
+    period: "",
+    description:
+      "Solução personalizada para grandes redes, franquias e corporações.",
     features: [
-      'Lojas ilimitadas',
-      'Vendedores ilimitados',
-      'Dashboard por franqueado',
-      'API de integração',
-      'Treinamento da equipe',
-      'Gerente de conta dedicado',
-      'SLA garantido',
+      "Lojas ilimitadas",
+      "Vendedores ilimitados",
+      "Dashboard por franqueado",
+      "API de integração",
+      "Treinamento da equipe",
+      "Gerente de conta dedicado",
+      "SLA garantido",
     ],
     highlighted: false,
-    cta: 'Falar com Vendas',
+    cta: "Falar com Consultor",
   },
 ];
 
 export default function PlansSection() {
   return (
-    <section id="planos" className="py-20 md:py-28 bg-white">
+    <section id="planos" className="py-24 md:py-32 bg-white relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="text-amber-600 font-semibold text-sm tracking-wide uppercase">
-            Planos
+        <div className="text-center max-w-3xl mx-auto mb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <span className="inline-block bg-slate-100 text-slate-600 font-bold text-xs tracking-widest uppercase px-4 py-1.5 rounded-full mb-4">
+            Planos & Preços
           </span>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mt-3 mb-4">
-            Escolha o plano ideal para o seu negócio.
+          <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-6">
+            Escale <span className="text-amber-500">sem limites.</span>
           </h2>
-          <p className="text-lg text-gray-600 leading-relaxed">
-            Comece com o plano que cabe no seu momento e escale quando seu negócio crescer.
+          <p className="text-lg md:text-xl text-slate-600 leading-relaxed font-medium">
+            Nossos planos estão sendo estruturados para entregar o melhor
+            custo-benefício. Demonstre seu interesse hoje.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-          {plans.map((plan) => (
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+          {plans.map((plan, index) => (
             <div
               key={plan.name}
-              className={`relative rounded-2xl border-2 p-6 flex flex-col ${
+              className={`relative rounded-3xl p-8 flex flex-col transition-all duration-300 animate-in fade-in slide-in-from-bottom-8 ${
                 plan.highlighted
-                  ? 'border-amber-500 bg-amber-50/50 shadow-xl scale-[1.03]'
-                  : 'border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow'
+                  ? "border-2 border-amber-500 bg-white shadow-2xl shadow-amber-500/10 scale-100 lg:scale-105 z-10"
+                  : "border border-slate-200 bg-slate-50 hover:bg-white hover:shadow-xl hover:border-slate-300"
               }`}
+              style={{ animationDelay: `${index * 100}ms` }}
             >
               {plan.highlighted && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs font-bold px-4 py-1 rounded-full shadow">
-                  MAIS POPULAR
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-amber-600 text-white text-[10px] font-black tracking-widest px-4 py-1.5 rounded-full shadow-lg">
+                  RECOMENDADO
                 </div>
               )}
 
-              <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
-              <p className="text-sm text-gray-500 mt-1">{plan.description}</p>
+              <h3 className="text-2xl font-extrabold text-slate-900">
+                {plan.name}
+              </h3>
+              <p className="text-sm text-slate-500 mt-2 font-medium min-h-[40px]">
+                {plan.description}
+              </p>
 
-              <div className="mt-4 mb-6">
-                <span className="text-3xl font-bold text-gray-900">{plan.price}</span>
+              <div className="mt-6 mb-8 pb-8 border-b border-slate-200">
+                <span className="text-3xl font-black text-slate-900">
+                  {plan.price}
+                </span>
                 {plan.period && (
-                  <span className="text-gray-500 text-sm ml-1">{plan.period}</span>
+                  <span className="text-slate-500 text-sm font-semibold ml-1">
+                    {plan.period}
+                  </span>
                 )}
               </div>
 
-              <ul className="space-y-2.5 flex-1">
+              <ul className="space-y-4 flex-1 mb-8">
                 {plan.features.map((feat) => (
-                  <li key={feat} className="flex items-start gap-2 text-sm text-gray-700">
-                    <svg className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
+                  <li
+                    key={feat}
+                    className="flex items-start gap-3 text-sm text-slate-700 font-medium"
+                  >
+                    <Check
+                      size={18}
+                      strokeWidth={3}
+                      className="text-emerald-500 shrink-0 mt-0.5"
+                    />
                     {feat}
                   </li>
                 ))}
@@ -123,10 +143,10 @@ export default function PlansSection() {
 
               <a
                 href="#contato"
-                className={`mt-6 block text-center font-semibold py-3 rounded-lg transition-all duration-200 ${
+                className={`mt-auto block text-center font-bold py-3.5 rounded-xl transition-all duration-200 ${
                   plan.highlighted
-                    ? 'bg-amber-500 hover:bg-amber-400 text-gray-900 shadow-md'
-                    : 'border-2 border-gray-300 hover:border-gray-400 text-gray-700'
+                    ? "bg-amber-500 hover:bg-amber-400 text-slate-900 shadow-lg shadow-amber-500/30 hover:scale-[1.02]"
+                    : "bg-slate-200 hover:bg-slate-300 text-slate-800"
                 }`}
               >
                 {plan.cta}

@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState } from "react";
 
 export default function ContactSection() {
   const [form, setForm] = useState({
-    nome: '',
-    email: '',
-    telefone: '',
-    mensagem: '',
+    nome: "",
+    email: "",
+    telefone: "",
+    mensagem: "",
   });
   const [status, setStatus] = useState(null); // 'success' | 'error' | null
 
@@ -18,21 +18,21 @@ export default function ContactSection() {
     setStatus(null);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
       const res = await fetch(`${apiUrl}/api/landing/contact/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
 
       if (res.ok) {
-        setStatus('success');
-        setForm({ nome: '', email: '', telefone: '', mensagem: '' });
+        setStatus("success");
+        setForm({ nome: "", email: "", telefone: "", mensagem: "" });
       } else {
-        setStatus('error');
+        setStatus("error");
       }
     } catch {
-      setStatus('error');
+      setStatus("error");
     }
   };
 
@@ -47,14 +47,21 @@ export default function ContactSection() {
             Pronto para transformar sua gestão?
           </h2>
           <p className="text-lg text-gray-600 leading-relaxed">
-            Preencha o formulário abaixo e entraremos em contato para uma demonstração personalizada.
+            Preencha o formulário abaixo e entraremos em contato para uma
+            demonstração personalizada.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 space-y-5">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 space-y-5"
+        >
           <div className="grid sm:grid-cols-2 gap-5">
             <div>
-              <label htmlFor="nome" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label
+                htmlFor="nome"
+                className="block text-sm font-medium text-gray-700 mb-1.5"
+              >
                 Nome
               </label>
               <input
@@ -69,7 +76,10 @@ export default function ContactSection() {
               />
             </div>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 mb-1.5"
+              >
                 Email
               </label>
               <input
@@ -85,7 +95,10 @@ export default function ContactSection() {
             </div>
           </div>
           <div>
-            <label htmlFor="telefone" className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label
+              htmlFor="telefone"
+              className="block text-sm font-medium text-gray-700 mb-1.5"
+            >
               Telefone
             </label>
             <input
@@ -99,7 +112,10 @@ export default function ContactSection() {
             />
           </div>
           <div>
-            <label htmlFor="mensagem" className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label
+              htmlFor="mensagem"
+              className="block text-sm font-medium text-gray-700 mb-1.5"
+            >
               Mensagem
             </label>
             <textarea
@@ -121,14 +137,15 @@ export default function ContactSection() {
             Enviar mensagem
           </button>
 
-          {status === 'success' && (
+          {status === "success" && (
             <p className="text-green-600 text-sm text-center font-medium">
               ✅ Mensagem enviada com sucesso! Entraremos em contato em breve.
             </p>
           )}
-          {status === 'error' && (
+          {status === "error" && (
             <p className="text-red-600 text-sm text-center font-medium">
-              ❌ Erro ao enviar. Tente novamente ou envie um email direto para contato@joiasmanager.com.br.
+              ❌ Erro ao enviar. Tente novamente ou envie um email direto para
+              contato@joiasmanager.com.br.
             </p>
           )}
         </form>
