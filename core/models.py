@@ -7,6 +7,13 @@ class Loja(models.Model):
     nome = models.CharField(max_length=100)
     cidade = models.CharField(max_length=100)
     ativo = models.BooleanField(default=True, verbose_name='Ativo')
+    cliente = models.ForeignKey(
+        'gestao.Cliente',
+        on_delete=models.CASCADE,
+        related_name='lojas',
+        null=True,
+        blank=True,
+    )
 
     def __str__(self):
         return f"{self.nome} - {self.cidade}"

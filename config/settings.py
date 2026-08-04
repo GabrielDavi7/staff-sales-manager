@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'users', 
     'management',
     'landing',
+    'gestao',
 ]
 
 MIDDLEWARE = [

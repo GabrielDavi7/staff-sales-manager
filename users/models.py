@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractUser
 class CustomUser(AbstractUser):
     CARGO_CHOICES = [
         ('ADMIN', 'Administrador'),
+        ('ADMIN_CLIENTE', 'Administrador do Cliente'),
         ('SUPERVISOR', 'Supervisor'),
         ('VENDEDOR', 'Vendedor'),
         ('DISPOSITIVO', 'Dispositivo'),
@@ -13,6 +14,13 @@ class CustomUser(AbstractUser):
     username = models.CharField(max_length=50, unique=True) 
     email = models.EmailField(unique=True)
     cargo = models.CharField(max_length=15, choices=CARGO_CHOICES, default='VENDEDOR')
+    cliente = models.ForeignKey(
+        'gestao.Cliente',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='usuarios',
+    )
     loja = models.ForeignKey('core.Loja', on_delete=models.SET_NULL, null=True, blank=True)
     equipe = models.ForeignKey('core.Equipe', on_delete=models.SET_NULL, null=True, blank=True)
     pin = models.CharField(
