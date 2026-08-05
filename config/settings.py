@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'analytics',
     'users', 
     'management',
+    'landing',
     'gestao',
 ]
 
