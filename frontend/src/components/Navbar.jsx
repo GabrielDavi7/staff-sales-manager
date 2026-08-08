@@ -12,7 +12,7 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <div className="navbar-links">
-        <span className="navbar-brand">Joias Manager</span>
+        <span className="navbar-brand">Staff Sales Manager.</span>
         {links.map((link) => (
           <Link key={link.path} to={buildPath(link.path)} className="navbar-link">
             {link.label}

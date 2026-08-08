@@ -10,6 +10,7 @@ import Team from "./pages/dashboard/Team";
 import AdminPainel from "./pages/admin/AdminPainel";
 import Perfil from "./pages/dashboard/perfil";
 import { useAuth } from "./contexts/AuthContext";
+import LandingPage from "./pages/landing/LandingPage";
 
 /**
  * Redireciona rotas sem slug para a versao com slug,
@@ -84,8 +85,10 @@ export const router = createBrowserRouter([
     path: "/:slug/login",
     element: <Login />,
   },
-
-  // === Rotas sem slug ===
+  {
+    path: "/landing",
+    element: <LandingPage />,
+  },
   {
     path: "/",
     element: (

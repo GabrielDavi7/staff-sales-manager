@@ -21,7 +21,7 @@ class CustomUserCreationForm(forms.ModelForm):
     class Meta:
         model = CustomUser
         # TUDO que queremos preencher na tela de criação precisa estar listado aqui (menos a senha, que já definimos acima)
-        fields = ('email', 'username', 'first_name', 'last_name', 'cargo', 'loja', 'equipe', 'pin')
+        fields = ('email', 'username', 'first_name', 'last_name', 'cargo', 'cliente', 'loja', 'equipe', 'pin')
 
     def clean_password(self):
         # Valida se a senha atende aos requisitos de segurança do Django
@@ -49,11 +49,11 @@ class CustomUserAdmin(UserAdmin):
     form = CustomUserChangeForm
     model = CustomUser
     
-    list_display = ['email', 'username', 'first_name', 'last_name', 'cargo', 'is_active']
+    list_display = ['email', 'username', 'first_name', 'last_name', 'cargo', 'cliente', 'is_active']
     
     # Tela de Edição (quando o usuário já existe e você clica nele)
     fieldsets = UserAdmin.fieldsets + (
-        ('Informações Adicionais', {'fields': ('cargo', 'loja', 'equipe', 'pin')}),
+        ('Informações Adicionais', {'fields': ('cargo', 'cliente', 'loja', 'equipe', 'pin')}),
     )
     
     # Tela de Criação - Tudo na mesma tela com os campos definidos claramente!
@@ -68,7 +68,7 @@ class CustomUserAdmin(UserAdmin):
         }),
         ('Vínculos e Permissões (Opcionais)', {
             'classes': ('wide',),
-            'fields': ('loja', 'equipe', 'pin'), # O PIN rápido do Vendedor
+            'fields': ('cliente', 'loja', 'equipe', 'pin'), # O PIN rápido do Vendedor
         }),
     )
 
