@@ -14,6 +14,7 @@ import api from "../../api/axios";
 
 export default function CriarLoja({ onBack }) {
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [storeFormData, setStoreFormData] = useState({
     nome_loja: "",
     cidade: "",
@@ -28,25 +29,30 @@ export default function CriarLoja({ onBack }) {
   const handleStoreSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    setErrorMsg("");
 
-    // Estrutura o payload conforme os campos definidos no seu Serializer do Django
     const payload = {
-      nome: storeFormData.nome_loja, // Mapeado de nome_loja para nome
+      nome: storeFormData.nome_loja,
       cidade: storeFormData.cidade,
     };
 
     try {
       await api.post("/api/admin/lojas/", payload);
       alert(`Loja "${storeFormData.nome_loja}" cadastrada com sucesso!`);
-      onBack(); // Retorna ao Centro de Comando atualizando os contadores automaticamente
+      onBack();
     } catch (err) {
-      console.error(
-        "Erro ao cadastrar nova loja no Django:",
-        err.response?.data || err.message,
-      );
-      alert(
-        "Erro 400: Não foi possível salvar a nova unidade. Verifique as validações do sistema.",
-      );
+      console.error("Erro ao cadastrar nova loja:", err.response?.data || err.message);
+      const data = err.response?.data;
+      if (typeof data === 'string') {
+        setErrorMsg(data);
+      } else if (data?.detail) {
+        setErrorMsg(data.detail);
+      } else if (data && typeof data === 'object') {
+        const msgs = Object.values(data).flat();
+        setErrorMsg(msgs.join(' '));
+      } else {
+        setErrorMsg("Erro ao salvar. Verifique os dados e tente novamente.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -114,6 +120,13 @@ export default function CriarLoja({ onBack }) {
             />
           </div>
         </div>
+
+        {/* Mensagem de erro amigavel */}
+        {errorMsg && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm">
+            {errorMsg}
+          </div>
+        )}
 
         {/* Botões de Ação */}
         <div className="flex items-center justify-end gap-4 pt-8 border-t border-white/10">

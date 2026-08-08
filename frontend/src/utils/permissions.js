@@ -4,7 +4,7 @@ export const getNavLinks = (cargo) => {
     {
       label: 'Dashboard',
       path: '/dashboard',
-      roles: ['VENDEDOR', 'SUPERVISOR', 'ADMIN'],
+      roles: ['VENDEDOR', 'SUPERVISOR', 'ADMIN', 'ADMIN_CLIENTE'],
     },
     {
       label: 'Registrar Atendimento',
@@ -20,6 +20,11 @@ export const getNavLinks = (cargo) => {
       label: 'Administração',
       path: '/dashboard/admin',
       roles: ['ADMIN'],
+    },
+    {
+      label: 'Painel de Controle',
+      path: '/adminpainel',
+      roles: ['ADMIN_CLIENTE'],
     },
   ];
 

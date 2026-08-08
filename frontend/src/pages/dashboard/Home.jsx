@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { useAppPath } from "../../hooks/useAppPath";
 import api from "../../api/axios";
 import {
   Plus,
@@ -239,12 +240,15 @@ export function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { buildPath } = useAppPath();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const isAdmin = user?.cargo?.toUpperCase() === "ADMIN";
+  const isAdminCliente = user?.cargo?.toUpperCase() === "ADMIN_CLIENTE";
+  const isAdminOrCliente = isAdmin || isAdminCliente;
 
   const [periodo, setPeriodo] = useState("Hoje");
   const [dataInicio, setDataInicio] = useState("");
@@ -271,14 +275,14 @@ export function Home() {
   useEffect(() => {
     if (
       user?.cargo === "DISPOSITIVO" &&
-      location.pathname.toLowerCase() !== "/registrarvenda"
+      location.pathname !== buildPath("/registrarVenda")
     ) {
-      navigate("/registrarvenda", { replace: true });
+      navigate(buildPath("/registrarVenda"), { replace: true });
     }
   }, [user?.cargo, navigate, location.pathname]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdminOrCliente) return;
     const fetchLojas = async () => {
       try {
         const response = await api.get("/api/admin/lojas/");
@@ -289,7 +293,7 @@ export function Home() {
       }
     };
     fetchLojas();
-  }, [isAdmin]);
+  }, [isAdminOrCliente]);
 
   useEffect(() => {
     if (!user || user?.cargo === "DISPOSITIVO") return;
@@ -328,7 +332,7 @@ export function Home() {
           const idLojaSupervisor = user.loja?.id || user.loja;
           endpoint = "/api/analytics/loja/";
           if (idLojaSupervisor) params.append("loja_id", idLojaSupervisor);
-        } else if (isAdmin) {
+        } else if (isAdminOrCliente) {
           endpoint = "/api/analytics/geral/";
           if (lojaSelecionada) params.append("loja_id", lojaSelecionada);
         }
@@ -350,7 +354,7 @@ export function Home() {
     dataInicio,
     dataFim,
     lojaSelecionada,
-    isAdmin,
+    isAdminOrCliente,
   ]);
 
   if (user?.cargo === "DISPOSITIVO") return null;
@@ -609,7 +613,7 @@ export function Home() {
           )}
 
           <Link
-            to="/registrarvenda"
+            to={buildPath("/registrarVenda")}
             className="bg-[#4D7BAB] text-white hover:bg-[#3a5d82] dark:hover:bg-blue-600 px-5 py-2.5 rounded-2xl text-sm font-bold shadow-lg flex items-center gap-2 transition-all w-full sm:w-auto justify-center shrink-0"
           >
             <Plus size={18} /> Novo

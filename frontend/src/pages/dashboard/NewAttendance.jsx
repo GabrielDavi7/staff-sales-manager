@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { useAppPath } from "../../hooks/useAppPath";
 import api from "../../api/axios";
 import {
   User,
@@ -15,6 +16,7 @@ import { clsx } from "clsx";
 
 const NewAttendance = () => {
   const navigate = useNavigate();
+  const { buildPath } = useAppPath();
   const { user } = useAuth();
 
   const [step, setStep] = useState(1);
@@ -96,7 +98,7 @@ const NewAttendance = () => {
 
   // TRAVA DE SEGURANÇA: Impede que o Supervisor acesse a rota pela URL direta
   if (cargoLogado === "SUPERVISOR") {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={buildPath("/dashboard")} replace />;
   }
 
   useEffect(() => {
@@ -206,9 +208,9 @@ const NewAttendance = () => {
           dataHora: "",
         });
         setStep(1);
-        navigate("/registrarvenda", { replace: true });
+        navigate(buildPath("/registrarVenda"), { replace: true });
       } else {
-        navigate("/dashboard", { replace: true });
+        navigate(buildPath("/dashboard"), { replace: true });
       }
     } catch (err) {
       console.error("Erro no Django:", err.response?.data);

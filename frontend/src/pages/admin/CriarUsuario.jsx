@@ -17,6 +17,7 @@ import api from "../../api/axios";
 export default function CriarUsuario({ onBack }) {
   const [loadingDados, setLoadingDados] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const [formData, setFormData] = useState({
     username: "",
@@ -81,8 +82,8 @@ export default function CriarUsuario({ onBack }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    setErrorMsg("");
 
-    // Mapeia os campos tratando a 'equipe' como opcional (null se vazia)
     const payload = {
       username: formData.username,
       password: formData.senha,
@@ -101,13 +102,18 @@ export default function CriarUsuario({ onBack }) {
       alert(`Colaborador "${formData.primeiro_nome}" cadastrado com sucesso!`);
       onBack();
     } catch (err) {
-      console.error(
-        "Erro ao cadastrar usuário no Django:",
-        err.response?.data || err.message,
-      );
-      alert(
-        "Erro 400: Não foi possível salvar. Verifique se o username ou e-mail já estão em uso.",
-      );
+      console.error("Erro ao cadastrar usuario:", err.response?.data || err.message);
+      const data = err.response?.data;
+      if (typeof data === 'string') {
+        setErrorMsg(data);
+      } else if (data?.detail) {
+        setErrorMsg(data.detail);
+      } else if (data && typeof data === 'object') {
+        const msgs = Object.values(data).flat();
+        setErrorMsg(msgs.join(' '));
+      } else {
+        setErrorMsg("Erro ao salvar. Verifique os dados e tente novamente.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -334,6 +340,13 @@ export default function CriarUsuario({ onBack }) {
             </div>
           </div>
         </div>
+
+        {/* Mensagem de erro */}
+        {errorMsg && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm">
+            {errorMsg}
+          </div>
+        )}
 
         {/* Botões de Ação */}
         <div className="flex items-center justify-end gap-4 pt-6 border-t border-white/10">

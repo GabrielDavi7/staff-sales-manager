@@ -20,6 +20,7 @@ import CriarMetrica from "./CriarMetrica";
 import CriarEquipe from "./CriarEquipe";
 import RelatorioAtendimento from "./RelatorioAtendimento";
 import GerenciarStatus from "./GerenciarStatus";
+import LimitsBar from "../../components/LimitsBar";
 import { useAuth } from "../../contexts/AuthContext";
 
 export default function AdminPainel() {
@@ -152,6 +153,11 @@ export default function AdminPainel() {
                 {renderValor(dashboardData.metricas)}
               </p>
             </div>
+          </div>
+
+          {/* LIMITS BAR — Indicadores de uso do plano */}
+          <div className="relative z-10 mt-4">
+            <LimitsBar />
           </div>
 
           {/* SEÇÃO DOS MÓDULOS DE NAVEGAÇÃO INTERNA */}

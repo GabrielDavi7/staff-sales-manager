@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from core.models import Relatorio
 from .services import AnalyticsService
 from django.db.models import Count, Sum
-from users.permissions import IsVendedor, IsSupervisorOrAdmin, IsAdmin
+from users.permissions import IsVendedor, IsSupervisorOrAdmin, IsAdmin, IsAdminOrAdminCliente
 from django.http import HttpResponse
 from django.utils.text import slugify
 class MeuDesempenhoView(APIView):
@@ -31,21 +31,44 @@ class MeuDesempenhoView(APIView):
 
 class LojaDesempenhoView(APIView):
     """
-    Retorna o desempenho consolidado da loja do usuário logado (Supervisor ou Admin).
+    Retorna o desempenho consolidado da loja do usuario logado.
+    ADMIN_CLIENTE pode filtrar por qualquer loja do seu cliente via ?loja_id=.
     """
     permission_classes = [IsAuthenticated, IsSupervisorOrAdmin]
 
     def get(self, request):
         data_inicio = request.query_params.get('data_inicio')
         data_fim = request.query_params.get('data_fim')
+        loja_id = request.query_params.get('loja_id')
 
-        if not request.user.loja:
+        # Determina a loja alvo
+        loja_alvo = None
+
+        if loja_id:
+            # ADMIN/ADMIN_CLIENTE filtrando por loja especifica
+            try:
+                from core.models import Loja
+                loja_alvo = Loja.objects.get(id=loja_id)
+            except Loja.DoesNotExist:
+                return Response({"detail": "Loja nao encontrada."}, status=404)
+
+            # ADMIN_CLIENTE: validar que a loja pertence ao seu cliente
+            if request.user.cargo == 'ADMIN_CLIENTE':
+                if loja_alvo.cliente != request.user.cliente:
+                    return Response(
+                        {"detail": "Loja nao pertence ao seu cliente."},
+                        status=403,
+                    )
+        elif request.user.loja:
+            loja_alvo = request.user.loja
+
+        if not loja_alvo:
             return Response(
-                {"detail": "Usuário não possui uma loja vinculada para visualizar o dashboard."}, 
-                status=400
+                {"detail": "Usuario nao possui uma loja vinculada. Use o parametro ?loja_id= para selecionar uma loja."},
+                status=400,
             )
 
-        queryset = Relatorio.objects.filter(vendedor__loja=request.user.loja)
+        queryset = Relatorio.objects.filter(vendedor__loja=loja_alvo)
 
         queryset_filtrado = AnalyticsService.filter_by_date(
             queryset=queryset, 
@@ -70,19 +93,22 @@ class LojaDesempenhoView(APIView):
 
 class VisaoGeralView(APIView):
     """
-    Retorna o desempenho global do sistema com comparativo entre lojas (apenas Admin).
-    Pode ser filtrado por uma loja específica via query_params.
+    Retorna o desempenho global do sistema com comparativo entre lojas.
+    ADMIN: ve todos os clientes. ADMIN_CLIENTE: ve apenas seu cliente.
+    Pode ser filtrado por uma loja especifica via query_params.
     """
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, IsAdminOrAdminCliente]
 
     def get(self, request):
         data_inicio = request.query_params.get('data_inicio')
         data_fim = request.query_params.get('data_fim')
-        # Captura o ID da loja enviado pelo React
         loja_id = request.query_params.get('loja_id')
 
-        # Escopo global inicial
+        # Escopo base: ADMIN ve tudo, ADMIN_CLIENTE ve so seu cliente
         queryset = Relatorio.objects.all()
+
+        if request.user.cargo == 'ADMIN_CLIENTE' and request.user.cliente:
+            queryset = queryset.filter(vendedor__loja__cliente=request.user.cliente)
 
         # SE houver loja_id, filtramos o queryset ANTES de mandar para o Service
         if loja_id:
@@ -143,9 +169,19 @@ class ExportarDadosView(APIView):
         data_fim = request.query_params.get('data_fim')
 
         if not loja_id or not data_inicio or not data_fim:
-            return HttpResponse("Loja e período são obrigatórios.", status=400)
+            return HttpResponse("Loja e periodo sao obrigatorios.", status=400)
 
-        # 2. PRIMEIRO: Filtrar os dados no Banco de Dados (Criar o queryset)
+        # 2. Validar que a loja pertence ao cliente do usuario
+        if request.user.cargo == 'ADMIN_CLIENTE' and request.user.cliente:
+            from core.models import Loja
+            try:
+                loja_obj = Loja.objects.get(id=loja_id)
+            except Loja.DoesNotExist:
+                return HttpResponse("Loja nao encontrada.", status=404)
+            if loja_obj.cliente != request.user.cliente:
+                return HttpResponse("Loja nao pertence ao seu cliente.", status=403)
+
+        # 3. Filtrar os dados no Banco de Dados
         queryset = Relatorio.objects.filter(
             vendedor__loja_id=loja_id,
             data_hora__date__gte=parse_date(data_inicio),

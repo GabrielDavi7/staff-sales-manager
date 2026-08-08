@@ -1,0 +1,19 @@
+{% extends "admin/index.html" %}
+
+{% block sidebar %}
+  {{ block.super }}
+
+  <div id="content-related" style="margin-top: 20px;">
+    <div class="module">
+      <h2>⚙️ Ferramentas</h2>
+      <ul class="actionlist" style="margin: 0; padding: 10px; list-style: none;">
+        <li style="margin-bottom: 8px;">
+          <a href="{% url 'admin:gestao_cliente_criar_completo' %}"
+             style="display: block; padding: 8px 12px; background: #417690; color: white; border-radius: 4px; text-decoration: none; font-weight: bold; text-align: center;">
+            ➕ Criar Cliente + Administrador
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+{% endblock %}
