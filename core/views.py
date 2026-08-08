@@ -14,18 +14,45 @@ class LojaViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = LojaSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Loja.objects.filter(ativo=True).order_by('nome')
+
+        if user.cargo == 'ADMIN_CLIENTE' and user.cliente:
+            queryset = queryset.filter(cliente=user.cliente)
+
+        return queryset
+
 class MetricaViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    Fornece apenas leitura para as métricas.
+    Fornece apenas leitura para as metricas.
+    Filtra por cliente: metricas da loja do usuario OU metricas
+    marcadas como 'todas as lojas' (loja__isnull) do mesmo cliente.
     """
     serializer_class = MetricaSerializer
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
         user = self.request.user
-        # Retorna métricas globais (loja é nula) e métricas específicas da loja do usuário
         queryset = Metrica.objects.filter(ativo=True)
-        return queryset.filter(Q(loja__isnull=True) | Q(loja=user.loja)).order_by('nome')
+
+        # Filtro base por cliente (isolamento multi-tenant)
+        if user.cliente:
+            queryset = queryset.filter(cliente=user.cliente)
+        else:
+            # ADMIN sem cliente vinculado: permite ver metricas
+            # de qualquer cliente (comportamento legado seguro)
+            pass
+
+        # Metricas da loja do usuario OU metricas "todas as lojas" do cliente
+        if user.loja:
+            return queryset.filter(
+                Q(loja=user.loja) | Q(loja__isnull=True)
+            ).order_by('nome')
+        else:
+            # Usuario sem loja (ex: ADMIN, ADMIN_CLIENTE): 
+            # ve metricas de loja especifica OU todas as lojas
+            return queryset.order_by('nome')
 
 class RelatorioViewSet(viewsets.ModelViewSet):
     serializer_class = RelatorioSerializer
@@ -45,6 +72,10 @@ class RelatorioViewSet(viewsets.ModelViewSet):
             return Relatorio.objects.filter(vendedor=user).order_by('-data_hora', '-id')
         if user.cargo == 'SUPERVISOR':
             return Relatorio.objects.filter(vendedor__loja=user.loja).order_by('-data_hora', '-id')
+        if user.cargo == 'ADMIN_CLIENTE':
+            return Relatorio.objects.filter(
+                vendedor__loja__cliente=user.cliente
+            ).order_by('-data_hora', '-id')
         if user.cargo == 'ADMIN':
             return Relatorio.objects.all().order_by('-data_hora', '-id')
         return Relatorio.objects.none()
@@ -53,14 +84,17 @@ class RelatorioViewSet(viewsets.ModelViewSet):
         obj = super().get_object()
         user = self.request.user
         
-        if user.cargo == 'ADMIN':
+        if user.cargo == 'ADMIN' or user.cargo == 'ADMIN_CLIENTE':
             return obj
         elif user.cargo == 'SUPERVISOR' and obj.vendedor.loja != user.loja:
-            raise PermissionDenied("Você não tem permissão para acessar este atendimento.")
+            raise PermissionDenied("Voce nao tem permissao para acessar este atendimento.")
         elif user.cargo == 'VENDEDOR' and obj.vendedor != user:
-            raise PermissionDenied("Você não tem permissão para acessar este atendimento.")
+            raise PermissionDenied("Voce nao tem permissao para acessar este atendimento.")
         elif user.cargo == 'DISPOSITIVO':
-            raise PermissionDenied("Você não tem permissão para acessar este atendimento.")
+            raise PermissionDenied("Voce nao tem permissao para acessar este atendimento.")
+        elif user.cargo == 'ADMIN_CLIENTE':
+            if obj.vendedor.loja.cliente != user.cliente:
+                raise PermissionDenied("Voce nao tem permissao para acessar este atendimento.")
             
         return obj
     
@@ -98,13 +132,13 @@ class RelatorioViewSet(viewsets.ModelViewSet):
             serializer.save(vendedor=vendedor)
             return
         
-        if cargo == 'ADMIN':
+        if cargo == 'ADMIN' or cargo == 'ADMIN_CLIENTE':
             vendedor_id = self.request.data.get('vendedor')
             if vendedor_id:
                 try:
                     vendedor = CustomUser.objects.get(id=vendedor_id, cargo='VENDEDOR')
                 except CustomUser.DoesNotExist:
-                    raise ValidationError({'vendedor': ['Vendedor inválido.']})
+                    raise ValidationError({'vendedor': ['Vendedor invalido.']})
                 serializer.save(vendedor=vendedor)
             else:
                 serializer.save(vendedor=user)
@@ -117,17 +151,17 @@ class RelatorioViewSet(viewsets.ModelViewSet):
         # Utiliza a instância que já foi buscada sem consultar o banco denovo
         instance = serializer.instance 
         
-        if user.cargo == 'ADMIN' or (user.cargo == 'VENDEDOR' and instance.vendedor == user):
+        if user.cargo in ('ADMIN', 'ADMIN_CLIENTE') or (user.cargo == 'VENDEDOR' and instance.vendedor == user):
             serializer.save()
         else:
-            raise PermissionDenied("Você não tem permissão para editar este atendimento.")
+            raise PermissionDenied("Voce nao tem permissao para editar este atendimento.")
     
     def perform_destroy(self, instance):
         user = self.request.user
-        if user.cargo == 'ADMIN' or (user.cargo == 'VENDEDOR' and instance.vendedor == user):
+        if user.cargo in ('ADMIN', 'ADMIN_CLIENTE') or (user.cargo == 'VENDEDOR' and instance.vendedor == user):
             instance.delete()
         else:
-            raise PermissionDenied("Você não tem permissão para excluir este atendimento.")
+            raise PermissionDenied("Voce nao tem permissao para excluir este atendimento.")
 
 class EquipeInfoViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -138,6 +172,10 @@ class EquipeInfoViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = Equipe.objects.filter(ativo=True)  # apenas equipes ativas
 
         if user.cargo == 'ADMIN':
+            return queryset
+        elif user.cargo == 'ADMIN_CLIENTE':
+            if user.cliente:
+                return queryset.filter(loja__cliente=user.cliente)
             return queryset
         elif user.cargo == 'SUPERVISOR':
             # Supervisor vê apenas a equipe que ele supervisiona (campo user.equipe)

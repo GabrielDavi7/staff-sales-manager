@@ -35,11 +35,17 @@ const Login = () => {
 
     if (result.success) {
       const userRole = result.user?.cargo;
+      const slug = result.user?.cliente_slug || "";
 
       if (userRole === "DISPOSITIVO") {
-        navigate("/registrarvenda", { replace: true });
+        navigate(slug ? `/${slug}/registrarvenda` : "/registrarvenda", { replace: true });
+      } else if (userRole === "ADMIN") {
+        // ADMIN sem cliente: vai para /adminpainel (visao global)
+        navigate("/adminpainel", { replace: true });
+      } else if (userRole === "ADMIN_CLIENTE") {
+        navigate(slug ? `/${slug}/adminpainel` : "/adminpainel", { replace: true });
       } else {
-        navigate("/dashboard", { replace: true });
+        navigate(slug ? `/${slug}/dashboard` : "/dashboard", { replace: true });
       }
     } else {
       setError(result.error || "Usuário ou senha incorretos.");

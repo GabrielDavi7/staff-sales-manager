@@ -147,7 +147,7 @@ export default function CriarMetrica({ onBack }) {
                   value="GLOBAL"
                   className="bg-[#003847] font-bold text-rose-300"
                 >
-                  Todas as Lojas (Métrica Global)
+                  Todas as lojas do cliente
                 </option>
                 {lojasDisponiveis.map((l) => (
                   <option key={l.id} value={l.id} className="bg-[#003847]">

@@ -72,7 +72,8 @@ class VendedorListView(generics.ListAPIView):
     """
     Retorna a lista de vendedores ativos com base no cargo:
     - ADMIN: Pode ver todos e filtrar por loja_id.
-    - SUPERVISOR/VENDEDOR: Vê apenas os vendedores da própria loja.
+    - ADMIN_CLIENTE: Ve apenas vendedores do seu cliente.
+    - SUPERVISOR/VENDEDOR: Ve apenas os vendedores da propria loja.
     """
     serializer_class = VendedorSerializer
     permission_classes = [IsAuthenticated]
@@ -81,17 +82,25 @@ class VendedorListView(generics.ListAPIView):
         user = self.request.user
         loja_id = self.request.query_params.get('loja_id')
 
-        # ADMIN: Vê todos os vendedores, podendo filtrar por loja específica
+        # ADMIN: Ve todos os vendedores, podendo filtrar por loja especifica
         if user.cargo == 'ADMIN':
             queryset = CustomUser.objects.filter(cargo='VENDEDOR', is_active=True)
-
-            # Aplica o filtro se o Admin escolheu uma loja no select
             if loja_id:
                 queryset = queryset.filter(loja_id=loja_id)
-
             return queryset.order_by('first_name')
 
-        # SUPERVISOR ou VENDEDOR: Vê apenas os vendedores da mesma loja (sua equipe)
+        # ADMIN_CLIENTE: Ve vendedores do seu cliente
+        if user.cargo == 'ADMIN_CLIENTE' and user.cliente:
+            queryset = CustomUser.objects.filter(
+                cargo='VENDEDOR',
+                is_active=True,
+                cliente=user.cliente,
+            )
+            if loja_id:
+                queryset = queryset.filter(loja_id=loja_id)
+            return queryset.order_by('first_name')
+
+        # SUPERVISOR ou VENDEDOR: Ve apenas os vendedores da mesma loja
         if user.loja:
             return CustomUser.objects.filter(
                 cargo='VENDEDOR',
@@ -99,7 +108,6 @@ class VendedorListView(generics.ListAPIView):
                 is_active=True,
             ).order_by('first_name')
 
-        # Se não for ADMIN e não tiver loja vinculada, não retorna nada por segurança
         return CustomUser.objects.none()
 
 class LogoutView(APIView):
@@ -223,5 +231,18 @@ class CustomObtainAuthToken(ObtainAuthToken):
                 'cargo': user.cargo,
                 'loja': user.loja.id if user.loja else None,
                 'equipe': user.equipe.id if user.equipe else None,
+                'cliente_id': user.cliente.id if user.cliente else None,
+                'cliente_slug': user.cliente.slug if user.cliente else None,
+                'cliente_nome': user.cliente.nome if user.cliente else None,
+                'plano_id': user.cliente.plano.id if user.cliente and user.cliente.plano else None,
+                'plano_nome': user.cliente.plano.nome if user.cliente and user.cliente.plano else None,
+                'plano_limites': {
+                    'max_lojas': user.cliente.plano.max_lojas if user.cliente and user.cliente.plano else 0,
+                    'max_usuarios_total': user.cliente.plano.max_usuarios_total if user.cliente and user.cliente.plano else 0,
+                    'max_vendedores_por_loja': user.cliente.plano.max_vendedores_por_loja if user.cliente and user.cliente.plano else 0,
+                    'max_supervisores_por_loja': user.cliente.plano.max_supervisores_por_loja if user.cliente and user.cliente.plano else 0,
+                    'max_dispositivos_por_loja': user.cliente.plano.max_dispositivos_por_loja if user.cliente and user.cliente.plano else 0,
+                    'max_equipes_por_loja': user.cliente.plano.max_equipes_por_loja if user.cliente and user.cliente.plano else 0,
+                } if user.cliente and user.cliente.plano else None,
             }
         }, status=status.HTTP_200_OK)

@@ -5,10 +5,20 @@ class IsAdmin(BasePermission):
     def has_permission(self, request, view):
         return request.user and request.user.is_authenticated and request.user.cargo == 'ADMIN'
 
-class IsSupervisorOrAdmin(BasePermission):
-    """Permite acesso se usuário for SUPERVISOR ou ADMIN."""
+class IsAdminCliente(BasePermission):
+    """Permite acesso apenas se usuário for ADMIN_CLIENTE."""
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.cargo in ('SUPERVISOR', 'ADMIN')
+        return request.user and request.user.is_authenticated and request.user.cargo == 'ADMIN_CLIENTE'
+
+class IsAdminOrAdminCliente(BasePermission):
+    """Permite acesso se usuário for ADMIN ou ADMIN_CLIENTE."""
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.cargo in ('ADMIN', 'ADMIN_CLIENTE')
+
+class IsSupervisorOrAdmin(BasePermission):
+    """Permite acesso se usuário for SUPERVISOR, ADMIN ou ADMIN_CLIENTE."""
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.cargo in ('SUPERVISOR', 'ADMIN', 'ADMIN_CLIENTE')
 
 class IsVendedor(BasePermission):
     """Permite acesso apenas se usuário for VENDEDOR."""

@@ -34,6 +34,13 @@ class Metrica(models.Model):
     nome = models.CharField(max_length=100)
     descricao = models.TextField(blank=True, null=True)
     loja = models.ForeignKey(Loja, on_delete=models.CASCADE, related_name='metricas', null=True, blank=True)
+    cliente = models.ForeignKey(
+        'gestao.Cliente',
+        on_delete=models.CASCADE,
+        related_name='metricas',
+        null=True,
+        blank=True,
+    )
     ativo = models.BooleanField(default=True, verbose_name='Ativo')
 
     def __str__(self):

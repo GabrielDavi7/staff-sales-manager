@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, NavLink, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import {
@@ -20,6 +20,8 @@ const DashboardLayout = () => {
   const { logout, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const { slug } = useParams();
+  const basePath = slug ? `/${slug}` : "";
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -29,47 +31,47 @@ const DashboardLayout = () => {
   const handleLogout = async () => {
     closeMenu();
     await logout();
-    navigate("/login");
+    navigate(basePath ? `${basePath}/login` : "/login");
   };
 
   const cargoLogado = user?.cargo?.toUpperCase();
 
   const menuItems = [
     {
-      path: "/dashboard",
+      path: basePath ? `${basePath}/` : "/",
       icon: LayoutDashboard,
       label: "Visão Geral",
-      roles: ["ADMIN", "SUPERVISOR", "VENDEDOR"],
+      roles: ["ADMIN", "ADMIN_CLIENTE", "SUPERVISOR", "VENDEDOR"],
     },
     {
-      path: "registrarvenda",
+      path: `${basePath}/registrarVenda`,
       icon: PlusCircle,
       label: "Novo Atendimento",
-      roles: ["ADMIN", "VENDEDOR", "DISPOSITIVO"],
+      roles: ["ADMIN", "ADMIN_CLIENTE", "VENDEDOR", "DISPOSITIVO"],
     },
     {
-      path: "funcionarios",
+      path: `${basePath}/funcionarios`,
       icon: Users,
       label: "Equipe e Vendedores",
-      roles: ["ADMIN", "SUPERVISOR", "VENDEDOR"],
+      roles: ["ADMIN", "ADMIN_CLIENTE", "SUPERVISOR", "VENDEDOR"],
     },
     {
-      path: "graficos",
+      path: `${basePath}/graficos`,
       icon: PieChart,
       label: "Gráficos Avançados",
-      roles: ["ADMIN", "SUPERVISOR", "VENDEDOR"],
+      roles: ["ADMIN", "ADMIN_CLIENTE", "SUPERVISOR", "VENDEDOR"],
     },
     {
-      path: "adminpainel",
+      path: `${basePath}/adminpainel`,
       icon: Users,
       label: "Painel Administrativo",
-      roles: ["ADMIN"],
+      roles: ["ADMIN", "ADMIN_CLIENTE"],
     },
     {
-      path: "meuperfil",
+      path: `${basePath}/meuperfil`,
       icon: Users,
       label: "Meu Perfil",
-      roles: ["ADMIN", "SUPERVISOR", "VENDEDOR"],
+      roles: ["ADMIN", "ADMIN_CLIENTE", "SUPERVISOR", "VENDEDOR"],
     },
   ];
 
@@ -118,7 +120,7 @@ const DashboardLayout = () => {
             <NavLink
               key={item.path}
               to={item.path}
-              end={item.path === "/dashboard"}
+              end={item.path === "/" || item.path === `${basePath}/`}
               onClick={closeMenu}
               className={({ isActive }) =>
                 clsx(
