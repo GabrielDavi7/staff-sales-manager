@@ -3,4 +3,9 @@ __pycache__
 *.pyc
 .git
 .env
+.env.*
+.audit_runtime
+*.sqlite3
+frontend/dist
+frontend/test-results.json
 frontend/node_modules

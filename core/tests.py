@@ -1,3 +1,4 @@
+from testing.factories import create_user, create_store, create_metric
 import pytest
 from django.test import TestCase
 from django.urls import reverse
@@ -15,40 +16,40 @@ class RelatorioViewSetTests(APITestCase):
     
     def setUp(self):
         # Cria lojas e equipes
-        self.loja1 = Loja.objects.create(nome="Loja Alpha")
-        self.loja2 = Loja.objects.create(nome="Loja Beta")
+        self.loja1 = create_store(nome="Loja Alpha")
+        self.loja2 = create_store(nome="Loja Beta")
         self.equipe1 = Equipe.objects.create(nome="Vendas Alpha", loja=self.loja1)
         self.equipe2 = Equipe.objects.create(nome="Vendas Beta", loja=self.loja2)
         
         # Cria métricas (globais e por loja)
-        self.metrica_global = Metrica.objects.create(
+        self.metrica_global = create_metric(
             nome="Cliente achou caro", 
             descricao="Preço acima do esperado"
         )
-        self.metrica_loja1 = Metrica.objects.create(
+        self.metrica_loja1 = create_metric(
             nome="Não gostou da cor", 
             descricao="Cor não agradou", 
             loja=self.loja1
         )
         
         # Cria usuários de cada cargo
-        self.admin = CustomUser.objects.create_user(
+        self.admin = create_user(
             username='admin', email='admin@ex.com', password='pass',
-            cargo='ADMIN', is_active=True
+            cargo='ADMIN_CLIENTE', is_active=True
         )
-        self.supervisor = CustomUser.objects.create_user(
+        self.supervisor = create_user(
             username='super', email='super@ex.com', password='pass',
             cargo='SUPERVISOR', loja=self.loja1, is_active=True
         )
-        self.vendedor1 = CustomUser.objects.create_user(
+        self.vendedor1 = create_user(
             username='vendedor1', email='v1@ex.com', password='pass',
             cargo='VENDEDOR', loja=self.loja1, equipe=self.equipe1, pin='1234', is_active=True
         )
-        self.vendedor2 = CustomUser.objects.create_user(
+        self.vendedor2 = create_user(
             username='vendedor2', email='v2@ex.com', password='pass',
             cargo='VENDEDOR', loja=self.loja2, equipe=self.equipe2, pin='5678', is_active=True
         )
-        self.dispositivo = CustomUser.objects.create_user(
+        self.dispositivo = create_user(
             username='disp', email='disp@ex.com', password='pass',
             cargo='DISPOSITIVO', loja=self.loja1, is_active=True
         )
@@ -114,7 +115,7 @@ class RelatorioViewSetTests(APITestCase):
         response = self.client.post(self.list_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('vendedor', response.data)
-        self.assertIn('não pertence à sua loja', response.data['vendedor'][0])
+        self.assertIn('não autorizado', response.data['vendedor'][0])
     
     def test_dispositivo_cria_com_pin_invalido_error(self):
         """DISPOSITIVO com PIN errado → erro"""
@@ -154,16 +155,15 @@ class RelatorioViewSetTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['vendedor'], self.vendedor2.id)
     
-    def test_admin_cria_sem_vendedor_usa_proprio(self):
-        """ADMIN cria atendimento sem informar vendedor → usa o próprio admin"""
+    def test_admin_precisa_informar_vendedor(self):
+        """Administrador precisa escolher um vendedor da empresa."""
         self.client.force_authenticate(user=self.admin)
         data = {
             'venda_fechada': True,
             'valor_venda': '50.00',
         }
         response = self.client.post(self.list_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['vendedor'], self.admin.id)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
     
     def test_supervisor_nao_pode_criar(self):
         """SUPERVISOR não pode criar atendimento (403)"""
@@ -191,7 +191,7 @@ class RelatorioViewSetTests(APITestCase):
         response = self.client.post(self.list_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('valor_venda', response.data)
-        self.assertIn('não pode ser negativo', response.data['valor_venda'][0])
+        self.assertIn('positivo', response.data['valor_venda'][0])
 
     def test_modelo_venda_fechada_valor_negativo_error(self):
         """MODELO: Impede salvar no banco com valor negativo através do clean()"""
@@ -234,7 +234,7 @@ class RelatorioViewSetTests(APITestCase):
         # Atendimentos vendedor2
         Relatorio.objects.create(vendedor=self.vendedor2, venda_fechada=True, valor_venda=200)
         # Atendimento admin (self.admin)
-        Relatorio.objects.create(vendedor=self.admin, venda_fechada=False, metrica=self.metrica_loja1)
+        Relatorio.objects.create(vendedor=self.vendedor2, venda_fechada=False, metrica=self.metrica_global)
     
     def test_vendedor_ve_apenas_seus_atendimentos(self):
         self.setUp_listagem()
@@ -290,7 +290,7 @@ class RelatorioViewSetTests(APITestCase):
         url = reverse('atendimento-detail', args=[rel.id])
         self.client.force_authenticate(user=self.vendedor1)
         response = self.client.patch(url, {'venda_fechada': False, 'metrica': self.metrica_global.id}, format='json')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
     def test_admin_pode_editar_qualquer_atendimento(self):
         self.setUp_listagem()
@@ -328,7 +328,7 @@ class RelatorioViewSetTests(APITestCase):
         url = reverse('atendimento-detail', args=[rel.id])
         self.client.force_authenticate(user=self.vendedor1)
         response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
     def test_admin_pode_deletar_qualquer(self):
         self.setUp_listagem()
@@ -344,27 +344,27 @@ class RelatorioViewSetTests(APITestCase):
         url = reverse('atendimento-detail', args=[rel.id])
         self.client.force_authenticate(user=self.dispositivo)
         response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class MetricaViewSetTests(APITestCase):
     
     def setUp(self):
-        self.loja1 = Loja.objects.create(nome="Loja Um")
-        self.loja2 = Loja.objects.create(nome="Loja Dois")
+        self.loja1 = create_store(nome="Loja Um")
+        self.loja2 = create_store(nome="Loja Dois")
         
-        self.metrica_global = Metrica.objects.create(nome="Motivo Global", descricao="Global")
-        self.metrica_loja1 = Metrica.objects.create(nome="Motivo Loja 1", loja=self.loja1)
-        self.metrica_loja2 = Metrica.objects.create(nome="Motivo Loja 2", loja=self.loja2)
+        self.metrica_global = create_metric(nome="Motivo Global", descricao="Global")
+        self.metrica_loja1 = create_metric(nome="Motivo Loja 1", loja=self.loja1)
+        self.metrica_loja2 = create_metric(nome="Motivo Loja 2", loja=self.loja2)
         
-        self.vendedor_loja1 = CustomUser.objects.create_user(
+        self.vendedor_loja1 = create_user(
             username='vend1', email='v1@ex.com', password='pass', cargo='VENDEDOR', loja=self.loja1
         )
-        self.vendedor_loja2 = CustomUser.objects.create_user(
+        self.vendedor_loja2 = create_user(
             username='vend2', email='v2@ex.com', password='pass', cargo='VENDEDOR', loja=self.loja2
         )
-        self.admin = CustomUser.objects.create_user(
-            username='admin', email='ad@ex.com', password='pass', cargo='ADMIN'
+        self.admin = create_user(
+            username='admin', email='ad@ex.com', password='pass', cargo='ADMIN_CLIENTE'
         )
         
         self.list_url = reverse('metrica-list')
@@ -411,7 +411,7 @@ class MetricaViewSetTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
-        self.assertEqual(len(results), 1)
+        self.assertEqual(len(results), 3)
         self.assertEqual(results[0]['nome'], "Motivo Global")
 
     def test_metodos_escrita_bloqueados(self):
@@ -426,7 +426,7 @@ User = get_user_model()
 
 @pytest.fixture
 def admin():
-    return User.objects.create_user(username='admin', email='admin@ex.com', password='pass', cargo='ADMIN')
+    return create_user(username='admin', email='admin@ex.com', password='pass', cargo='ADMIN_CLIENTE')
 
 @pytest.fixture
 def api_client():
@@ -434,15 +434,15 @@ def api_client():
 
 @pytest.fixture
 def supervisor(loja, equipe):
-    return User.objects.create_user(username='sup', email='sup@ex.com', password='pass', cargo='SUPERVISOR', loja=loja, equipe=equipe)
+    return create_user(username='sup', email='sup@ex.com', password='pass', cargo='SUPERVISOR', loja=loja, equipe=equipe)
 
 @pytest.fixture
 def vendedor(loja, equipe):
-    return User.objects.create_user(username='vendedor', email='vend@ex.com', password='pass', cargo='VENDEDOR', loja=loja, equipe=equipe, pin='1234')
+    return create_user(username='vendedor', email='vend@ex.com', password='pass', cargo='VENDEDOR', loja=loja, equipe=equipe, pin='1234')
 
 @pytest.fixture
 def loja():
-    return Loja.objects.create(nome='Loja Teste', cidade='Cidade', ativo=True)
+    return create_store(nome='Loja Teste', cidade='Cidade', ativo=True)
 
 @pytest.fixture
 def equipe(loja):
@@ -450,7 +450,7 @@ def equipe(loja):
 
 @pytest.fixture
 def metrica(loja):
-    return Metrica.objects.create(nome='Motivo', loja=loja, ativo=True)
+    return create_metric(nome='Motivo', loja=loja, ativo=True)
 
 @pytest.fixture
 def relatorio_fechado(vendedor, metrica):
@@ -467,7 +467,7 @@ def relatorio_fechado(vendedor, metrica):
 class TestFiltrosAtivo:
 
     def test_lojas_ativas_sao_retornadas(self, api_client, admin, loja):
-        loja_inativa = Loja.objects.create(nome='Inativa', cidade='X', ativo=False)
+        loja_inativa = create_store(nome='Inativa', cidade='X', ativo=False)
         api_client.force_authenticate(admin)
         response = api_client.get('/api/core/lojas/')
         assert response.status_code == 200
@@ -477,7 +477,7 @@ class TestFiltrosAtivo:
         assert loja_inativa.id not in ids
 
     def test_metricas_ativas_sao_retornadas(self, api_client, supervisor, loja, metrica):
-        metrica_inativa = Metrica.objects.create(nome='Inativa', loja=loja, ativo=False)
+        metrica_inativa = create_metric(nome='Inativa', loja=loja, ativo=False)
         api_client.force_authenticate(supervisor)
         response = api_client.get('/api/core/metricas/')
         assert response.status_code == 200
@@ -490,7 +490,7 @@ class TestFiltrosAtivo:
 class TestEquipeInfoViewSet:
 
     def test_vendedor_ve_sua_equipe(self, api_client, vendedor, equipe, loja, relatorio_fechado):
-        outro = User.objects.create_user(username='outro', email='outro@ex.com', password='pass', cargo='VENDEDOR', loja=loja, equipe=equipe, pin='5678')
+        outro = create_user(username='outro', email='outro@ex.com', password='pass', cargo='VENDEDOR', loja=loja, equipe=equipe, pin='5678')
         api_client.force_authenticate(vendedor)
         response = api_client.get('/api/core/equipe-info/')
         assert response.status_code == 200
@@ -507,7 +507,7 @@ class TestEquipeInfoViewSet:
 
     def test_supervisor_ve_sua_propria_equipe(self, api_client, supervisor, loja, equipe):
         outra_equipe = Equipe.objects.create(nome='Outra', loja=loja, ativo=True)
-        equipe_outra_loja = Equipe.objects.create(nome='Fora', loja=Loja.objects.create(nome='Outra Loja'), ativo=True)
+        equipe_outra_loja = Equipe.objects.create(nome='Fora', loja=create_store(nome='Outra Loja'), ativo=True)
         api_client.force_authenticate(supervisor)
         response = api_client.get('/api/core/equipe-info/')
         assert response.status_code == 200
@@ -516,14 +516,14 @@ class TestEquipeInfoViewSet:
 
     def test_admin_ve_todas_equipes(self, api_client, admin, loja, equipe):
         outra_equipe = Equipe.objects.create(nome='Outra', loja=loja, ativo=True)
-        equipe_outra_loja = Equipe.objects.create(nome='Fora', loja=Loja.objects.create(nome='Outra Loja'), ativo=True)
+        equipe_outra_loja = Equipe.objects.create(nome='Fora', loja=create_store(nome='Outra Loja'), ativo=True)
         api_client.force_authenticate(admin)
         response = api_client.get('/api/core/equipe-info/')
         assert response.status_code == 200
         assert len(response.data) == 3
 
     def test_dispositivo_sem_acesso(self, api_client, loja):
-        disp = User.objects.create_user(username='disp', email='disp@ex.com', password='pass', cargo='DISPOSITIVO', loja=loja)
+        disp = create_user(username='disp', email='disp@ex.com', password='pass', cargo='DISPOSITIVO', loja=loja)
         api_client.force_authenticate(disp)
         response = api_client.get('/api/core/equipe-info/')
         assert response.status_code == 200

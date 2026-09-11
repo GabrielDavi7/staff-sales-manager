@@ -16,7 +16,9 @@ import random
 from datetime import timedelta
 from decimal import Decimal
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
+from gestao.models import Cliente
 from django.utils import timezone
 
 from core.models import Loja, Equipe, Metrica, Relatorio
@@ -26,25 +28,22 @@ from users.models import CustomUser
 class Command(BaseCommand):
     help = "Popula o banco de dados com dados de demonstração realistas para a landing page."
 
+    @transaction.atomic
     def handle(self, *args, **options):
         self.stdout.write("🌱 Iniciando seed de demonstração...")
 
-        # ── Limpar dados existentes ──────────────────────────────────
-        self.stdout.write("  Limpando dados existentes...")
-        Relatorio.objects.all().delete()
-        CustomUser.objects.all().delete()
-        Metrica.objects.all().delete()
-        Equipe.objects.all().delete()
-        Loja.objects.all().delete()
+        if Cliente.objects.exists() or Loja.objects.exists() or CustomUser.objects.exists() or Relatorio.objects.exists():
+            raise CommandError('Demonstração só pode ser criada em banco vazio. Nenhum dado foi alterado.')
+        cliente = Cliente.objects.create(nome='Demonstração', slug='demo', email_contato='demo@example.com')
 
         # ── Lojas ────────────────────────────────────────────────────
         self.stdout.write("  Criando lojas...")
-        loja_poa = Loja.objects.create(
+        loja_poa = Loja.objects.create(cliente=cliente,
             nome="Joalheria Porto",
             cidade="Porto Alegre",
             ativo=True,
         )
-        loja_sp = Loja.objects.create(
+        loja_sp = Loja.objects.create(cliente=cliente,
             nome="Joalheria São Paulo",
             cidade="São Paulo",
             ativo=True,
@@ -87,7 +86,7 @@ class Command(BaseCommand):
         ]
         metricas = {}
         for m in metricas_data:
-            metricas[m["nome"]] = Metrica.objects.create(
+            metricas[m["nome"]] = Metrica.objects.create(cliente=cliente,
                 nome=m["nome"],
                 descricao=m["descricao"],
                 ativo=True,
@@ -97,18 +96,18 @@ class Command(BaseCommand):
         self.stdout.write("  Criando usuários...")
         DEFAULT_PASSWORD = "demo1234"
 
-        admin = CustomUser.objects.create_user(
+        admin = CustomUser.objects.create_user(cliente=cliente,
             username="admin",
             email="admin@joiasmanager.com.br",
             password=DEFAULT_PASSWORD,
             first_name="Carlos",
             last_name="Andrade",
-            cargo="ADMIN",
-            is_staff=True,
-            is_superuser=True,
+            cargo="ADMIN_CLIENTE",
+            is_staff=False,
+            is_superuser=False,
         )
 
-        supervisor = CustomUser.objects.create_user(
+        supervisor = CustomUser.objects.create_user(cliente=cliente,
             username="supervisor.porto",
             email="supervisor@joiasmanager.com.br",
             password=DEFAULT_PASSWORD,
@@ -136,7 +135,7 @@ class Command(BaseCommand):
 
         vendedores = []
         for v in vendedores_poa_data + vendedores_sp_data:
-            vendedor = CustomUser.objects.create_user(
+            vendedor = CustomUser.objects.create_user(cliente=cliente,
                 username=v["username"],
                 email=v["email"],
                 password=DEFAULT_PASSWORD,
@@ -149,7 +148,7 @@ class Command(BaseCommand):
             )
             vendedores.append(vendedor)
 
-        dispositivo = CustomUser.objects.create_user(
+        dispositivo = CustomUser.objects.create_user(cliente=cliente,
             username="dispositivo.porto",
             email="dispositivo@joiasmanager.com.br",
             password=DEFAULT_PASSWORD,

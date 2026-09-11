@@ -39,9 +39,6 @@ const Login = () => {
 
       if (userRole === "DISPOSITIVO") {
         navigate(slug ? `/${slug}/registrarvenda` : "/registrarvenda", { replace: true });
-      } else if (userRole === "ADMIN") {
-        // ADMIN sem cliente: vai para /adminpainel (visao global)
-        navigate("/adminpainel", { replace: true });
       } else if (userRole === "ADMIN_CLIENTE") {
         navigate(slug ? `/${slug}/adminpainel` : "/adminpainel", { replace: true });
       } else {

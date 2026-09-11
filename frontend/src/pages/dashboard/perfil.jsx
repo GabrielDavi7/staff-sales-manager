@@ -54,7 +54,7 @@ export function Perfil() {
 
   // Temas Dinâmicos Otimizados para Dark Mode
   const roleStyles = {
-    ADMIN: {
+    ADMIN_CLIENTE: {
       wrapper:
         "bg-rose-50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/50",
       headerBg: "bg-rose-500 text-white",

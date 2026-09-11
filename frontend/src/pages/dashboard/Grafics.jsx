@@ -71,7 +71,7 @@ export function Grafics() {
   const [error, setError] = useState(null);
 
   const cargoLogado = user?.cargo?.toUpperCase();
-  const isAdmin = cargoLogado === "ADMIN";
+  const isAdmin = false;
   const isAdminCliente = cargoLogado === "ADMIN_CLIENTE";
   const isAdminOrCliente = isAdmin || isAdminCliente;
   const isSupervisor = cargoLogado === "SUPERVISOR";

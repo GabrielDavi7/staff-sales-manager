@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, useParams, useLocation } from "react-router-dom";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import { Home } from "./pages/dashboard/Home";
 import Login from "./pages/login/Login";
@@ -12,42 +12,14 @@ import Perfil from "./pages/dashboard/perfil";
 import { useAuth } from "./contexts/AuthContext";
 import LandingPage from "./pages/landing/LandingPage";
 
-/**
- * Redireciona rotas sem slug para a versao com slug,
- * se o usuario tiver um cliente vinculado.
- * ADMIN (sem cliente) permanece nas rotas sem slug.
- */
-const RedirectToSlug = ({ children }) => {
+export const RedirectToSlug = ({ children }) => {
   const { user } = useAuth();
-
-  if (!user) return children;
-
-  const userSlug = user.cliente_slug;
-  const path = window.location.pathname;
-  const urlSegments = path.split("/").filter(Boolean);
-  const urlSlug = urlSegments[0] || "";
-
-  if (userSlug) {
-    // Usuario tem cliente → sempre usar rota com slug correto
-    if (urlSlug === userSlug) {
-      // URL ja tem o slug correto → segue
-      return children;
-    }
-    // Substitui ou adiciona o slug correto
-    const pathSemSlug = urlSlug && urlSlug !== "login"
-      ? "/" + urlSegments.slice(1).join("/") || "/"
-      : path === "/" ? "" : path;
-    const target = `/${userSlug}${pathSemSlug}`;
-    return <Navigate to={target} replace />;
-  }
-
-  if (urlSlug && urlSlug !== "login") {
-    // ADMIN (sem cliente) acessando rota com slug → remover slug
-    const target = "/" + urlSegments.slice(1).join("/") || "/";
-    return <Navigate to={target} replace />;
-  }
-
-  return children;
+  const { slug } = useParams();
+  const location = useLocation();
+  if (!user?.cliente_slug) return <Navigate to="/login" replace />;
+  if (slug === user.cliente_slug) return children;
+  const suffix = slug ? location.pathname.slice(slug.length + 1) : location.pathname;
+  return <Navigate to={`/${user.cliente_slug}${suffix}${location.search}${location.hash}`} replace />;
 };
 
 // Rotas filhas compartilhadas entre versoes com e sem slug
@@ -60,7 +32,7 @@ const dashboardChildren = [
   {
     path: "meuperfil",
     element: (
-      <RoleRoute allowedRoles={["VENDEDOR", "ADMIN", "ADMIN_CLIENTE", "SUPERVISOR"]}>
+      <RoleRoute allowedRoles={["VENDEDOR", "ADMIN_CLIENTE", "SUPERVISOR"]}>
         <Perfil />
       </RoleRoute>
     ),
@@ -68,7 +40,7 @@ const dashboardChildren = [
   {
     path: "adminpainel",
     element: (
-      <RoleRoute allowedRoles={["ADMIN", "ADMIN_CLIENTE"]}>
+      <RoleRoute allowedRoles={["ADMIN_CLIENTE"]}>
         <AdminPainel />
       </RoleRoute>
     ),

@@ -1,3 +1,4 @@
+from testing.factories import create_user, create_store, create_metric
 from django.test import TestCase
 import pytest
 from decimal import Decimal
@@ -13,12 +14,12 @@ class TestAnalyticsService:
     
     @pytest.fixture
     def setup_data(self):
-        loja = Loja.objects.create(nome="Joias Centro", cidade="Montes Claros")
-        vendedor = CustomUser.objects.create_user(
+        loja = create_store(nome="Joias Centro", cidade="Montes Claros")
+        vendedor = create_user(
             username="vend1", email="v@t.com", password="123", 
             cargo="VENDEDOR", loja=loja
         )
-        metrica = Metrica.objects.create(nome="Visita Simples", loja=loja)
+        metrica = create_metric(nome="Visita Simples", loja=loja)
         
         # Criando atendimentos
         agora = timezone.now()
@@ -55,12 +56,12 @@ class TestMeuDesempenhoView:
 
     @pytest.fixture
     def setup_usuarios(self):
-        loja = Loja.objects.create(nome="Joias Centro", cidade="Montes Claros")
-        vendedor = CustomUser.objects.create_user(
+        loja = create_store(nome="Joias Centro", cidade="Montes Claros")
+        vendedor = create_user(
             username="vend_teste", email="v@teste.com", password="123", 
             cargo="VENDEDOR", loja=loja
         )
-        supervisor = CustomUser.objects.create_user(
+        supervisor = create_user(
             username="sup_teste", email="s@teste.com", password="123", 
             cargo="SUPERVISOR", loja=loja
         )
@@ -97,22 +98,22 @@ class TestLojaDesempenhoView:
     @pytest.fixture
     def setup_multilojas(self):
         # Criando duas lojas distintas
-        loja_a = Loja.objects.create(nome="Joias Centro", cidade="Montes Claros")
-        loja_b = Loja.objects.create(nome="Joias Sul", cidade="Belo Horizonte")
+        loja_a = create_store(nome="Joias Centro", cidade="Montes Claros")
+        loja_b = create_store(nome="Joias Sul", cidade="Belo Horizonte")
 
         # Staff Loja A
-        sup_a = CustomUser.objects.create_user(
+        sup_a = create_user(
             username="sup_a", email="sa@t.com", password="123", cargo="SUPERVISOR", loja=loja_a
         )
-        vend_a = CustomUser.objects.create_user(
+        vend_a = create_user(
             username="vend_a", email="va@t.com", password="123", cargo="VENDEDOR", loja=loja_a
         )
         
         # Staff Loja B
-        sup_b = CustomUser.objects.create_user(
+        sup_b = create_user(
             username="sup_b", email="sb@t.com", password="123", cargo="SUPERVISOR", loja=loja_b
         )
-        vend_b = CustomUser.objects.create_user(
+        vend_b = create_user(
             username="vend_b", email="vb@t.com", password="123", cargo="VENDEDOR", loja=loja_b
         )
 
@@ -155,20 +156,20 @@ class TestVisaoGeralView:
     @pytest.fixture
     def setup_admin_e_dados(self):
         # Lojas
-        loja_a = Loja.objects.create(nome="Joias Centro", cidade="Montes Claros")
-        loja_b = Loja.objects.create(nome="Joias Sul", cidade="Belo Horizonte")
+        loja_a = create_store(nome="Joias Centro", cidade="Montes Claros")
+        loja_b = create_store(nome="Joias Sul", cidade="Belo Horizonte")
 
         # Usuários
-        admin = CustomUser.objects.create_user(
-            username="admin_geral", email="admin@t.com", password="123", cargo="ADMIN"
+        admin = create_user(
+            username="admin_geral", email="admin@t.com", password="123", cargo="ADMIN_CLIENTE"
         )
-        sup_a = CustomUser.objects.create_user(
+        sup_a = create_user(
             username="sup_a2", email="sa2@t.com", password="123", cargo="SUPERVISOR", loja=loja_a
         )
-        vend_a = CustomUser.objects.create_user(
+        vend_a = create_user(
             username="vend_a2", email="va2@t.com", password="123", cargo="VENDEDOR", loja=loja_a
         )
-        vend_b = CustomUser.objects.create_user(
+        vend_b = create_user(
             username="vend_b2", email="vb2@t.com", password="123", cargo="VENDEDOR", loja=loja_b
         )
 

@@ -1,5 +1,7 @@
 # 💍 Staff Sales Manager
 
+> **Atualização multi-tenant:** o cargo global `ADMIN` foi removido da API das empresas. Consulte [as regras de isolamento, migrações e validação](docs/isolamento-api.md) para o estado atual desta branch. O PostgreSQL local usa a porta 5433 no host por padrão.
+
 Sistema de gerenciamento de atendimentos para lojas de joias.
 Permite que vendedores registrem atendimentos e acompanhem seu desempenho,
 supervisores monitorem as atividades da loja e administradores gerenciem

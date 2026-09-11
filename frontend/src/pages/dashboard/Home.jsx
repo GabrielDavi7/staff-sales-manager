@@ -246,7 +246,7 @@ export function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const isAdmin = user?.cargo?.toUpperCase() === "ADMIN";
+  const isAdmin = false;
   const isAdminCliente = user?.cargo?.toUpperCase() === "ADMIN_CLIENTE";
   const isAdminOrCliente = isAdmin || isAdminCliente;
 

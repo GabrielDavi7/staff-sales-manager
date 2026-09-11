@@ -16,7 +16,7 @@ const RoleRoute = ({ children, allowedRoles }) => {
   const userRole = user.cargo.toUpperCase();
 
   if (!allowedRoles.includes(userRole)) {
-    if (userRole === "ADMIN" || userRole === "ADMIN_CLIENTE") {
+    if (userRole === "ADMIN_CLIENTE") {
       return <Navigate to={buildPath("/adminpainel")} replace />;
     }
     if (userRole === "DISPOSITIVO") {

@@ -1,3 +1,4 @@
+from testing.factories import create_user, create_store, create_metric
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -12,7 +13,7 @@ from django.contrib.auth import get_user_model
 
 class AdminUserCrudTests(APITestCase):
 	def setUp(self):
-		self.loja = Loja.objects.create(nome='Loja Centro', cidade='Sao Paulo')
+		self.loja = create_store(nome='Loja Centro', cidade='Sao Paulo')
 		self.equipe = Equipe.objects.create(nome='Equipe A', loja=self.loja)
 
 		self.admin = self._create_user(
@@ -20,7 +21,7 @@ class AdminUserCrudTests(APITestCase):
 			username='admin',
 			first_name='Admin',
 			last_name='User',
-			cargo='ADMIN',
+			cargo='ADMIN_CLIENTE',
 			password='admin1234',
 		)
 		self.supervisor = self._create_user(
@@ -61,11 +62,7 @@ class AdminUserCrudTests(APITestCase):
 		self.base_url = '/api/admin/usuarios/'
 
 	def _create_user(self, **kwargs):
-		password = kwargs.pop('password', 'default123')
-		user = CustomUser(**kwargs)
-		user.set_password(password)
-		user.save()
-		return user
+		return create_user(**kwargs)
 
 	def _auth_client(self, token):
 		client = APIClient()
@@ -126,7 +123,7 @@ class AdminUserCrudTests(APITestCase):
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
 		self.assertIn('results', response.data)
 		self.assertTrue(any('is_active' in item for item in response.data['results']))
-		self.assertTrue(any('pin' in item for item in response.data['results']))
+		self.assertTrue(all('pin' not in item for item in response.data['results']))
 
 	def test_admin_can_update_is_active_and_pin(self):
 		client = self._auth_client(self.admin_token)
@@ -170,7 +167,7 @@ class AdminUserCrudTests(APITestCase):
 		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 	def test_atendimentos_remain_after_user_deactivation(self):
-		metrica = Metrica.objects.create(nome='Sem interesse', loja=self.loja)
+		metrica = create_metric(nome='Sem interesse', loja=self.loja)
 		relatorio = Relatorio.objects.create(
 			data_hora=timezone.now(),
 			venda_fechada=False,
@@ -192,16 +189,16 @@ User = get_user_model()
 
 @pytest.fixture
 def admin_user():
-    return User.objects.create_user(
+    return create_user(
         username='admin',
         email='admin@example.com',
         password='admin123',
-        cargo='ADMIN'
+        cargo='ADMIN_CLIENTE'
     )
 
 @pytest.fixture
 def supervisor_user():
-    return User.objects.create_user(
+    return create_user(
         username='supervisor',
         email='sup@example.com',
         password='sup123',
@@ -210,7 +207,7 @@ def supervisor_user():
 
 @pytest.fixture
 def vendedor_user():
-    return User.objects.create_user(
+    return create_user(
         username='vendedor',
         email='vend@example.com',
         password='vend123',
@@ -219,7 +216,7 @@ def vendedor_user():
 
 @pytest.fixture
 def dispositivo_user():
-    return User.objects.create_user(
+    return create_user(
         username='disp',
         email='disp@example.com',
         password='disp123',
@@ -228,7 +225,7 @@ def dispositivo_user():
 
 @pytest.fixture
 def loja():
-    return Loja.objects.create(nome='Loja Teste', cidade='Cidade Teste', ativo=True)
+    return create_store(nome='Loja Teste', cidade='Cidade Teste', ativo=True)
 
 @pytest.fixture
 def equipe(loja):
@@ -236,7 +233,7 @@ def equipe(loja):
 
 @pytest.fixture
 def metrica(loja):
-    return Metrica.objects.create(nome='Métrica Teste', descricao='Desc', loja=loja, ativo=True)
+    return create_metric(nome='Métrica Teste', descricao='Desc', loja=loja, ativo=True)
 
 @pytest.fixture
 def relatorio(vendedor_user, metrica, loja):
@@ -305,7 +302,7 @@ class TestManagementEndpoints:
 
     # DELETE condicional
     def test_admin_can_delete_loja_sem_vinculos(self, api_client, admin_user):
-        loja = Loja.objects.create(nome='Só Loja', cidade='Sem vínculos', ativo=True)
+        loja = create_store(nome='Só Loja', cidade='Sem vínculos', ativo=True)
         api_client.force_authenticate(user=admin_user)
         response = api_client.delete(f'/api/admin/lojas/{loja.id}/')
         assert response.status_code == status.HTTP_204_NO_CONTENT
@@ -355,6 +352,7 @@ class TestManagementEndpoints:
         assert not Equipe.objects.filter(id=equipe.id).exists()
 
     def test_admin_cannot_delete_equipe_com_usuarios(self, api_client, admin_user, equipe, vendedor_user):
+        vendedor_user.loja = equipe.loja
         vendedor_user.equipe = equipe
         vendedor_user.save()
         api_client.force_authenticate(user=admin_user)
@@ -383,7 +381,7 @@ class TestManagementEndpoints:
         assert Metrica.objects.filter(nome='Métrica Local', loja=loja).exists()
 
     def test_admin_can_delete_metrica_sem_relatorios(self, api_client, admin_user, loja):
-        metrica = Metrica.objects.create(nome='Métrica Teste', loja=loja)
+        metrica = create_metric(nome='Métrica Teste', loja=loja)
         api_client.force_authenticate(user=admin_user)
         response = api_client.delete(f'/api/admin/metricas/{metrica.id}/')
         assert response.status_code == status.HTTP_204_NO_CONTENT

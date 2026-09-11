@@ -1,3 +1,7 @@
+from users.tenant import reports, stores
+from users.permissions import IsTenantUser
+from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -18,7 +22,7 @@ class MeuDesempenhoView(APIView):
         data_inicio = request.query_params.get('data_inicio')
         data_fim = request.query_params.get('data_fim')
 
-        queryset = Relatorio.objects.filter(vendedor=request.user)
+        queryset = reports(request.user)
 
         queryset_filtrado = AnalyticsService.filter_by_date(
             queryset=queryset, 
@@ -41,34 +45,10 @@ class LojaDesempenhoView(APIView):
         data_fim = request.query_params.get('data_fim')
         loja_id = request.query_params.get('loja_id')
 
-        # Determina a loja alvo
-        loja_alvo = None
-
-        if loja_id:
-            # ADMIN/ADMIN_CLIENTE filtrando por loja especifica
-            try:
-                from core.models import Loja
-                loja_alvo = Loja.objects.get(id=loja_id)
-            except Loja.DoesNotExist:
-                return Response({"detail": "Loja nao encontrada."}, status=404)
-
-            # ADMIN_CLIENTE: validar que a loja pertence ao seu cliente
-            if request.user.cargo == 'ADMIN_CLIENTE':
-                if loja_alvo.cliente != request.user.cliente:
-                    return Response(
-                        {"detail": "Loja nao pertence ao seu cliente."},
-                        status=403,
-                    )
-        elif request.user.loja:
-            loja_alvo = request.user.loja
-
-        if not loja_alvo:
-            return Response(
-                {"detail": "Usuario nao possui uma loja vinculada. Use o parametro ?loja_id= para selecionar uma loja."},
-                status=400,
-            )
-
-        queryset = Relatorio.objects.filter(vendedor__loja=loja_alvo)
+        if loja_id and not loja_id.isdigit():
+            raise ValidationError({'loja_id': 'Identificador inválido.'})
+        loja_alvo = get_object_or_404(stores(request.user), pk=loja_id or request.user.loja_id)
+        queryset = reports(request.user).filter(loja=loja_alvo)
 
         queryset_filtrado = AnalyticsService.filter_by_date(
             queryset=queryset, 
@@ -94,7 +74,7 @@ class LojaDesempenhoView(APIView):
 class VisaoGeralView(APIView):
     """
     Retorna o desempenho global do sistema com comparativo entre lojas.
-    ADMIN: ve todos os clientes. ADMIN_CLIENTE: ve apenas seu cliente.
+    ADMIN_CLIENTE vê apenas sua empresa.
     Pode ser filtrado por uma loja especifica via query_params.
     """
     permission_classes = [IsAuthenticated, IsAdminOrAdminCliente]
@@ -104,15 +84,12 @@ class VisaoGeralView(APIView):
         data_fim = request.query_params.get('data_fim')
         loja_id = request.query_params.get('loja_id')
 
-        # Escopo base: ADMIN ve tudo, ADMIN_CLIENTE ve so seu cliente
-        queryset = Relatorio.objects.all()
-
-        if request.user.cargo == 'ADMIN_CLIENTE' and request.user.cliente:
-            queryset = queryset.filter(vendedor__loja__cliente=request.user.cliente)
-
-        # SE houver loja_id, filtramos o queryset ANTES de mandar para o Service
+        queryset = reports(request.user)
         if loja_id:
-            queryset = queryset.filter(vendedor__loja_id=loja_id)
+            if not loja_id.isdigit():
+                raise ValidationError({'loja_id': 'Identificador inválido.'})
+            loja = get_object_or_404(stores(request.user), pk=loja_id)
+            queryset = queryset.filter(loja=loja)
 
         # Filtro de datas via Service
         queryset_filtrado = AnalyticsService.filter_by_date(
@@ -127,7 +104,7 @@ class VisaoGeralView(APIView):
         # Métrica Extra: Comparativo entre Lojas
         comparativo = (
             queryset_filtrado.filter(venda_fechada=True)
-            .values('vendedor__loja__nome')
+            .values('loja__nome')
             .annotate(
                 quantidade_vendas=Count('id'),
                 valor_total=Sum('valor_venda')
@@ -137,7 +114,7 @@ class VisaoGeralView(APIView):
         
         comparativo_formatado = [
             {
-                "loja": item['vendedor__loja__nome'] or "Sem Loja Vinculada",
+                "loja": item['loja__nome'] or "Sem Loja Vinculada",
                 "quantidade_vendas": item['quantidade_vendas'],
                 "valor_total": item['valor_total']
             }
@@ -160,7 +137,7 @@ from rest_framework.permissions import IsAuthenticated
 # Presumo que o Relatorio já está importado lá em cima: from core.models import Relatorio
 
 class ExportarDadosView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTenantUser]
 
     def get(self, request, formato, *args, **kwargs):
         # 1. Capturar os parâmetros obrigatórios
@@ -171,27 +148,23 @@ class ExportarDadosView(APIView):
         if not loja_id or not data_inicio or not data_fim:
             return HttpResponse("Loja e periodo sao obrigatorios.", status=400)
 
-        # 2. Validar que a loja pertence ao cliente do usuario
-        if request.user.cargo == 'ADMIN_CLIENTE' and request.user.cliente:
-            from core.models import Loja
-            try:
-                loja_obj = Loja.objects.get(id=loja_id)
-            except Loja.DoesNotExist:
-                return HttpResponse("Loja nao encontrada.", status=404)
-            if loja_obj.cliente != request.user.cliente:
-                return HttpResponse("Loja nao pertence ao seu cliente.", status=403)
-
-        # 3. Filtrar os dados no Banco de Dados
-        queryset = Relatorio.objects.filter(
-            vendedor__loja_id=loja_id,
-            data_hora__date__gte=parse_date(data_inicio),
-            data_hora__date__lte=parse_date(data_fim)
-        ).order_by('data_hora')
+        if request.user.cargo == 'DISPOSITIVO':
+            raise PermissionDenied('Dispositivos não podem exportar dados.')
+        if not loja_id.isdigit():
+            raise ValidationError({'loja_id': 'Identificador inválido.'})
+        loja = get_object_or_404(stores(request.user), pk=loja_id)
+        try:
+            inicio, fim = parse_date(data_inicio), parse_date(data_fim)
+        except ValueError:
+            inicio = fim = None
+        if not inicio or not fim or inicio > fim:
+            raise ValidationError('Período inválido.')
+        queryset = reports(request.user).filter(loja=loja, data_hora__date__gte=inicio, data_hora__date__lte=fim).order_by('data_hora')
 
         # 3. DEPOIS: Descobrir o nome da loja a partir do queryset para usar no nome do arquivo
         primeiro_registro = queryset.first()
-        if primeiro_registro and primeiro_registro.vendedor and primeiro_registro.vendedor.loja:
-            nome_loja_slug = slugify(primeiro_registro.vendedor.loja.nome).replace('-', '_')
+        if primeiro_registro and primeiro_registro.vendedor and primeiro_registro.loja:
+            nome_loja_slug = slugify(primeiro_registro.loja.nome).replace('-', '_')
         else:
             nome_loja_slug = f"loja_{loja_id}"
 
@@ -222,7 +195,7 @@ class ExportarDadosView(APIView):
                 status = "Concretizada" if item.venda_fechada else "Não Concretizada"
                 valor = f"{item.valor_venda:.2f}" if item.venda_fechada and item.valor_venda else "-"
                 vendedor_nome = f"{item.vendedor.first_name} {item.vendedor.last_name}" if item.vendedor else "N/A"
-                loja_nome = item.vendedor.loja.nome if item.vendedor and item.vendedor.loja else "Sem loja"
+                loja_nome = item.loja.nome if item.vendedor and item.loja else "Sem loja"
                 motivo = item.metrica.nome if not item.venda_fechada and item.metrica else "-"
                 
                 writer.writerow([
@@ -270,7 +243,7 @@ class ExportarDadosView(APIView):
                 status = "Concretizada" if item.venda_fechada else "Não Concretizada"
                 valor = float(item.valor_venda) if item.venda_fechada and item.valor_venda else 0.0
                 vendedor_nome = f"{item.vendedor.first_name} {item.vendedor.last_name}" if item.vendedor else "N/A"
-                loja_nome = item.vendedor.loja.nome if item.vendedor and item.vendedor.loja else "Sem loja"
+                loja_nome = item.loja.nome if item.vendedor and item.loja else "Sem loja"
                 motivo = item.metrica.nome if not item.venda_fechada and item.metrica else "-"
                 
                 linha = [

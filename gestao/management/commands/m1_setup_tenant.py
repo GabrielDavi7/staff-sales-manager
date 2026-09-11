@@ -71,7 +71,7 @@ class Command(BaseCommand):
                 return
 
         # 2. Idempotência — não recriar se já existir
-        if Cliente.objects.filter(slug=slug).exists():
+        if Cliente.objects.exists():
             self.stdout.write(
                 self.style.WARNING(
                     f'Cliente com slug "{slug}" já existe. Nada a fazer.'
@@ -108,8 +108,8 @@ class Command(BaseCommand):
             )
 
             # 5. Backfill em massa (UPDATE, não loop Python)
-            lojas_updated = Loja.objects.all().update(cliente=cliente)
-            usuarios_updated = CustomUser.objects.all().update(cliente=cliente)
+            lojas_updated = Loja.objects.filter(cliente__isnull=True).update(cliente=cliente)
+            usuarios_updated = CustomUser.objects.filter(cliente__isnull=True, is_staff=False, is_superuser=False).update(cliente=cliente)
 
         self.stdout.write(self.style.SUCCESS(
             f'Backfill concluído: {lojas_updated} loja(s), '

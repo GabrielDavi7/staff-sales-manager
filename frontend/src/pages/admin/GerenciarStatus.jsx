@@ -184,7 +184,7 @@ export default function GerenciarStatus({ onBack }) {
   };
 
   const usuariosFiltrados = usuarios.results.filter(
-    (u) => u.cargo?.toUpperCase() !== "ADMIN",
+    (u) => u.cargo?.toUpperCase() !== "ADMIN_CLIENTE",
   );
 
   // Componente interno para renderizar os botões de paginação repetitivos
@@ -589,7 +589,7 @@ export default function GerenciarStatus({ onBack }) {
                   }
                   className="w-full bg-[#003847] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none"
                 >
-                  <option value="ADMIN">Administrador</option>
+
                   <option value="SUPERVISOR">Supervisor</option>
                   <option value="VENDEDOR">Vendedor</option>
                   <option value="DISPOSITIVO">Dispositivo</option>

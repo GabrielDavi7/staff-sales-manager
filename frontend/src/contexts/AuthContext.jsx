@@ -15,10 +15,28 @@ export const AuthProvider = ({ children }) => {
       sessionStorage.getItem("auth_token") ||
       localStorage.getItem("auth_token");
 
-    if (storedUser && token) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    let active = true;
+    const restore = async () => {
+      try {
+        if (storedUser && token) {
+          const response = await api.get("/api/users/user/me/");
+          const freshUser = { ...JSON.parse(storedUser), ...response.data };
+          const storage = sessionStorage.getItem("auth_token") ? sessionStorage : localStorage;
+          storage.setItem("user", JSON.stringify(freshUser));
+          if (active) setUser(freshUser);
+        }
+      } catch {
+        for (const storage of [sessionStorage, localStorage]) {
+          storage.removeItem("auth_token");
+          storage.removeItem("user");
+        }
+        if (active) setUser(null);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    restore();
+    return () => { active = false; };
   }, []);
 
   const login = async (username, password, rememberMe = false) => {

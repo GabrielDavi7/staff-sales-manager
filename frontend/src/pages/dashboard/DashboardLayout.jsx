@@ -41,37 +41,37 @@ const DashboardLayout = () => {
       path: basePath ? `${basePath}/` : "/",
       icon: LayoutDashboard,
       label: "Visão Geral",
-      roles: ["ADMIN", "ADMIN_CLIENTE", "SUPERVISOR", "VENDEDOR"],
+      roles: ["ADMIN_CLIENTE", "SUPERVISOR", "VENDEDOR"],
     },
     {
       path: `${basePath}/registrarVenda`,
       icon: PlusCircle,
       label: "Novo Atendimento",
-      roles: ["ADMIN", "ADMIN_CLIENTE", "VENDEDOR", "DISPOSITIVO"],
+      roles: ["ADMIN_CLIENTE", "VENDEDOR", "DISPOSITIVO"],
     },
     {
       path: `${basePath}/funcionarios`,
       icon: Users,
       label: "Equipe e Vendedores",
-      roles: ["ADMIN", "ADMIN_CLIENTE", "SUPERVISOR", "VENDEDOR"],
+      roles: ["ADMIN_CLIENTE", "SUPERVISOR", "VENDEDOR"],
     },
     {
       path: `${basePath}/graficos`,
       icon: PieChart,
       label: "Gráficos Avançados",
-      roles: ["ADMIN", "ADMIN_CLIENTE", "SUPERVISOR", "VENDEDOR"],
+      roles: ["ADMIN_CLIENTE", "SUPERVISOR", "VENDEDOR"],
     },
     {
       path: `${basePath}/adminpainel`,
       icon: Users,
       label: "Painel Administrativo",
-      roles: ["ADMIN", "ADMIN_CLIENTE"],
+      roles: ["ADMIN_CLIENTE"],
     },
     {
       path: `${basePath}/meuperfil`,
       icon: Users,
       label: "Meu Perfil",
-      roles: ["ADMIN", "ADMIN_CLIENTE", "SUPERVISOR", "VENDEDOR"],
+      roles: ["ADMIN_CLIENTE", "SUPERVISOR", "VENDEDOR"],
     },
   ];
 

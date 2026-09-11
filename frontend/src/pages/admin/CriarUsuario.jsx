@@ -32,7 +32,6 @@ export default function CriarUsuario({ onBack }) {
   });
 
   const [cargosDisponiveis] = useState([
-    { id: "ADMIN", nome: "Administrador" },
     { id: "SUPERVISOR", nome: "Supervisor" },
     { id: "VENDEDOR", nome: "Vendedor" },
     { id: "DISPOSITIVO", nome: "Dispositivo" },

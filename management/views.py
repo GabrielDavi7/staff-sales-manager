@@ -1,4 +1,5 @@
 from rest_framework import viewsets
+from users.tenant import scoped, require_tenant
 from .serializers import UserAdminSerializer
 from rest_framework import status
 from rest_framework.response import Response
@@ -17,23 +18,10 @@ class UserViewSet(viewsets.ModelViewSet):
 	http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
 
 	def get_queryset(self):
-		user = self.request.user
-		queryset = CustomUser.objects.all().order_by('id')
-
-		# ADMIN_CLIENTE: ve apenas usuarios do seu cliente
-		if user.cargo == 'ADMIN_CLIENTE' and user.cliente:
-			queryset = queryset.filter(cliente=user.cliente)
-		# ADMIN: ve tudo
-
-		return queryset
+		return scoped(self.queryset, self.request.user)
 
 	def perform_create(self, serializer):
-		user = self.request.user
-		# ADMIN_CLIENTE: forca o cliente do usuario
-		if user.cargo == 'ADMIN_CLIENTE' and user.cliente:
-			serializer.save(cliente=user.cliente)
-		else:
-			serializer.save()
+		serializer.save(cliente=require_tenant(self.request.user))
 
 class LojaViewSet(viewsets.ModelViewSet):
     queryset = Loja.objects.all().order_by('id')
@@ -41,20 +29,10 @@ class LojaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsAdminOrAdminCliente]
 
     def get_queryset(self):
-        user = self.request.user
-        queryset = Loja.objects.all().order_by('id')
-
-        if user.cargo == 'ADMIN_CLIENTE' and user.cliente:
-            queryset = queryset.filter(cliente=user.cliente)
-
-        return queryset
+        return scoped(self.queryset, self.request.user)
 
     def perform_create(self, serializer):
-        user = self.request.user
-        if user.cargo == 'ADMIN_CLIENTE' and user.cliente:
-            serializer.save(cliente=user.cliente)
-        else:
-            serializer.save()
+        serializer.save(cliente=require_tenant(self.request.user))
 
     def destroy(self, request, *args, **kwargs):
         loja = self.get_object()
@@ -62,7 +40,7 @@ class LojaViewSet(viewsets.ModelViewSet):
         if (CustomUser.objects.filter(loja=loja).exists() or
             Equipe.objects.filter(loja=loja).exists() or
             Metrica.objects.filter(loja=loja).exists() or
-            Relatorio.objects.filter(vendedor__loja=loja).exists()):  # atendimentos da loja
+            Relatorio.objects.filter(loja=loja).exists()):
             return Response(
                 {"detail": "Não é possível excluir porque há registros vinculados (usuários, equipes, métricas ou atendimentos). Desative a loja via campo 'ativo'."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -75,13 +53,7 @@ class EquipeViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsAdminOrAdminCliente]
 
     def get_queryset(self):
-        user = self.request.user
-        queryset = Equipe.objects.all().order_by('id')
-
-        if user.cargo == 'ADMIN_CLIENTE' and user.cliente:
-            queryset = queryset.filter(loja__cliente=user.cliente)
-
-        return queryset
+        return scoped(self.queryset, self.request.user, 'loja__cliente_id')
 
     def destroy(self, request, *args, **kwargs):
         equipe = self.get_object()
@@ -98,27 +70,10 @@ class MetricaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsAdminOrAdminCliente]
 
     def get_queryset(self):
-        user = self.request.user
-        queryset = Metrica.objects.all().order_by('id')
-
-        # ADMIN_CLIENTE: ve apenas metricas do seu cliente
-        if user.cargo == 'ADMIN_CLIENTE' and user.cliente:
-            queryset = queryset.filter(cliente=user.cliente)
-        # ADMIN: ve tudo (sem filtro adicional)
-
-        return queryset
+        return scoped(self.queryset, self.request.user)
 
     def perform_create(self, serializer):
-        # Garante que o cliente seja preenchido se nao veio no payload
-        loja = serializer.validated_data.get('loja')
-        cliente = serializer.validated_data.get('cliente')
-        if not cliente and loja and loja.cliente:
-            serializer.save(cliente=loja.cliente)
-        elif not cliente:
-            user = self.request.user
-            serializer.save(cliente=user.cliente)
-        else:
-            serializer.save()
+        serializer.save(cliente=require_tenant(self.request.user))
 
     def destroy(self, request, *args, **kwargs):
         metrica = self.get_object()

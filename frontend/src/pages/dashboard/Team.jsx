@@ -53,7 +53,7 @@ export function Team() {
   const [periodo, setPeriodo] = useState("30 Dias");
 
   const cargoLogado = user?.cargo?.toUpperCase();
-  const isAdmin = cargoLogado === "ADMIN";
+  const isAdmin = false;
   const isAdminCliente = cargoLogado === "ADMIN_CLIENTE";
   const isAdminOrCliente = isAdmin || isAdminCliente;
   const { buildPath } = useAppPath();
