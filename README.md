@@ -5,7 +5,7 @@
 Sistema de gerenciamento de atendimentos para lojas de joias.
 Permite que vendedores registrem atendimentos e acompanhem seu desempenho,
 supervisores monitorem as atividades da loja e administradores gerenciem
-usuários, lojas, equipes e métricas do negócio.
+usuários, lojas, equipes e métricas do negócio
 
 Desenvolvido com **Django REST Framework** (backend) e **React + Vite** (frontend),
 utilizando Docker para ambiente de desenvolvimento padronizado.
