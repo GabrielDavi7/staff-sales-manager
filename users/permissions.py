@@ -1,21 +1,26 @@
 from rest_framework.permissions import BasePermission
+from .tenant import tenant_allowed
 
-class IsAdmin(BasePermission):
-    """Permite acesso apenas se usuário for ADMIN."""
+class IsTenantUser(BasePermission):
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.cargo == 'ADMIN'
+        return tenant_allowed(request.user)
 
-class IsSupervisorOrAdmin(BasePermission):
-    """Permite acesso se usuário for SUPERVISOR ou ADMIN."""
+class IsAdminCliente(IsTenantUser):
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.cargo in ('SUPERVISOR', 'ADMIN')
+        return super().has_permission(request, view) and request.user.cargo == 'ADMIN_CLIENTE'
 
-class IsVendedor(BasePermission):
-    """Permite acesso apenas se usuário for VENDEDOR."""
-    def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.cargo == 'VENDEDOR'
+# Compatibility imports only: neither class grants global access.
+IsAdmin = IsAdminCliente
+IsAdminOrAdminCliente = IsAdminCliente
 
-class IsDispositivo(BasePermission):
-    """Permite acesso apenas se usuário for DISPOSITIVO."""
+class IsSupervisorOrAdmin(IsTenantUser):
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.cargo == 'DISPOSITIVO'
+        return super().has_permission(request, view) and request.user.cargo in ('SUPERVISOR', 'ADMIN_CLIENTE')
+
+class IsVendedor(IsTenantUser):
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) and request.user.cargo == 'VENDEDOR'
+
+class IsDispositivo(IsTenantUser):
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) and request.user.cargo == 'DISPOSITIVO'

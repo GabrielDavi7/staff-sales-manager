@@ -19,6 +19,9 @@ class EquipeSerializer(serializers.ModelSerializer):
         fields = ['id', 'nome']
 
 class UserSerializer(serializers.ModelSerializer):
+    cliente_id = serializers.IntegerField(read_only=True)
+    cliente_slug = serializers.CharField(source='cliente.slug', read_only=True)
+    cliente_nome = serializers.CharField(source='cliente.nome', read_only=True)
     loja = LojaSerializer(read_only=True)
     equipe = EquipeSerializer(read_only=True)
 
@@ -34,6 +37,9 @@ class UserSerializer(serializers.ModelSerializer):
             'loja',
             'equipe',
             'is_active',
+            'cliente_id',
+            'cliente_slug',
+            'cliente_nome',
         ]
 
 

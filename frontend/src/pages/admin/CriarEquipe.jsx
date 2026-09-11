@@ -16,6 +16,7 @@ import api from "../../api/axios";
 export default function CriarEquipe({ onBack }) {
   const [loadingLojas, setLoadingLojas] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const [equipeFormData, setEquipeFormData] = useState({
     nome: "",
@@ -57,6 +58,7 @@ export default function CriarEquipe({ onBack }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    setErrorMsg("");
 
     const payload = {
       nome: equipeFormData.nome,
@@ -66,15 +68,20 @@ export default function CriarEquipe({ onBack }) {
     try {
       await api.post("/api/admin/equipes/", payload);
       alert(`Equipe "${equipeFormData.nome}" cadastrada com sucesso!`);
-      onBack(); // Retorna ao Centro de Comando recalculando os cards automaticamente
+      onBack();
     } catch (err) {
-      console.error(
-        "Erro ao cadastrar equipe no Django:",
-        err.response?.data || err.message,
-      );
-      alert(
-        "Erro 400: Não foi possível salvar a equipe. Verifique as validações ou nome obrigatório.",
-      );
+      console.error("Erro ao cadastrar equipe:", err.response?.data || err.message);
+      const data = err.response?.data;
+      if (typeof data === 'string') {
+        setErrorMsg(data);
+      } else if (data?.detail) {
+        setErrorMsg(data.detail);
+      } else if (data && typeof data === 'object') {
+        const msgs = Object.values(data).flat();
+        setErrorMsg(msgs.join(' '));
+      } else {
+        setErrorMsg("Erro ao salvar. Verifique os dados e tente novamente.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -158,6 +165,13 @@ export default function CriarEquipe({ onBack }) {
             </div>
           </div>
         </div>
+
+        {/* Mensagem de erro */}
+        {errorMsg && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm">
+            {errorMsg}
+          </div>
+        )}
 
         {/* Botões de Ação */}
         <div className="flex items-center justify-end gap-4 pt-8 border-t border-white/10">

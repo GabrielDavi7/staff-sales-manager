@@ -1,11 +1,12 @@
 from rest_framework import viewsets
+from users.tenant import scoped, require_tenant
 from .serializers import UserAdminSerializer
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from users.models import CustomUser
-from users.permissions import IsAdmin
+from users.permissions import IsAdmin, IsAdminOrAdminCliente
 from core.models import Loja, Equipe, Metrica, Relatorio
 from management.serializers import LojaSerializer, EquipeSerializer, MetricaSerializer
 
@@ -13,13 +14,25 @@ from management.serializers import LojaSerializer, EquipeSerializer, MetricaSeri
 class UserViewSet(viewsets.ModelViewSet):
 	queryset = CustomUser.objects.all().order_by('id')
 	serializer_class = UserAdminSerializer
-	permission_classes = [IsAdmin]
+	permission_classes = [IsAdminOrAdminCliente]
 	http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
+
+	def get_queryset(self):
+		return scoped(self.queryset, self.request.user)
+
+	def perform_create(self, serializer):
+		serializer.save(cliente=require_tenant(self.request.user))
 
 class LojaViewSet(viewsets.ModelViewSet):
     queryset = Loja.objects.all().order_by('id')
     serializer_class = LojaSerializer
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, IsAdminOrAdminCliente]
+
+    def get_queryset(self):
+        return scoped(self.queryset, self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(cliente=require_tenant(self.request.user))
 
     def destroy(self, request, *args, **kwargs):
         loja = self.get_object()
@@ -27,7 +40,7 @@ class LojaViewSet(viewsets.ModelViewSet):
         if (CustomUser.objects.filter(loja=loja).exists() or
             Equipe.objects.filter(loja=loja).exists() or
             Metrica.objects.filter(loja=loja).exists() or
-            Relatorio.objects.filter(vendedor__loja=loja).exists()):  # atendimentos da loja
+            Relatorio.objects.filter(loja=loja).exists()):
             return Response(
                 {"detail": "Não é possível excluir porque há registros vinculados (usuários, equipes, métricas ou atendimentos). Desative a loja via campo 'ativo'."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -37,7 +50,10 @@ class LojaViewSet(viewsets.ModelViewSet):
 class EquipeViewSet(viewsets.ModelViewSet):
     queryset = Equipe.objects.all().order_by('id')
     serializer_class = EquipeSerializer
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, IsAdminOrAdminCliente]
+
+    def get_queryset(self):
+        return scoped(self.queryset, self.request.user, 'loja__cliente_id')
 
     def destroy(self, request, *args, **kwargs):
         equipe = self.get_object()
@@ -51,7 +67,13 @@ class EquipeViewSet(viewsets.ModelViewSet):
 class MetricaViewSet(viewsets.ModelViewSet):
     queryset = Metrica.objects.all().order_by('id')
     serializer_class = MetricaSerializer
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, IsAdminOrAdminCliente]
+
+    def get_queryset(self):
+        return scoped(self.queryset, self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(cliente=require_tenant(self.request.user))
 
     def destroy(self, request, *args, **kwargs):
         metrica = self.get_object()

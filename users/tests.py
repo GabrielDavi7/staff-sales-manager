@@ -1,3 +1,4 @@
+from testing.factories import create_user, create_store, create_metric
 from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient, APIRequestFactory, force_authenticate
 from rest_framework import status
@@ -51,7 +52,7 @@ class UserMeViewTests(APITestCase):
     
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(
+        self.user = create_user(
             username='vendedor1',
             email='vendedor@exemplo.com',  # email obrigatório
             password='testpass123',
@@ -90,7 +91,7 @@ class UserMeUpdateTests(APITestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(
+        self.user = create_user(
             username='vendedor1',
             email='vendedor@exemplo.com',
             password='testpass123',
@@ -136,7 +137,7 @@ class UserMeUpdateTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_nao_vendedor_tenta_atualizar_pin(self):
-        supervisor = User.objects.create_user(
+        supervisor = create_user(
             username='super',
             email='super@exemplo.com',
             password='testpass123',
@@ -186,7 +187,7 @@ class UserMeUpdateTests(APITestCase):
 
     def test_email_unico(self):
         self._auth()
-        User.objects.create_user(
+        create_user(
             username='outro',
             email='outro@exemplo.com',
             password='testpass123',
@@ -207,16 +208,16 @@ class PermissionsTests(APITestCase):
         self.factory = APIRequestFactory()
         
         # Cria usuários de cada cargo com emails distintos
-        self.admin = User.objects.create_user(
-            username='admin', email='admin@example.com', password='pass', cargo='ADMIN'
+        self.admin = create_user(
+            username='admin', email='admin@example.com', password='pass', cargo='ADMIN_CLIENTE'
         )
-        self.supervisor = User.objects.create_user(
+        self.supervisor = create_user(
             username='super', email='super@example.com', password='pass', cargo='SUPERVISOR'
         )
-        self.vendedor = User.objects.create_user(
+        self.vendedor = create_user(
             username='vendedor', email='vendedor@example.com', password='pass', cargo='VENDEDOR'
         )
-        self.dispositivo = User.objects.create_user(
+        self.dispositivo = create_user(
             username='disp', email='disp@example.com', password='pass', cargo='DISPOSITIVO'
         )
     
@@ -262,29 +263,30 @@ class VendedorListViewTests(APITestCase):
     """Testes para o endpoint de listagem de vendedores (/api/users/vendedores/)"""
     
     def setUp(self):
-        self.loja1 = Loja.objects.create(nome="Loja 1")
-        self.loja2 = Loja.objects.create(nome="Loja 2")
+        self.loja1 = create_store(nome="Loja 1")
+        self.loja2 = create_store(nome="Loja 2")
         
-        self.admin = User.objects.create_user(
-            username='admin_list', email='adminlist@ex.com', password='pass', cargo='ADMIN'
+        self.admin = create_user(
+            username='admin_list', email='adminlist@ex.com', password='pass', cargo='ADMIN_CLIENTE'
         )
-        self.dispositivo_loja1 = User.objects.create_user(
+        self.dispositivo_loja1 = create_user(
             username='disp_list1', email='displist1@ex.com', password='pass', cargo='DISPOSITIVO', loja=self.loja1
         )
-        self.dispositivo_sem_loja = User.objects.create_user(
-            username='disp_sem_loja', email='dispsemloja@ex.com', password='pass', cargo='DISPOSITIVO'
+        self.dispositivo_sem_loja = create_user(
+            username='disp_sem_loja', email='dispsemloja@ex.com', password='pass', cargo='DISPOSITIVO',
+            loja=None,
         )
         
         # Vendedores Loja 1
-        self.vendedor_ativo_l1 = User.objects.create_user(
+        self.vendedor_ativo_l1 = create_user(
             username='vend_ativo1', email='va1@ex.com', password='pass', cargo='VENDEDOR', loja=self.loja1, first_name='Ativo', is_active=True
         )
-        self.vendedor_inativo_l1 = User.objects.create_user(
+        self.vendedor_inativo_l1 = create_user(
             username='vend_inativo1', email='vi1@ex.com', password='pass', cargo='VENDEDOR', loja=self.loja1, first_name='Inativo', is_active=False
         )
         
         # Vendedores Loja 2
-        self.vendedor_ativo_l2 = User.objects.create_user(
+        self.vendedor_ativo_l2 = create_user(
             username='vend_ativo2', email='va2@ex.com', password='pass', cargo='VENDEDOR', loja=self.loja2, first_name='Ativo2', is_active=True
         )
         
@@ -320,14 +322,10 @@ class VendedorListViewTests(APITestCase):
         self.assertIn(self.vendedor_ativo_l2.id, ids)
         self.assertNotIn(self.vendedor_inativo_l1.id, ids)
 
-    def test_dispositivo_sem_loja_retorna_vazio(self):
-        """Se um usuário não-admin estiver sem loja vinculada, não deve ver nenhum vendedor"""
+    def test_dispositivo_sem_loja_e_bloqueado(self):
         self.client.force_authenticate(user=self.dispositivo_sem_loja)
         response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        
-        results = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
-        self.assertEqual(len(results), 0)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 @pytest.fixture
@@ -337,7 +335,7 @@ def api_client():
 @pytest.fixture
 def user(db):
     # Cria um usuário genérico (pode ser vendedor, admin, etc.)
-    return CustomUser.objects.create_user(
+    return create_user(
         email='teste@example.com',
         username='testeuser',
         first_name='Teste',
@@ -438,7 +436,7 @@ def test_logout_apenas_post(authenticated_client):
 # -------------------------------------------------------------
 @pytest.mark.django_db
 def test_logout_com_dispositivo(db):
-    dispositivo = CustomUser.objects.create_user(
+    dispositivo = create_user(
         email='tablet@loja.com',
         username='tablet01',
         first_name='Tablet',
@@ -462,7 +460,7 @@ class PasswordResetTests(APITestCase):
 
     def setUp(self):
         # Criação de um usuário ativo para testes
-        self.user_ativo = User.objects.create_user(
+        self.user_ativo = create_user(
             username="vendedor1",
             email="vendedor1@joiascentro.com.br",
             password="SenhaSegura123!",
@@ -472,7 +470,7 @@ class PasswordResetTests(APITestCase):
         )
         
         # Criação de um usuário inativo para testes de segurança
-        self.user_inativo = User.objects.create_user(
+        self.user_inativo = create_user(
             username="ex_funcionario",
             email="inativo@joiascentro.com.br",
             password="SenhaAntiga123!",
@@ -580,7 +578,7 @@ class ExpiringTokenTests(APITestCase):
 
     def setUp(self):
         # 1. Cria o usuário de teste
-        self.user = User.objects.create_user(
+        self.user = create_user(
             username="vendedor_teste",
             email="vendedor_teste@joias.com",
             password="SenhaForte123!",

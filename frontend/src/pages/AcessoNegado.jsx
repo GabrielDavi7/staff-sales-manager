@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
-import { ShieldAlert } from "lucide-react"; // Se não tiver lucide, pode tirar o ícone
+import { ShieldAlert } from "lucide-react";
+import { useAppPath } from "../hooks/useAppPath";
 
 const AcessoNegado = () => {
+  const { buildPath } = useAppPath();
   return (
     <div
       style={{
@@ -25,7 +27,7 @@ const AcessoNegado = () => {
         Você não tem permissão para acessar esta área.
       </p>
       <Link
-        to="/dashboard"
+        to={buildPath("/dashboard")}
         style={{
           padding: "10px 20px",
           backgroundColor: "#4D7BAB",

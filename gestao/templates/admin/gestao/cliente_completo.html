@@ -1,0 +1,63 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<div id="content-main">
+  <h1>Criar Cliente + Administrador</h1>
+  <p class="help">
+    Preencha os dados do cliente e do administrador abaixo.
+    Ambos serão criados em um único passo.
+  </p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <p class="errornote">
+        {{ form.non_field_errors }}
+      </p>
+    {% endif %}
+
+    <fieldset class="module aligned">
+      <h2>Dados do Cliente</h2>
+      {% for field in form %}
+        {% if field.name == 'nome' or field.name == 'slug' or field.name == 'plano' or field.name == 'email_contato' or field.name == 'telefone_contato' or field.name == 'dominio_personalizado' %}
+          <div class="form-row{% if field.errors %} errors{% endif %}">
+            <div>
+              {{ field.errors }}
+              <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
+              {{ field }}
+              {% if field.help_text %}
+                <div class="help">{{ field.help_text }}</div>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </fieldset>
+
+    <fieldset class="module aligned">
+      <h2>Dados do Administrador (ADMIN_CLIENTE)</h2>
+      {% for field in form %}
+        {% if field.name == 'admin_email' or field.name == 'admin_first_name' or field.name == 'admin_last_name' or field.name == 'admin_password' %}
+          <div class="form-row{% if field.errors %} errors{% endif %}">
+            <div>
+              {{ field.errors }}
+              <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
+              {{ field }}
+              {% if field.help_text %}
+                <div class="help">{{ field.help_text }}</div>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </fieldset>
+
+    <div class="submit-row">
+      <input type="submit" value="Criar Cliente e Administrador" class="default">
+      <a href="{% url 'admin:gestao_cliente_changelist' %}" class="button cancel-link">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,3 +1,5 @@
+from users.tenant import require_tenant, sellers
+from users.permissions import IsTenantUser
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
@@ -20,10 +22,12 @@ from rest_framework.permissions import AllowAny
 from .serializers import PasswordResetRequestSerializer, PasswordResetConfirmSerializer
 
 class CustomLoginView(ObtainAuthToken):
+    authentication_classes = []
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
+        require_tenant(user)
         token, created = Token.objects.get_or_create(user=user)
         
         return Response({
@@ -32,7 +36,7 @@ class CustomLoginView(ObtainAuthToken):
         })
 
 class UserMeView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTenantUser]
 
     def _filtered_update_data(self, data):
         allowed_fields = {
@@ -71,36 +75,21 @@ class UserMeView(APIView):
 class VendedorListView(generics.ListAPIView):
     """
     Retorna a lista de vendedores ativos com base no cargo:
-    - ADMIN: Pode ver todos e filtrar por loja_id.
-    - SUPERVISOR/VENDEDOR: Vê apenas os vendedores da própria loja.
+    - ADMIN_CLIENTE: Ve apenas vendedores do seu cliente.
+    - SUPERVISOR/VENDEDOR: Ve apenas os vendedores da propria loja.
     """
     serializer_class = VendedorSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTenantUser]
 
     def get_queryset(self):
-        user = self.request.user
+        qs = sellers(self.request.user)
         loja_id = self.request.query_params.get('loja_id')
-
-        # ADMIN: Vê todos os vendedores, podendo filtrar por loja específica
-        if user.cargo == 'ADMIN':
-            queryset = CustomUser.objects.filter(cargo='VENDEDOR', is_active=True)
-
-            # Aplica o filtro se o Admin escolheu uma loja no select
-            if loja_id:
-                queryset = queryset.filter(loja_id=loja_id)
-
-            return queryset.order_by('first_name')
-
-        # SUPERVISOR ou VENDEDOR: Vê apenas os vendedores da mesma loja (sua equipe)
-        if user.loja:
-            return CustomUser.objects.filter(
-                cargo='VENDEDOR',
-                loja=user.loja,
-                is_active=True,
-            ).order_by('first_name')
-
-        # Se não for ADMIN e não tiver loja vinculada, não retorna nada por segurança
-        return CustomUser.objects.none()
+        if loja_id:
+            if not loja_id.isdigit():
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError({'loja_id': 'Identificador inválido.'})
+            qs = qs.filter(loja_id=loja_id)
+        return qs.order_by('first_name')
 
 class LogoutView(APIView):
     authentication_classes = [TokenAuthentication]
@@ -180,6 +169,7 @@ class PasswordResetConfirmView(APIView):
         
         # O serializer validou tudo e nos entregou o objeto 'user' mastigado
         user = serializer.validated_data['user']
+        require_tenant(user)
         new_password = serializer.validated_data['new_password']
         
         # Define a nova senha aplicando o hash seguro (PBKDF2 por padrão no Django)
@@ -198,13 +188,16 @@ class CustomObtainAuthToken(ObtainAuthToken):
     Garante que se o usuário já tiver um token antigo (expirado ou perto de expirar), 
     ele seja deletado e um novo com a data de criação atualizada seja gerado.
     """
+    authentication_classes = []
+
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data,
                                            context={'request': request})
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
+        require_tenant(user)
         
-        # 🚨 ESTRATÉGIA DE RENOVAÇÃO DE TOKEN:
+        # Renovação do token:
         # Busca se o usuário já possui um token gerado anteriormente e o deleta
         Token.objects.filter(user=user).delete()
         
@@ -223,5 +216,18 @@ class CustomObtainAuthToken(ObtainAuthToken):
                 'cargo': user.cargo,
                 'loja': user.loja.id if user.loja else None,
                 'equipe': user.equipe.id if user.equipe else None,
+                'cliente_id': user.cliente.id if user.cliente else None,
+                'cliente_slug': user.cliente.slug if user.cliente else None,
+                'cliente_nome': user.cliente.nome if user.cliente else None,
+                'plano_id': user.cliente.plano.id if user.cliente and user.cliente.plano else None,
+                'plano_nome': user.cliente.plano.nome if user.cliente and user.cliente.plano else None,
+                'plano_limites': {
+                    'max_lojas': user.cliente.plano.max_lojas if user.cliente and user.cliente.plano else 0,
+                    'max_usuarios_total': user.cliente.plano.max_usuarios_total if user.cliente and user.cliente.plano else 0,
+                    'max_vendedores_por_loja': user.cliente.plano.max_vendedores_por_loja if user.cliente and user.cliente.plano else 0,
+                    'max_supervisores_por_loja': user.cliente.plano.max_supervisores_por_loja if user.cliente and user.cliente.plano else 0,
+                    'max_dispositivos_por_loja': user.cliente.plano.max_dispositivos_por_loja if user.cliente and user.cliente.plano else 0,
+                    'max_equipes_por_loja': user.cliente.plano.max_equipes_por_loja if user.cliente and user.cliente.plano else 0,
+                } if user.cliente and user.cliente.plano else None,
             }
         }, status=status.HTTP_200_OK)
