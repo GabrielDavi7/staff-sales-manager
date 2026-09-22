@@ -246,9 +246,7 @@ export function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const isAdmin = false;
-  const isAdminCliente = user?.cargo?.toUpperCase() === "ADMIN_CLIENTE";
-  const isAdminOrCliente = isAdmin || isAdminCliente;
+  const isAdmin = user?.cargo?.toUpperCase() === "ADMIN";
 
   const [periodo, setPeriodo] = useState("Hoje");
   const [dataInicio, setDataInicio] = useState("");
@@ -282,7 +280,7 @@ export function Home() {
   }, [user?.cargo, navigate, location.pathname]);
 
   useEffect(() => {
-    if (!isAdminOrCliente) return;
+    if (!isAdmin) return;
     const fetchLojas = async () => {
       try {
         const response = await api.get("/api/admin/lojas/");
@@ -293,7 +291,7 @@ export function Home() {
       }
     };
     fetchLojas();
-  }, [isAdminOrCliente]);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!user || user?.cargo === "DISPOSITIVO") return;
@@ -332,7 +330,7 @@ export function Home() {
           const idLojaSupervisor = user.loja?.id || user.loja;
           endpoint = "/api/analytics/loja/";
           if (idLojaSupervisor) params.append("loja_id", idLojaSupervisor);
-        } else if (isAdminOrCliente) {
+        } else if (isAdmin) {
           endpoint = "/api/analytics/geral/";
           if (lojaSelecionada) params.append("loja_id", lojaSelecionada);
         }
@@ -354,7 +352,7 @@ export function Home() {
     dataInicio,
     dataFim,
     lojaSelecionada,
-    isAdminOrCliente,
+    isAdmin,
   ]);
 
   if (user?.cargo === "DISPOSITIVO") return null;

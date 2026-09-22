@@ -32,7 +32,7 @@ const dashboardChildren = [
   {
     path: "meuperfil",
     element: (
-      <RoleRoute allowedRoles={["VENDEDOR", "ADMIN_CLIENTE", "SUPERVISOR"]}>
+      <RoleRoute allowedRoles={["VENDEDOR", "ADMIN", "SUPERVISOR"]}>
         <Perfil />
       </RoleRoute>
     ),
@@ -40,7 +40,7 @@ const dashboardChildren = [
   {
     path: "adminpainel",
     element: (
-      <RoleRoute allowedRoles={["ADMIN_CLIENTE"]}>
+      <RoleRoute allowedRoles={["ADMIN"]}>
         <AdminPainel />
       </RoleRoute>
     ),

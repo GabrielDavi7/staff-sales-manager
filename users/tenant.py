@@ -3,7 +3,7 @@ from django.db.models import Q, F
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
-ROLES = ('ADMIN_CLIENTE', 'SUPERVISOR', 'VENDEDOR', 'DISPOSITIVO')
+ROLES = ('ADMIN', 'SUPERVISOR', 'VENDEDOR', 'DISPOSITIVO')
 
 
 def tenant_allowed(user):
@@ -14,7 +14,7 @@ def tenant_allowed(user):
     cliente = user.cliente
     if not cliente.ativo or (cliente.data_expiracao and cliente.data_expiracao <= timezone.now()):
         return False
-    if user.cargo != 'ADMIN_CLIENTE' and not user.loja_id:
+    if user.cargo != 'ADMIN' and not user.loja_id:
         return False
     if user.loja_id and (user.loja.cliente_id != cliente.pk or not user.loja.ativo):
         return False
@@ -38,7 +38,7 @@ def scoped(queryset, user, field='cliente_id'):
 def stores(user):
     from core.models import Loja
     qs = scoped(Loja.objects.all(), user)
-    return qs if user.cargo == 'ADMIN_CLIENTE' else qs.filter(pk=user.loja_id)
+    return qs if user.cargo == 'ADMIN' else qs.filter(pk=user.loja_id)
 
 
 def sellers(user):
@@ -51,7 +51,7 @@ def sellers(user):
 def reports(user):
     from core.models import Relatorio
     qs = scoped(Relatorio.objects.all(), user)
-    if user.cargo == 'ADMIN_CLIENTE':
+    if user.cargo == 'ADMIN':
         return qs
     if user.cargo == 'SUPERVISOR':
         return qs.filter(loja_id=user.loja_id)

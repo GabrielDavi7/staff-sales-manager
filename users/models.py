@@ -3,7 +3,7 @@ from django.contrib.auth.models import AbstractUser
 
 class CustomUser(AbstractUser):
     CARGO_CHOICES = [
-        ('ADMIN_CLIENTE', 'Administrador do Cliente'),
+        ('ADMIN', 'Administrador do Cliente'),
         ('SUPERVISOR', 'Supervisor'),
         ('VENDEDOR', 'Vendedor'),
         ('DISPOSITIVO', 'Dispositivo'),

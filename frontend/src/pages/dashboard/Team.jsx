@@ -53,9 +53,7 @@ export function Team() {
   const [periodo, setPeriodo] = useState("30 Dias");
 
   const cargoLogado = user?.cargo?.toUpperCase();
-  const isAdmin = false;
-  const isAdminCliente = cargoLogado === "ADMIN_CLIENTE";
-  const isAdminOrCliente = isAdmin || isAdminCliente;
+  const isAdmin = cargoLogado === "ADMIN";
   const { buildPath } = useAppPath();
 
   const isSupervisor = cargoLogado === "SUPERVISOR";
@@ -187,7 +185,7 @@ export function Team() {
             };
             setUsuariosRaw(Object.values(mapaVendedores));
           }
-        } else if (isAdminOrCliente) {
+        } else if (isAdmin) {
           const [resMetricas, resLojas] = await Promise.all([
             api.get("/api/admin/metricas/"),
             api.get("/api/admin/lojas/"),
@@ -224,7 +222,7 @@ export function Team() {
       }
     };
     carregarDadosSuporte();
-  }, [isAdminOrCliente, isSupervisor, isVendedor, user]);
+  }, [isAdmin, isSupervisor, isVendedor, user]);
 
   // OPTIMIZATION 1: Dicionário rápido de lojas (O(1) lookup)
   const mapaLojas = useMemo(() => {
@@ -254,7 +252,7 @@ export function Team() {
         if (!idLojaVendedor) return true;
         return String(idLojaVendedor) === String(idLojaSupervisor);
       }
-      if (isAdminOrCliente) {
+      if (isAdmin) {
         const cargoValido =
           u.cargo?.toUpperCase() === "VENDEDOR" ||
           u.cargo?.toUpperCase() === "SUPERVISOR";
@@ -267,7 +265,7 @@ export function Team() {
       }
       return false;
     });
-  }, [usuariosRaw, isVendedor, isSupervisor, isAdminOrCliente, user, filtroLoja]);
+  }, [usuariosRaw, isVendedor, isSupervisor, isAdmin, user, filtroLoja]);
 
   // OPTIMIZATION 3: Memoização da busca de texto
   const filteredTeam = useMemo(() => {
@@ -409,7 +407,7 @@ export function Team() {
               {isVendedor ? "Meus Indicadores" : "Equipe Comercial"}
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              {isAdminOrCliente
+              {isAdmin
                 ? "Painel de controle analítico global"
                 : isSupervisor
                   ? "Desempenho da sua filial física"
@@ -508,7 +506,7 @@ export function Team() {
       <div className="flex flex-col lg:flex-row gap-6">
         {/* COLUNA ESQUERDA: Lista Lateral */}
         <div className="w-full lg:w-1/3 bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-xl border border-blue-50 dark:border-slate-800 flex flex-col h-[650px] transition-colors">
-          {isAdminOrCliente && (
+          {isAdmin && (
             <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 w-full mb-4 focus-within:border-[#4D7BAB] dark:focus-within:border-blue-500 transition-colors">
               <Store
                 size={20}

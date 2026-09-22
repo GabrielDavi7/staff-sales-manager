@@ -33,7 +33,7 @@ INSTALLED_APPS = [
     'users', 
     'management',
     'landing',
-    'gestao',
+    'gestao.apps.GestaoConfig',
 ]
 
 MIDDLEWARE = [

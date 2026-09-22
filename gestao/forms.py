@@ -1,12 +1,13 @@
-"""Formulario para criar Cliente + ADMIN_CLIENTE em um unico passo."""
+"""Formulario para criar Cliente + ADMIN em um unico passo."""
 from django import forms
 from django.contrib.admin.widgets import AdminDateWidget
+from django.db import transaction
 from gestao.models import Cliente, Plano
 from users.models import CustomUser
 
 
 class ClienteCompletoForm(forms.Form):
-    """Formulario que combina campos de Cliente e CustomUser (ADMIN_CLIENTE)."""
+    """Formulario que combina campos de Cliente e CustomUser (ADMIN)."""
 
     # === Campos do Cliente ===
     nome = forms.CharField(max_length=150, label='Nome do Cliente')
@@ -24,7 +25,7 @@ class ClienteCompletoForm(forms.Form):
         label='Domínio Personalizado (opcional)',
     )
 
-    # === Campos do ADMIN_CLIENTE ===
+    # === Campos do ADMIN ===
     admin_email = forms.EmailField(label='E-mail do Administrador')
     admin_first_name = forms.CharField(max_length=150, label='Nome')
     admin_last_name = forms.CharField(max_length=150, label='Sobrenome')
@@ -40,6 +41,8 @@ class ClienteCompletoForm(forms.Form):
             slug = slugify(self.cleaned_data.get('nome', ''))
         if Cliente.objects.filter(slug=slug).exists():
             raise forms.ValidationError(f'Já existe um cliente com o slug "{slug}".')
+        if CustomUser.objects.filter(username=slug).exists():
+            raise forms.ValidationError('Este identificador já está em uso por um usuário.')
         return slug
 
     def clean_admin_email(self):
@@ -48,6 +51,7 @@ class ClienteCompletoForm(forms.Form):
             raise forms.ValidationError(f'Já existe um usuário com o e-mail "{email}".')
         return email
 
+    @transaction.atomic
     def save(self):
         cliente = Cliente.objects.create(
             nome=self.cleaned_data['nome'],
@@ -65,7 +69,7 @@ class ClienteCompletoForm(forms.Form):
             first_name=self.cleaned_data['admin_first_name'],
             last_name=self.cleaned_data['admin_last_name'],
             password=self.cleaned_data['admin_password'],
-            cargo='ADMIN_CLIENTE',
+            cargo='ADMIN',
             cliente=cliente,
             is_staff=False,
             is_superuser=False,

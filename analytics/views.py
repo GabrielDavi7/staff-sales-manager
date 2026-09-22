@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from core.models import Relatorio
 from .services import AnalyticsService
 from django.db.models import Count, Sum
-from users.permissions import IsVendedor, IsSupervisorOrAdmin, IsAdmin, IsAdminOrAdminCliente
+from users.permissions import IsVendedor, IsSupervisorOrAdmin, IsAdmin
 from django.http import HttpResponse
 from django.utils.text import slugify
 class MeuDesempenhoView(APIView):
@@ -36,7 +36,7 @@ class MeuDesempenhoView(APIView):
 class LojaDesempenhoView(APIView):
     """
     Retorna o desempenho consolidado da loja do usuario logado.
-    ADMIN_CLIENTE pode filtrar por qualquer loja do seu cliente via ?loja_id=.
+    ADMIN pode filtrar por qualquer loja do seu cliente via ?loja_id=.
     """
     permission_classes = [IsAuthenticated, IsSupervisorOrAdmin]
 
@@ -74,10 +74,10 @@ class LojaDesempenhoView(APIView):
 class VisaoGeralView(APIView):
     """
     Retorna o desempenho global do sistema com comparativo entre lojas.
-    ADMIN_CLIENTE vê apenas sua empresa.
+    ADMIN vê apenas sua empresa.
     Pode ser filtrado por uma loja especifica via query_params.
     """
-    permission_classes = [IsAuthenticated, IsAdminOrAdminCliente]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def get(self, request):
         data_inicio = request.query_params.get('data_inicio')

@@ -26,8 +26,8 @@ def test_migration_preserves_ids_and_assigns_only_unambiguous_history():
         executor.migrate(latest)
         apps = executor.loader.project_state(latest).apps
         User = apps.get_model('users', 'CustomUser'); Report = apps.get_model('core', 'Relatorio')
-        assert User.objects.get(pk=admin.pk).cargo == 'ADMIN_CLIENTE'
-        assert User.objects.get(pk=root.pk).cargo == ''
+        assert User.objects.get(pk=admin.pk).cargo == 'ADMIN'
+        assert User.objects.get(pk=root.pk).cargo == 'ADMIN'
         assert User.objects.get(pk=root.pk).is_superuser
         saved = Report.objects.get(pk=report.pk)
         assert (saved.cliente_id, saved.loja_id, saved.vendedor_id, saved.valor_venda) == (tenant.pk, store.pk, seller.pk, 123)

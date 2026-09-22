@@ -43,12 +43,12 @@ class RelatorioViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def perform_update(self, serializer):
-        if self.request.user.cargo not in ('ADMIN_CLIENTE', 'VENDEDOR'):
+        if self.request.user.cargo not in ('ADMIN', 'VENDEDOR'):
             raise PermissionDenied('Sem permissão para editar atendimento.')
         serializer.save()
 
     def perform_destroy(self, instance):
-        if self.request.user.cargo not in ('ADMIN_CLIENTE', 'VENDEDOR'):
+        if self.request.user.cargo not in ('ADMIN', 'VENDEDOR'):
             raise PermissionDenied('Sem permissão para excluir atendimento.')
         instance.delete()
 
@@ -59,7 +59,7 @@ class EquipeInfoViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = scoped(Equipe.objects.filter(ativo=True), user, 'loja__cliente_id')
-        if user.cargo == 'ADMIN_CLIENTE':
+        if user.cargo == 'ADMIN':
             return qs
         if user.cargo in ('SUPERVISOR', 'VENDEDOR'):
             return qs.filter(pk=user.equipe_id, loja_id=user.loja_id)

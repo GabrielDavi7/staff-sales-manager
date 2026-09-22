@@ -209,7 +209,7 @@ class PermissionsTests(APITestCase):
         
         # Cria usuários de cada cargo com emails distintos
         self.admin = create_user(
-            username='admin', email='admin@example.com', password='pass', cargo='ADMIN_CLIENTE'
+            username='admin', email='admin@example.com', password='pass', cargo='ADMIN'
         )
         self.supervisor = create_user(
             username='super', email='super@example.com', password='pass', cargo='SUPERVISOR'
@@ -267,7 +267,7 @@ class VendedorListViewTests(APITestCase):
         self.loja2 = create_store(nome="Loja 2")
         
         self.admin = create_user(
-            username='admin_list', email='adminlist@ex.com', password='pass', cargo='ADMIN_CLIENTE'
+            username='admin_list', email='adminlist@ex.com', password='pass', cargo='ADMIN'
         )
         self.dispositivo_loja1 = create_user(
             username='disp_list1', email='displist1@ex.com', password='pass', cargo='DISPOSITIVO', loja=self.loja1

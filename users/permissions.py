@@ -5,17 +5,13 @@ class IsTenantUser(BasePermission):
     def has_permission(self, request, view):
         return tenant_allowed(request.user)
 
-class IsAdminCliente(IsTenantUser):
+class IsAdmin(IsTenantUser):
     def has_permission(self, request, view):
-        return super().has_permission(request, view) and request.user.cargo == 'ADMIN_CLIENTE'
-
-# Compatibility imports only: neither class grants global access.
-IsAdmin = IsAdminCliente
-IsAdminOrAdminCliente = IsAdminCliente
+        return super().has_permission(request, view) and request.user.cargo == 'ADMIN'
 
 class IsSupervisorOrAdmin(IsTenantUser):
     def has_permission(self, request, view):
-        return super().has_permission(request, view) and request.user.cargo in ('SUPERVISOR', 'ADMIN_CLIENTE')
+        return super().has_permission(request, view) and request.user.cargo in ('SUPERVISOR', 'ADMIN')
 
 class IsVendedor(IsTenantUser):
     def has_permission(self, request, view):

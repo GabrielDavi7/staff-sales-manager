@@ -21,6 +21,6 @@ def create_metric(**kwargs):
 
 def create_user(**kwargs):
     kwargs.setdefault('cliente', kwargs['loja'].cliente if kwargs.get('loja') else tenant())
-    if 'loja' not in kwargs and kwargs.get('cargo', 'VENDEDOR') != 'ADMIN_CLIENTE':
+    if 'loja' not in kwargs and kwargs.get('cargo', 'VENDEDOR') != 'ADMIN':
         kwargs['loja'] = Loja.objects.get_or_create(nome='Fixture store', cliente=kwargs['cliente'], defaults={'cidade': 'Test city'})[0]
     return CustomUser.objects.create_user(**kwargs)

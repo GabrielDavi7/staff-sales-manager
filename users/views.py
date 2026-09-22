@@ -75,7 +75,7 @@ class UserMeView(APIView):
 class VendedorListView(generics.ListAPIView):
     """
     Retorna a lista de vendedores ativos com base no cargo:
-    - ADMIN_CLIENTE: Ve apenas vendedores do seu cliente.
+    - ADMIN: Ve apenas vendedores do seu cliente.
     - SUPERVISOR/VENDEDOR: Ve apenas os vendedores da propria loja.
     """
     serializer_class = VendedorSerializer

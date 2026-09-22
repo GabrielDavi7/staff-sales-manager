@@ -21,7 +21,7 @@ class AdminUserCrudTests(APITestCase):
 			username='admin',
 			first_name='Admin',
 			last_name='User',
-			cargo='ADMIN_CLIENTE',
+			cargo='ADMIN',
 			password='admin1234',
 		)
 		self.supervisor = self._create_user(
@@ -193,7 +193,7 @@ def admin_user():
         username='admin',
         email='admin@example.com',
         password='admin123',
-        cargo='ADMIN_CLIENTE'
+        cargo='ADMIN'
     )
 
 @pytest.fixture

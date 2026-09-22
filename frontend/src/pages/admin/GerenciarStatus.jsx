@@ -184,7 +184,7 @@ export default function GerenciarStatus({ onBack }) {
   };
 
   const usuariosFiltrados = usuarios.results.filter(
-    (u) => u.cargo?.toUpperCase() !== "ADMIN_CLIENTE",
+    (u) => u.cargo?.toUpperCase() !== "ADMIN",
   );
 
   // Componente interno para renderizar os botões de paginação repetitivos

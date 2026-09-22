@@ -4,7 +4,7 @@ import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { RedirectToSlug } from '../routes.jsx';
 
 vi.mock('../contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { cargo: 'ADMIN_CLIENTE', cliente_slug: 'empresa-a' }, loading: false }),
+  useAuth: () => ({ user: { cargo: 'ADMIN', cliente_slug: 'empresa-a' }, loading: false }),
 }));
 
 function Location() {

@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from users.models import CustomUser
-from users.permissions import IsAdmin, IsAdminOrAdminCliente
+from users.permissions import IsAdmin
 from core.models import Loja, Equipe, Metrica, Relatorio
 from management.serializers import LojaSerializer, EquipeSerializer, MetricaSerializer
 
@@ -14,7 +14,7 @@ from management.serializers import LojaSerializer, EquipeSerializer, MetricaSeri
 class UserViewSet(viewsets.ModelViewSet):
 	queryset = CustomUser.objects.all().order_by('id')
 	serializer_class = UserAdminSerializer
-	permission_classes = [IsAdminOrAdminCliente]
+	permission_classes = [IsAdmin]
 	http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
 
 	def get_queryset(self):
@@ -26,7 +26,7 @@ class UserViewSet(viewsets.ModelViewSet):
 class LojaViewSet(viewsets.ModelViewSet):
     queryset = Loja.objects.all().order_by('id')
     serializer_class = LojaSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrAdminCliente]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def get_queryset(self):
         return scoped(self.queryset, self.request.user)
@@ -50,7 +50,7 @@ class LojaViewSet(viewsets.ModelViewSet):
 class EquipeViewSet(viewsets.ModelViewSet):
     queryset = Equipe.objects.all().order_by('id')
     serializer_class = EquipeSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrAdminCliente]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def get_queryset(self):
         return scoped(self.queryset, self.request.user, 'loja__cliente_id')
@@ -67,7 +67,7 @@ class EquipeViewSet(viewsets.ModelViewSet):
 class MetricaViewSet(viewsets.ModelViewSet):
     queryset = Metrica.objects.all().order_by('id')
     serializer_class = MetricaSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrAdminCliente]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     def get_queryset(self):
         return scoped(self.queryset, self.request.user)

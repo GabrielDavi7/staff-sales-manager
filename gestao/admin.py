@@ -1,4 +1,5 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, redirect
 from django.urls import path
@@ -8,7 +9,7 @@ from .forms import ClienteCompletoForm
 
 
 @admin.register(Plano)
-class PlanoAdmin(admin.ModelAdmin):
+class PlanoAdmin(ModelAdmin):
     list_display = ['nome', 'slug', 'preco_mensal', 'max_lojas', 'ativo']
     list_filter = ['ativo']
     search_fields = ['nome', 'slug']
@@ -16,7 +17,7 @@ class PlanoAdmin(admin.ModelAdmin):
 
 
 @admin.register(Cliente)
-class ClienteAdmin(admin.ModelAdmin):
+class ClienteAdmin(ModelAdmin):
     list_display = ['nome', 'slug', 'plano', 'dono', 'email_contato', 'ativo', 'data_criacao']
     list_filter = ['ativo', 'plano']
     search_fields = ['nome', 'slug', 'email_contato']

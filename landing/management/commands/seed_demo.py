@@ -102,7 +102,7 @@ class Command(BaseCommand):
             password=DEFAULT_PASSWORD,
             first_name="Carlos",
             last_name="Andrade",
-            cargo="ADMIN_CLIENTE",
+            cargo="ADMIN",
             is_staff=False,
             is_superuser=False,
         )

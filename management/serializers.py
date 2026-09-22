@@ -85,15 +85,15 @@ class UserAdminSerializer(TenantRelationsMixin, serializers.ModelSerializer):
         self.validate_scope(attrs)
         cargo = attrs.get('cargo', getattr(self.instance, 'cargo', 'VENDEDOR'))
         actor = self.context['request'].user
-        if self.instance and self.instance.cargo == 'ADMIN_CLIENTE':
+        if self.instance and self.instance.cargo == 'ADMIN':
             if self.instance.pk != actor.pk or cargo != self.instance.cargo or attrs.get('is_active') is False:
                 raise serializers.ValidationError('Conta administradora protegida.')
-        elif cargo == 'ADMIN_CLIENTE':
+        elif cargo == 'ADMIN':
             raise serializers.ValidationError({'cargo': 'Administradores só podem ser cadastrados pela manutenção.'})
-        if cargo not in ('ADMIN_CLIENTE', 'VENDEDOR', 'SUPERVISOR', 'DISPOSITIVO'):
+        if cargo not in ('ADMIN', 'VENDEDOR', 'SUPERVISOR', 'DISPOSITIVO'):
             raise serializers.ValidationError({'cargo': 'Cargo inválido.'})
         loja = attrs.get('loja', getattr(self.instance, 'loja', None))
-        if cargo != 'ADMIN_CLIENTE' and not loja:
+        if cargo != 'ADMIN' and not loja:
             raise serializers.ValidationError({'loja': 'Loja obrigatória.'})
         if self.instance:
             cargo = cargo or self.instance.cargo
@@ -128,10 +128,10 @@ class UserAdminSerializer(TenantRelationsMixin, serializers.ModelSerializer):
         plano = cliente.plano
 
         # 2.2: max_admin_cliente
-        if cargo == 'ADMIN_CLIENTE':
+        if cargo == 'ADMIN':
             admins_existentes = CustomUser.objects.filter(
                 cliente=cliente,
-                cargo='ADMIN_CLIENTE',
+                cargo='ADMIN',
                 is_active=True,
             ).count()
             if admins_existentes >= plano.max_admin_cliente:

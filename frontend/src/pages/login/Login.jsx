@@ -39,7 +39,7 @@ const Login = () => {
 
       if (userRole === "DISPOSITIVO") {
         navigate(slug ? `/${slug}/registrarvenda` : "/registrarvenda", { replace: true });
-      } else if (userRole === "ADMIN_CLIENTE") {
+      } else if (userRole === "ADMIN") {
         navigate(slug ? `/${slug}/adminpainel` : "/adminpainel", { replace: true });
       } else {
         navigate(slug ? `/${slug}/dashboard` : "/dashboard", { replace: true });

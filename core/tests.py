@@ -35,7 +35,7 @@ class RelatorioViewSetTests(APITestCase):
         # Cria usuários de cada cargo
         self.admin = create_user(
             username='admin', email='admin@ex.com', password='pass',
-            cargo='ADMIN_CLIENTE', is_active=True
+            cargo='ADMIN', is_active=True
         )
         self.supervisor = create_user(
             username='super', email='super@ex.com', password='pass',
@@ -364,7 +364,7 @@ class MetricaViewSetTests(APITestCase):
             username='vend2', email='v2@ex.com', password='pass', cargo='VENDEDOR', loja=self.loja2
         )
         self.admin = create_user(
-            username='admin', email='ad@ex.com', password='pass', cargo='ADMIN_CLIENTE'
+            username='admin', email='ad@ex.com', password='pass', cargo='ADMIN'
         )
         
         self.list_url = reverse('metrica-list')
@@ -426,7 +426,7 @@ User = get_user_model()
 
 @pytest.fixture
 def admin():
-    return create_user(username='admin', email='admin@ex.com', password='pass', cargo='ADMIN_CLIENTE')
+    return create_user(username='admin', email='admin@ex.com', password='pass', cargo='ADMIN')
 
 @pytest.fixture
 def api_client():

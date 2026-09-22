@@ -37,7 +37,7 @@
     </fieldset>
 
     <fieldset class="module aligned">
-      <h2>Dados do Administrador (ADMIN_CLIENTE)</h2>
+      <h2>Dados do Administrador (ADMIN)</h2>
       {% for field in form %}
         {% if field.name == 'admin_email' or field.name == 'admin_first_name' or field.name == 'admin_last_name' or field.name == 'admin_password' %}
           <div class="form-row{% if field.errors %} errors{% endif %}">

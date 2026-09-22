@@ -161,7 +161,7 @@ class TestVisaoGeralView:
 
         # Usuários
         admin = create_user(
-            username="admin_geral", email="admin@t.com", password="123", cargo="ADMIN_CLIENTE"
+            username="admin_geral", email="admin@t.com", password="123", cargo="ADMIN"
         )
         sup_a = create_user(
             username="sup_a2", email="sa2@t.com", password="123", cargo="SUPERVISOR", loja=loja_a

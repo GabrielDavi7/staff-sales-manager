@@ -71,9 +71,7 @@ export function Grafics() {
   const [error, setError] = useState(null);
 
   const cargoLogado = user?.cargo?.toUpperCase();
-  const isAdmin = false;
-  const isAdminCliente = cargoLogado === "ADMIN_CLIENTE";
-  const isAdminOrCliente = isAdmin || isAdminCliente;
+  const isAdmin = cargoLogado === "ADMIN";
   const isSupervisor = cargoLogado === "SUPERVISOR";
   const isVendedor = cargoLogado === "VENDEDOR";
 
@@ -87,7 +85,7 @@ export function Grafics() {
   }, [user?.cargo, navigate, location.pathname]);
 
   useEffect(() => {
-    if (!isAdminOrCliente) return;
+    if (!isAdmin) return;
     const fetchLojas = async () => {
       try {
         const response = await api.get("/api/admin/lojas/");
@@ -98,7 +96,7 @@ export function Grafics() {
       }
     };
     fetchLojas();
-  }, [isAdminOrCliente]);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!user || user?.cargo === "DISPOSITIVO") return;
@@ -137,7 +135,7 @@ export function Grafics() {
           const idLojaSupervisor = user.loja?.id || user.loja;
           endpoint = "/api/analytics/loja/";
           if (idLojaSupervisor) params.append("loja_id", idLojaSupervisor);
-        } else if (isAdminOrCliente) {
+        } else if (isAdmin) {
           endpoint = "/api/analytics/geral/";
           if (lojaSelecionada) params.append("loja_id", lojaSelecionada);
         }
@@ -157,7 +155,7 @@ export function Grafics() {
     user,
     isVendedor,
     isSupervisor,
-    isAdminOrCliente,
+    isAdmin,
     periodo,
     lojaSelecionada,
     dataInicio,
@@ -192,7 +190,7 @@ export function Grafics() {
 
   // 2. Processamento: Comparativo entre Lojas por Hora (Apenas Admin)
   const processadoLojasHorario = useMemo(() => {
-    if (!isAdminOrCliente) return { dados: [], lojasUnicas: [] };
+    if (!isAdmin) return { dados: [], lojasUnicas: [] };
     const tabelaBase = data?.tabela || [];
     const agrupado = {};
     const setLojas = new Set();
@@ -217,7 +215,7 @@ export function Grafics() {
       (a, b) => parseInt(a.hora) - parseInt(b.hora),
     );
     return { dados, lojasUnicas: Array.from(setLojas) };
-  }, [data, isAdminOrCliente]);
+  }, [data, isAdmin]);
 
   // 3. Processamento: Ranking de Colaboradores (Admin e Supervisor)
   const processadoRanking = useMemo(() => {
@@ -407,7 +405,7 @@ export function Grafics() {
             </div>
           </div>
 
-          {isAdminOrCliente && (
+          {isAdmin && (
             <div className="relative w-full sm:w-auto shrink-0">
               <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
                 <Building2 size={14} />
@@ -762,7 +760,7 @@ export function Grafics() {
       )}
 
       {/* BLOCO 4: Ranking de Colaboradores (ADMIN E SUPERVISOR) */}
-      {(isAdminOrCliente || isSupervisor) && (
+      {(isAdmin || isSupervisor) && (
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-blue-50 dark:border-slate-800 shadow-2xl shadow-blue-100/30 dark:shadow-none transition-colors">
           <div className="flex items-center gap-3 mb-8">
             <div className="p-3 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl">
@@ -773,7 +771,7 @@ export function Grafics() {
                 Ranking de Faturamento (Top 10)
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                {isAdminOrCliente
+                {isAdmin
                   ? lojaSelecionada
                     ? "Colaboradores da loja selecionada"
                     : "Melhores resultados da rede toda"
