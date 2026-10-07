@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { useAppPath } from "../../hooks/useAppPath";
 import api from "../../api/axios";
 import {
   BarChart,
@@ -53,11 +54,13 @@ export function Team() {
 
   const cargoLogado = user?.cargo?.toUpperCase();
   const isAdmin = cargoLogado === "ADMIN";
+  const { buildPath } = useAppPath();
+
   const isSupervisor = cargoLogado === "SUPERVISOR";
   const isVendedor = cargoLogado === "VENDEDOR";
 
   if (cargoLogado === "DISPOSITIVO") {
-    return <Navigate to="/registrarvenda" replace />;
+    return <Navigate to={buildPath("/registrarVenda")} replace />;
   }
 
   useEffect(() => {

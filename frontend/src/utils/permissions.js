@@ -21,6 +21,11 @@ export const getNavLinks = (cargo) => {
       path: '/dashboard/admin',
       roles: ['ADMIN'],
     },
+    {
+      label: 'Painel de Controle',
+      path: '/adminpainel',
+      roles: ['ADMIN'],
+    },
   ];
 
   return allLinks.filter(link => link.roles.includes(cargo));

@@ -13,6 +13,8 @@ class ExpiringTokenAuthentication(TokenAuthentication):
         # 1. Utiliza o método da classe pai (TokenAuthentication) para buscar o token no banco
         # Se o token não existir ou o usuário estiver inativo, o DRF já lança as exceções nativas.
         user, token = super().authenticate_credentials(key)
+        from .tenant import require_tenant
+        require_tenant(user)
 
         # 2. Calcula a idade do token
         # timezone.now() é ciente de fuso horário (timezone-aware), assim como token.created

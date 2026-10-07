@@ -55,37 +55,44 @@ class RelatorioSerializer(serializers.ModelSerializer):
         return value
     
     def validate(self, data):
-        """
-        Validações de negócio:
-        - Se venda_fechada=True → valor_venda obrigatório, metrica deve ser None.
-        - Se venda_fechada=False → metrica obrigatória, valor_venda deve ser None.
-        """
-        data.pop('pin', None)
-        venda_fechada = data.get('venda_fechada')
-        valor_venda = data.get('valor_venda')
-        metrica = data.get('metrica')
-        
-        if venda_fechada:
-            if not valor_venda:
-                raise serializers.ValidationError({
-                    'valor_venda': 'O valor da venda é obrigatório quando a venda é fechada.'
-                })
-            elif valor_venda < 0:
-                raise serializers.ValidationError({
-                    'valor_venda': 'O valor da venda não pode ser negativo.'
-                })
-            if metrica:
-                data['metrica'] = None
+        from users.tenant import require_tenant, sellers
+        user = self.context['request'].user
+        require_tenant(user)
+        pin = data.pop('pin', None)
+        if self.instance:
+            vendedor = self.instance.vendedor
+            if 'vendedor' in data and data['vendedor'].pk != vendedor.pk:
+                raise serializers.ValidationError({'vendedor': 'O vendedor do atendimento não pode ser alterado.'})
+            loja_id = self.instance.loja_id
+        else:
+            vendedor = data.get('vendedor')
+            if user.cargo == 'VENDEDOR':
+                if vendedor and vendedor.pk != user.pk:
+                    raise serializers.ValidationError({'vendedor': 'Só é permitido registrar para si mesmo.'})
+                vendedor = user
+            if not vendedor or not sellers(user).filter(pk=vendedor.pk).exists():
+                raise serializers.ValidationError({'vendedor': 'Vendedor não autorizado.'})
+            if user.cargo == 'DISPOSITIVO' and (not pin or pin != vendedor.pin):
+                raise serializers.ValidationError({'pin': 'PIN inválido.'})
+            data['vendedor'] = vendedor
+            loja_id = vendedor.loja_id
+        metrica = data.get('metrica', getattr(self.instance, 'metrica', None))
+        if metrica and (metrica.cliente_id != user.cliente_id or metrica.loja_id not in (None, loja_id)):
+            raise serializers.ValidationError({'metrica': 'Métrica não autorizada para esta loja.'})
+        if 'metrica' in data and metrica and not metrica.ativo:
+            raise serializers.ValidationError({'metrica': 'Métrica inativa.'})
+        fechada = data.get('venda_fechada', getattr(self.instance, 'venda_fechada', False))
+        valor = data.get('valor_venda', getattr(self.instance, 'valor_venda', None))
+        if fechada:
+            if valor is None or valor <= 0:
+                raise serializers.ValidationError({'valor_venda': 'Informe um valor de venda positivo.'})
+            data['metrica'] = None
         else:
             if not metrica:
-                raise serializers.ValidationError({
-                    'metrica': 'É necessário informar o motivo (métrica) para atendimentos não concretizados.'
-                })
-            if valor_venda:
-                data['valor_venda'] = None
-        
+                raise serializers.ValidationError({'metrica': 'Informe o motivo da não venda.'})
+            data['valor_venda'] = None
         return data
-    
+
     def validate_pin(self, value):
         if value and not value.isdigit():
             raise serializers.ValidationError('PIN deve conter apenas dígitos numéricos.')

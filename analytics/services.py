@@ -83,7 +83,7 @@ class AnalyticsService:
             'data_hora',
             'vendedor__first_name',
             'vendedor__last_name',
-            'vendedor__loja__nome',  # adicionado para mostrar o nome da loja 20/06/2026
+            'loja__nome',  # adicionado para mostrar o nome da loja 20/06/2026
             'metrica__nome',
             'venda_fechada',
             'valor_venda',
@@ -95,5 +95,5 @@ class AnalyticsService:
             "kpis": kpis,
             "taxa_conversao": taxa_conversao_formatada,
             "grafico_vendas": grafico_formatado,
-            "tabela": list(tabela_atendimentos)
+            "tabela": [{**row, "vendedor__loja__nome": row.pop("loja__nome")} for row in tabela_atendimentos]
         }

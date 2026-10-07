@@ -66,4 +66,4 @@ class Cliente(models.Model):
         ordering = ['nome']
 
     def __str__(self):
-        return f'{self.nome} ({self.plano.nome})'
+        return f'{self.nome} ({self.plano.nome if self.plano else "Sem plano"})'

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { useAppPath } from "../../hooks/useAppPath";
 import api from "../../api/axios";
 import {
   PieChart as PieChartIcon,
@@ -54,6 +55,7 @@ export function Grafics() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { buildPath } = useAppPath();
 
   const [periodo, setPeriodo] = useState("Hoje");
   const [lojaSelecionada, setLojaSelecionada] = useState("");
@@ -76,9 +78,9 @@ export function Grafics() {
   useEffect(() => {
     if (
       user?.cargo === "DISPOSITIVO" &&
-      location.pathname.toLowerCase() !== "/registrarvenda"
+      location.pathname !== buildPath("/registrarVenda")
     ) {
-      navigate("/registrarvenda", { replace: true });
+      navigate(buildPath("/registrarVenda"), { replace: true });
     }
   }, [user?.cargo, navigate, location.pathname]);
 
