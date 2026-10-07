@@ -1,5 +1,6 @@
 from rest_framework import viewsets
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q, Sum
 from .models import Metrica, Equipe
@@ -7,6 +8,7 @@ from .serializers import RelatorioSerializer, MetricaSerializer, EquipeInfoSeria
 from users.serializers import LojaSerializer
 from users.permissions import IsTenantUser
 from users.tenant import scoped, stores, reports
+from analytics.services import AnalyticsService 
 
 class LojaViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = LojaSerializer
@@ -51,6 +53,24 @@ class RelatorioViewSet(viewsets.ModelViewSet):
         if self.request.user.cargo not in ('ADMIN', 'VENDEDOR'):
             raise PermissionDenied('Sem permissão para excluir atendimento.')
         instance.delete()
+
+    # --- NOVO ENDPOINT DE PERFORMANCE ---
+    @action(detail=False, methods=['get'], url_path='performance')
+    def performance_vendedor(self, request):
+        vendedor_id = request.query_params.get('vendedor_id')
+        data_inicio = request.query_params.get('data_inicio')
+        data_fim = request.query_params.get('data_fim')
+
+        if not vendedor_id:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'vendedor_id': 'O ID do vendedor é obrigatório.'})
+
+        queryset = self.get_queryset().filter(vendedor_id=vendedor_id)
+        queryset = AnalyticsService.filter_by_date(queryset, data_inicio, data_fim)
+        dados_processados = AnalyticsService.get_user_performance_data(queryset)
+
+        return Response(dados_processados)
+
 
 class EquipeInfoViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsTenantUser]
