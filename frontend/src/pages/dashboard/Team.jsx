@@ -38,8 +38,10 @@ export function Team() {
   const [error, setError] = useState("");
   const [usuariosRaw, setUsuariosRaw] = useState([]);
   const [lojas, setLojas] = useState([]);
-  const [atendimentos, setAtendimentos] = useState([]);
-  const [metricasMestre, setMetricasMestre] = useState([]);
+
+  // NOVOS ESTADOS PARA A API OTIMIZADA
+  const [performanceAtual, setPerformanceAtual] = useState(null);
+  const [loadingGrafico, setLoadingGrafico] = useState(false);
 
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
@@ -63,41 +65,14 @@ export function Team() {
     return <Navigate to={buildPath("/registrarVenda")} replace />;
   }
 
+  // 1. CARREGAMENTO INICIAL APENAS DAS DEPENDÊNCIAS (Sem Atendimentos)
   useEffect(() => {
     const carregarDadosSuporte = async () => {
       try {
         setLoading(true);
         setError("");
 
-        let listaAtendimentos = [];
-        let urlAtendimentos = "/api/core/atendimentos/";
-
-        // Enquanto existirem páginas de atendimentos (Cuidado com bases muito grandes)
-        while (urlAtendimentos) {
-          const resAtendimentos = await api.get(urlAtendimentos);
-          const dados =
-            resAtendimentos.data?.results || resAtendimentos.data || [];
-          if (Array.isArray(dados)) {
-            listaAtendimentos = [...listaAtendimentos, ...dados];
-          } else {
-            listaAtendimentos = dados;
-            break;
-          }
-          if (resAtendimentos.data?.next) {
-            urlAtendimentos = resAtendimentos.data.next.substring(
-              resAtendimentos.data.next.indexOf("/api/"),
-            );
-          } else {
-            urlAtendimentos = null;
-          }
-        }
-        setAtendimentos(listaAtendimentos);
-
         if (isVendedor) {
-          const resMetricas = await api.get("/api/core/metricas/");
-          setMetricasMestre(
-            resMetricas.data?.results || resMetricas.data || [],
-          );
           setUsuariosRaw([
             {
               id: user.id,
@@ -111,10 +86,6 @@ export function Team() {
             },
           ]);
         } else if (isSupervisor) {
-          const resMetricas = await api.get("/api/core/metricas/");
-          setMetricasMestre(
-            resMetricas.data?.results || resMetricas.data || [],
-          );
           try {
             const resVendedores = await api.get("/api/users/vendedores/");
             const dadosProd =
@@ -136,95 +107,90 @@ export function Team() {
             });
             setUsuariosRaw(timeMapeado);
           } catch (uErr) {
-            const mapaVendedores = {};
-            const idLojaSupervisor = user.loja?.id || user.loja;
-            listaAtendimentos.forEach((atend) => {
-              let vId = null,
-                fName = "",
-                lName = "",
-                vLoja = atend.loja?.id || atend.loja || atend.loja_id;
-              if (atend.vendedor && typeof atend.vendedor === "object") {
-                vId = atend.vendedor.id;
-                fName = atend.vendedor.first_name || "";
-                lName = atend.vendedor.last_name || "";
-                if (!vLoja)
-                  vLoja = atend.vendedor.loja?.id || atend.vendedor.loja;
-              } else if (atend.vendedor_id) {
-                vId = atend.vendedor_id;
-                fName = atend.vendedor_nome || "Vendedor";
-              } else if (atend.vendedor && !isNaN(atend.vendedor)) {
-                vId = atend.vendedor;
-                if (atend.vendedor_nome) fName = atend.vendedor_nome;
-                else if (atend.vendedor__first_name) {
-                  fName = atend.vendedor__first_name;
-                  lName = atend.vendedor__last_name || "";
-                } else fName = `Vendedor #${vId}`;
-              }
-              if (vId && String(vLoja) === String(idLojaSupervisor)) {
-                mapaVendedores[vId] = {
-                  id: vId,
-                  first_name: fName,
-                  last_name: lName,
-                  username: atend.vendedor_username || fName.toLowerCase(),
-                  email: atend.vendedor_email || "",
-                  cargo: "VENDEDOR",
-                  loja: vLoja,
-                  is_active: true,
-                };
-              }
-            });
-            mapaVendedores[user.id] = {
-              id: user.id,
-              first_name: user.first_name || "Eu",
-              last_name: user.last_name || "(Supervisor)",
-              username: user.username,
-              email: user.email,
-              cargo: "SUPERVISOR",
-              loja: user.loja,
-              is_active: true,
-            };
-            setUsuariosRaw(Object.values(mapaVendedores));
+            setError("Não foi possível carregar a lista de vendedores.");
           }
         } else if (isAdmin) {
-          const [resMetricas, resLojas] = await Promise.all([
-            api.get("/api/admin/metricas/"),
-            api.get("/api/admin/lojas/"),
-          ]);
-          setMetricasMestre(
-            resMetricas.data?.results || resMetricas.data || [],
-          );
+          const resLojas = await api.get("/api/admin/lojas/");
           setLojas(resLojas.data?.results || resLojas.data || []);
-          let listaUsuarios = [],
-            urlUsuarios = "/api/admin/usuarios/";
+
+          let listaUsuarios = [];
+          let urlUsuarios = "/api/admin/usuarios/";
           while (urlUsuarios) {
             const resUsuarios = await api.get(urlUsuarios);
             const dados = resUsuarios.data?.results || resUsuarios.data || [];
-            if (Array.isArray(dados))
+            if (Array.isArray(dados)) {
               listaUsuarios = [...listaUsuarios, ...dados];
-            else {
+            } else {
               listaUsuarios = dados;
               break;
             }
-            if (resUsuarios.data?.next)
+            if (resUsuarios.data?.next) {
               urlUsuarios = resUsuarios.data.next.substring(
                 resUsuarios.data.next.indexOf("/api/"),
               );
-            else urlUsuarios = null;
+            } else {
+              urlUsuarios = null;
+            }
           }
           setUsuariosRaw(listaUsuarios);
         }
       } catch (err) {
         setError(
-          "Não foi possível sincronizar os indicadores de performance com o servidor.",
+          "Não foi possível sincronizar as informações globais com o servidor.",
         );
       } finally {
         setLoading(false);
       }
     };
+
     carregarDadosSuporte();
   }, [isAdmin, isSupervisor, isVendedor, user]);
 
-  // OPTIMIZATION 1: Dicionário rápido de lojas (O(1) lookup)
+  // 2. BUSCA DA PERFORMANCE OTIMIZADA NO BACKEND (Nova API)
+  useEffect(() => {
+    if (!selectedUser) {
+      setPerformanceAtual(null);
+      return;
+    }
+
+    const buscarPerformance = async () => {
+      setLoadingGrafico(true);
+      try {
+        const params = new URLSearchParams();
+
+        if (periodo === "Especifico") {
+          if (dataInicio) params.append("data_inicio", dataInicio);
+          if (dataFim) params.append("data_fim", dataFim);
+        } else if (periodo === "Hoje") {
+          const hoje = getLocalDataString(new Date());
+          params.append("data_inicio", hoje);
+          params.append("data_fim", hoje);
+        } else if (periodo === "7 Dias" || periodo === "30 Dias") {
+          const dias = periodo === "7 Dias" ? 7 : 30;
+          const limitDate = new Date();
+          limitDate.setDate(limitDate.getDate() - dias);
+          params.append("data_inicio", getLocalDataString(limitDate));
+        }
+
+        // Faz o pedido diretamente ao novo endpoint do ViewSet
+        // Adiciona o ID do vendedor aos parâmetros da URL
+        params.append("vendedor_id", selectedUser.id);
+
+        // Faz o pedido para a rota limpa, enviando o ID junto com as datas
+        const response = await api.get(
+          `/api/core/atendimentos/performance/?${params.toString()}`,
+        );
+        setPerformanceAtual(response.data);
+      } catch (error) {
+        console.error("Falha ao carregar performance do colaborador", error);
+      } finally {
+        setLoadingGrafico(false);
+      }
+    };
+
+    buscarPerformance();
+  }, [selectedUser, periodo, dataInicio, dataFim]);
+
   const mapaLojas = useMemo(() => {
     const mapa = {};
     lojas.forEach((l) => {
@@ -233,7 +199,6 @@ export function Team() {
     return mapa;
   }, [lojas]);
 
-  // OPTIMIZATION 2: Memoização do array de vendedores ativos filtrado
   const vendedoresFiltrados = useMemo(() => {
     return usuariosRaw.filter((u) => {
       const contaAtiva =
@@ -267,7 +232,6 @@ export function Team() {
     });
   }, [usuariosRaw, isVendedor, isSupervisor, isAdmin, user, filtroLoja]);
 
-  // OPTIMIZATION 3: Memoização da busca de texto
   const filteredTeam = useMemo(() => {
     if (!search) return vendedoresFiltrados;
     const lowerSearch = search.toLowerCase();
@@ -288,98 +252,6 @@ export function Team() {
       setSelectedUser(filteredTeam[0] || null);
   }, [filtroLoja, filteredTeam, selectedUser]);
 
-  // OPTIMIZATION 4: Isolamento total do cálculo pesado de Performance
-  const performanceAtual = useMemo(() => {
-    if (!selectedUser || atendimentos.length === 0) {
-      return {
-        totalFaturado: 0,
-        taxaConversao: 0,
-        totalAtendimentos: 0,
-        dadosGrafico: [],
-      };
-    }
-
-    let historicoVendedor = atendimentos.filter(
-      (a) => String(a.vendedor?.id || a.vendedor) === String(selectedUser.id),
-    );
-
-    if (periodo === "Especifico" && (dataInicio || dataFim)) {
-      historicoVendedor = historicoVendedor.filter((a) => {
-        if (!a.data_hora) return false;
-        // Melhoria: Corta a string em vez de instanciar new Date
-        const vendaStr = a.data_hora.substring(0, 10);
-        if (dataInicio && dataFim)
-          return vendaStr >= dataInicio && vendaStr <= dataFim;
-        if (dataInicio && !dataFim) return vendaStr >= dataInicio;
-        if (!dataInicio && dataFim) return vendaStr <= dataFim;
-        return true;
-      });
-    } else if (periodo === "Hoje") {
-      const hojeStr = getLocalDataString(new Date());
-      historicoVendedor = historicoVendedor.filter((a) => {
-        if (!a.data_hora) return false;
-        return a.data_hora.substring(0, 10) === hojeStr;
-      });
-    } else if (periodo === "7 Dias" || periodo === "30 Dias") {
-      const dias = periodo === "7 Dias" ? 7 : 30;
-      const limitDate = new Date();
-      limitDate.setDate(limitDate.getDate() - dias);
-      limitDate.setHours(0, 0, 0, 0);
-      historicoVendedor = historicoVendedor.filter(
-        (a) => new Date(a.data_hora) >= limitDate,
-      );
-    }
-
-    const totalAtendimentos = historicoVendedor.length;
-    const vendasConcluidas = historicoVendedor.filter(
-      (a) => a.venda_fechada === true,
-    );
-    const totalFaturado = vendasConcluidas.reduce(
-      (sum, a) => sum + parseFloat(a.valor_venda || a.valor || 0),
-      0,
-    );
-    const taxaConversao =
-      totalAtendimentos > 0
-        ? ((vendasConcluidas.length / totalAtendimentos) * 100).toFixed(1)
-        : 0;
-
-    const contagemMetricas = {};
-    metricasMestre.forEach((m) => {
-      contagemMetricas[m.nome] = 0;
-    });
-    contagemMetricas["Vendas Concluídas"] = vendasConcluidas.length;
-
-    historicoVendedor.forEach((a) => {
-      if (!a.venda_fechada) {
-        let motivoNome = "Não informada";
-        if (a.metrica && typeof a.metrica === "object")
-          motivoNome = a.metrica.nome;
-        else if (a.metrica_nome) motivoNome = a.metrica_nome;
-        else if (a.metrica__nome) motivoNome = a.metrica__nome;
-        else if (a.metrica) {
-          const correspondente = metricasMestre.find(
-            (m) => String(m.id) === String(a.metrica),
-          );
-          if (correspondente) motivoNome = correspondente.nome;
-        }
-        contagemMetricas[motivoNome] = (contagemMetricas[motivoNome] || 0) + 1;
-      }
-    });
-
-    const dadosGrafico = Object.keys(contagemMetricas)
-      .map((key) => ({ name: key, quantity: contagemMetricas[key] }))
-      .filter((d) => d.quantity > 0);
-
-    return { totalFaturado, taxaConversao, totalAtendimentos, dadosGrafico };
-  }, [
-    selectedUser,
-    atendimentos,
-    periodo,
-    dataInicio,
-    dataFim,
-    metricasMestre,
-  ]);
-
   if (loading && usuariosRaw.length === 0) {
     return (
       <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
@@ -388,7 +260,7 @@ export function Team() {
           size={48}
         />
         <p className="text-slate-500 dark:text-slate-400 font-medium">
-          A isolar níveis de acesso e computar gráficos...
+          A carregar a lista de colaboradores...
         </p>
       </div>
     );
@@ -568,7 +440,6 @@ export function Team() {
               </p>
             ) : (
               filteredTeam.map((v) => {
-                // Utilização do mapa memoizado no lugar do lento .find()
                 const nomeDaLoja =
                   v.loja_nome ||
                   mapaLojas[v.loja?.id || v.loja] ||
@@ -604,7 +475,16 @@ export function Team() {
         </div>
 
         {/* COLUNA DIREITA: Painel Gráfico */}
-        <div className="w-full lg:w-2/3 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-xl border border-blue-50 dark:border-slate-800 h-[650px] flex flex-col overflow-hidden transition-colors">
+        <div className="w-full lg:w-2/3 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-xl border border-blue-50 dark:border-slate-800 h-[650px] flex flex-col overflow-hidden transition-colors relative">
+          {loadingGrafico && (
+            <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm z-10 flex items-center justify-center">
+              <Loader2
+                className="animate-spin text-[#4D7BAB] dark:text-blue-500"
+                size={40}
+              />
+            </div>
+          )}
+
           {selectedUser && performanceAtual ? (
             <>
               <div className="flex items-center justify-between gap-5 mb-6 pb-5 border-b border-slate-100 dark:border-slate-800">
@@ -664,7 +544,8 @@ export function Team() {
                   <Trophy size={14} className="text-amber-500" /> Histograma
                   Analítico
                 </h3>
-                {performanceAtual.dadosGrafico.length > 0 ? (
+                {performanceAtual.dadosGrafico &&
+                performanceAtual.dadosGrafico.length > 0 ? (
                   <div className="w-full h-full min-h-[220px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
@@ -727,7 +608,7 @@ export function Team() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 h-full">
               <Users
                 size={64}
                 strokeWidth={1}

@@ -38,9 +38,13 @@ const Login = () => {
       const slug = result.user?.cliente_slug || "";
 
       if (userRole === "DISPOSITIVO") {
-        navigate(slug ? `/${slug}/registrarvenda` : "/registrarvenda", { replace: true });
+        navigate(slug ? `/${slug}/registrarvenda` : "/registrarvenda", {
+          replace: true,
+        });
       } else if (userRole === "ADMIN") {
-        navigate(slug ? `/${slug}/adminpainel` : "/adminpainel", { replace: true });
+        navigate(slug ? `/${slug}/adminpainel` : "/adminpainel", {
+          replace: true,
+        });
       } else {
         navigate(slug ? `/${slug}/dashboard` : "/dashboard", { replace: true });
       }
@@ -79,7 +83,7 @@ const Login = () => {
           </div>
           <div className="relative z-10 pt-10 text-xs text-blue-200/50 flex items-center gap-2 border-t border-white/5 w-full justify-center">
             <ShieldCheck size={14} className="text-[#D4AF37]/70" /> Plataforma
-            versão 1.7.0 - 26/06/2026
+            versão 1.8.5(BETA) - 07/10/2026
           </div>
         </div>
 

@@ -25,6 +25,7 @@ class AnalyticsService:
                 queryset = queryset.filter(data_hora__lte=fim_aware)
                 
         return queryset
+
     @staticmethod
     def filter_by_store(queryset, loja_id=None):
         """
@@ -96,4 +97,42 @@ class AnalyticsService:
             "taxa_conversao": taxa_conversao_formatada,
             "grafico_vendas": grafico_formatado,
             "tabela": [{**row, "vendedor__loja__nome": row.pop("loja__nome")} for row in tabela_atendimentos]
+        }
+
+    @staticmethod
+    def get_user_performance_data(queryset):
+        """
+        Recebe um queryset filtrado por vendedor e data, e retorna os 
+        dados exatos necessários para o painel Team (Meus Indicadores / Equipe).
+        """
+        kpis = queryset.aggregate(
+            total_atendimentos=Count('id'),
+            vendas_concluidas=Count('id', filter=Q(venda_fechada=True)),
+            total_faturado=Sum('valor_venda', filter=Q(venda_fechada=True))
+        )
+
+        total_atend = kpis['total_atendimentos'] or 0
+        concluidas = kpis['vendas_concluidas'] or 0
+        total_fat = kpis['total_faturado'] or 0.0
+
+        taxa_conversao = (concluidas / total_atend * 100) if total_atend > 0 else 0
+
+        # Agrupa os atendimentos não fechados pelo motivo (metrica__nome)
+        dados_grafico_recusas = (
+            queryset.filter(venda_fechada=False)
+            .values('metrica__nome')
+            .annotate(quantity=Count('id'))
+        )
+
+        # Monta a estrutura exata de array esperada pelo Recharts no frontend
+        grafico = [{"name": "Vendas Concluídas", "quantity": concluidas}]
+        for item in dados_grafico_recusas:
+            nome = item['metrica__nome'] or "Não informada"
+            grafico.append({"name": nome, "quantity": item['quantity']})
+
+        return {
+            "totalFaturado": float(total_fat),
+            "taxaConversao": round(taxa_conversao, 1),
+            "totalAtendimentos": total_atend,
+            "dadosGrafico": grafico
         }
